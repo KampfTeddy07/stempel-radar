@@ -35,6 +35,8 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 .item .dist{text-align:right;font-weight:700;font-size:13px;white-space:nowrap}.item .dist small{display:block;font-weight:400;color:var(--muted);font-size:11px}
 .status{font-size:12px;color:var(--muted)}
 .leaflet-popup-content{font-family:inherit;font-size:14px}.pop b{display:block}.pop .jp{color:#666;font-size:12px}.pop .tip{font-size:12px;margin:4px 0}.pop a,.pop button{display:inline-block;margin:4px 6px 0 0;font:inherit;font-size:13px}
+.radar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:6px}.radar select{font:inherit;font-size:13px;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--fg)}
+.alert{display:none;background:var(--shu);color:#fff;padding:10px 12px;border-radius:10px;margin-bottom:6px;font-weight:700}.alert.on{display:block}.alert small{display:block;font-weight:400;opacity:.9}
 .locbtn{position:absolute;right:10px;bottom:10px;z-index:1000;width:42px;height:42px;border-radius:50%;border:none;background:#fff;color:var(--me);font-size:22px;box-shadow:0 1px 5px rgba(0,0,0,.3)}
 </style>
 </head>
@@ -47,6 +49,8 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 <div id="map" style="position:relative"></div>
 <div class="bottom">
   <div class="tools"><input type="search" id="q" placeholder="Suchen …"><label class="status"><input type="checkbox" id="hideDone"> gesammelte ausblenden</label></div>
+  <div class="radar"><label><input type="checkbox" id="radarOn"> Radar: melden, wenn ein Stempel im Umkreis von</label><select id="radarR"><option value="300">300 m</option><option value="500">500 m</option><option value="700" selected>700 m</option><option value="1000">1 km</option></select><label><input type="checkbox" id="wake"> Bildschirm anlassen</label></div>
+  <div class="alert" id="alert"></div>
   <div class="status" id="status">GPS wird gesucht …</div>
   <div id="list"></div>
 </div>
@@ -228,7 +232,7 @@ map.on("movestart zoomstart",()=>{if(!auto)follow=false});
 const markers={};
 function popup(e){const d=done.has(e.id);return `<div class="pop"><b>${esc(e.n)}</b><span class="jp">${esc(e.jp)} · ${esc(CATS[e.c].n)}</span><div class="tip">${esc(e.t)}</div>${pos?`<div class="tip">${fmtKm(km(pos,e))} · ${walk(km(pos,e))}</div>`:""}<button type="button" onclick="toggleDone('${e.id}')">${d?"Gesammelt ✓":"Als gesammelt markieren"}</button><a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Route</a></div>`}
 function drawMarkers(){layer.clearLayers();visible().forEach(e=>{const d=done.has(e.id);const m=L.circleMarker([e.lat,e.lng],{radius:8,color:CATS[e.c].c,weight:2.5,fillColor:d?CATS[e.c].c:"#fff",fillOpacity:1}).bindPopup(()=>popup(e));markers[e.id]=m;m.addTo(layer)})}
-window.toggleDone=id=>{done.has(id)?done.delete(id):done.add(id);store.set("done",[...done]);render();if(markers[id])markers[id].openPopup()};
+window.toggleDone=id=>{done.has(id)?done.delete(id):done.add(id);store.set("done",[...done]);render();checkRadar();if(markers[id])markers[id].openPopup()};
 function fitRegion(){const set=ALL.filter(e=>region==="all"||e.r===region);follow=false;go(()=>map.fitBounds(L.latLngBounds(set.map(e=>[e.lat,e.lng])),{padding:[20,20]}))}
 function renderChips(){const r=$("regions");r.innerHTML="";[["all","Alle"],...Object.entries(REG)].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",region===k);b.onclick=()=>{region=k;store.set("region",k);render();fitRegion()};r.appendChild(b)});
   const c=$("cats");c.innerHTML="";[["","Alle Arten"],...Object.entries(CATS).map(([k,v])=>[k,v.n])].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip"+(k?" cat":"");if(k)b.style.setProperty("--c",CATS[k].c);b.textContent=n;b.setAttribute("aria-pressed",cat===k);b.onclick=()=>{cat=k;render()};c.appendChild(b)})}
@@ -239,12 +243,28 @@ $("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=m
 $("q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};$("hideDone").onchange=e=>{hideDone=e.target.checked;render()};
 function render(){renderChips();drawMarkers();renderList()}
 render();
+// Radar: Vibration, Ton und Benachrichtigung, sobald ein ungesammelter Stempel im Umkreis liegt
+let radar=store.get("radar",false),radarR=store.get("radarR",700),alerted=new Set(),wakeLock=null,actx=null;
+$("radarOn").checked=radar;$("radarR").value=radarR;
+function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);o.frequency.value=880;g.gain.setValueAtTime(.25,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.6);o.start();o.stop(actx.currentTime+.6)}catch(e){}}
+async function notify(title,body){try{if("Notification" in window&&Notification.permission==="granted"){const reg=await navigator.serviceWorker.getRegistration();if(reg&&reg.showNotification){reg.showNotification(title,{body,tag:"stempel-radar",renotify:true,vibrate:[200,100,200,100,400],icon:"icon-192.png"});return}new Notification(title,{body})}}catch(e){}}
+function checkRadar(){if(!radar||!pos)return;const near=ALL.filter(e=>!done.has(e.id)).map(e=>({...e,d:km(pos,e)})).filter(e=>e.d*1000<=radarR).sort((a,b)=>a.d-b.d);
+  const box=$("alert");if(!near.length){box.className="alert";box.textContent="";alerted.forEach(id=>{const e=byId(id);if(!e||km(pos,e)*1000>radarR+150)alerted.delete(id)});return}
+  box.className="alert on";box.innerHTML="Stempel in der Nähe: "+near.slice(0,3).map(e=>esc(e.n)+" ("+fmtKm(e.d)+")").join(", ")+(near.length>3?" +"+(near.length-3):"")+"<small>Antippen in der Liste zeigt den Weg.</small>";
+  const fresh=near.filter(e=>!alerted.has(e.id));if(!fresh.length)return;fresh.forEach(e=>alerted.add(e.id));
+  try{navigator.vibrate&&navigator.vibrate([200,100,200,100,400])}catch(e){}beep();
+  notify("Stempel in "+fmtKm(fresh[0].d)+": "+fresh[0].n,(fresh.length>1?fresh.length+" Stempel im Umkreis – ":"")+fresh[0].jp+" · "+fresh[0].t)}
+$("radarOn").onchange=async e=>{radar=e.target.checked;store.set("radar",radar);if(radar){beep();try{if("Notification" in window&&Notification.permission==="default")await Notification.requestPermission()}catch(x){}alerted.clear();checkRadar()}else{$("alert").className="alert"}};
+$("radarR").onchange=e=>{radarR=+e.target.value;store.set("radarR",radarR);alerted.clear();checkRadar()};
+async function setWake(on){try{if(on&&"wakeLock" in navigator){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>{if($("wake").checked)setTimeout(()=>setWake(true),500)})}else if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){$("status").textContent="Bildschirm-an wird von diesem Browser nicht unterstützt."}}
+$("wake").onchange=e=>setWake(e.target.checked);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&$("wake").checked)setWake(true)});
 // GPS
 const locBtn=document.createElement("button");locBtn.className="locbtn";locBtn.textContent="◎";locBtn.title="Zu mir";locBtn.onclick=()=>{follow=true;if(pos)go(()=>map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),15)))};$("map").appendChild(locBtn);
 if(navigator.geolocation){navigator.geolocation.watchPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};const ll=[pos.lat,pos.lng];
   if(!meMarker){meMarker=L.circleMarker(ll,{radius:8,color:"#fff",weight:2,fillColor:"#1d6fe0",fillOpacity:1}).addTo(map).bindTooltip("Du",{permanent:true,direction:"top",offset:[0,-8]});meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#1d6fe0",weight:1,fillOpacity:.1}).addTo(map);go(()=>map.setView(ll,15))}
   else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(p.coords.accuracy);if(follow)go(()=>map.panTo(ll))}
-  $("status").textContent="GPS aktiv (±"+Math.round(p.coords.accuracy)+" m) – Liste nach Entfernung sortiert";renderList()},
+  $("status").textContent="GPS aktiv (±"+Math.round(p.coords.accuracy)+" m) – Liste nach Entfernung sortiert";renderList();checkRadar()},
   err=>{$("status").textContent="Kein GPS: "+err.message+" – Standortfreigabe im Browser prüfen.";if(!pos)fitRegion()},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}
 else{$("status").textContent="Dieser Browser kann keinen Standort liefern.";fitRegion()}
 
