@@ -49,8 +49,8 @@ jobs:
         working-directory: app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../../Stempel-Radar.apk
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../../Stempel-Radar.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Stempel-Radar-apk
