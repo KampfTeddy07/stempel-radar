@@ -185,26 +185,28 @@ const map=L.map("map",{zoomControl:true}).setView([35.3,137.3],6);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
 const layer=L.layerGroup().addTo(map); const lineLayer=L.layerGroup().addTo(map);
 LINES.forEach(ln=>L.polyline(ln.map(byId).map(e=>[e.lat,e.lng]),{color:"#2b3550",opacity:.45,weight:3}).addTo(lineLayer));
-let meMarker=null,meCircle=null;
+let meMarker=null,meCircle=null,auto=false;
+function go(fn){auto=true;try{fn()}finally{setTimeout(()=>auto=false,50)}}
+map.on("movestart zoomstart",()=>{if(!auto)follow=false});
 const markers={};
 function popup(e){const d=done.has(e.id);return `<div class="pop"><b>${esc(e.n)}</b><span class="jp">${esc(e.jp)} · ${esc(CATS[e.c].n)}</span><div class="tip">${esc(e.t)}</div>${pos?`<div class="tip">${fmtKm(km(pos,e))} · ${walk(km(pos,e))}</div>`:""}<button type="button" onclick="toggleDone('${e.id}')">${d?"Gesammelt ✓":"Als gesammelt markieren"}</button><a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Route</a></div>`}
 function drawMarkers(){layer.clearLayers();visible().forEach(e=>{const d=done.has(e.id);const m=L.circleMarker([e.lat,e.lng],{radius:8,color:CATS[e.c].c,weight:2.5,fillColor:d?CATS[e.c].c:"#fff",fillOpacity:1}).bindPopup(()=>popup(e));markers[e.id]=m;m.addTo(layer)})}
 window.toggleDone=id=>{done.has(id)?done.delete(id):done.add(id);store.set("done",[...done]);render();if(markers[id])markers[id].openPopup()};
-function fitRegion(){const set=ALL.filter(e=>region==="all"||e.r===region);map.fitBounds(L.latLngBounds(set.map(e=>[e.lat,e.lng])),{padding:[20,20]});follow=false}
+function fitRegion(){const set=ALL.filter(e=>region==="all"||e.r===region);follow=false;go(()=>map.fitBounds(L.latLngBounds(set.map(e=>[e.lat,e.lng])),{padding:[20,20]}))}
 function renderChips(){const r=$("regions");r.innerHTML="";[["all","Alle"],...Object.entries(REG)].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",region===k);b.onclick=()=>{region=k;store.set("region",k);render();fitRegion()};r.appendChild(b)});
   const c=$("cats");c.innerHTML="";[["","Alle Arten"],...Object.entries(CATS).map(([k,v])=>[k,v.n])].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip"+(k?" cat":"");if(k)b.style.setProperty("--c",CATS[k].c);b.textContent=n;b.setAttribute("aria-pressed",cat===k);b.onclick=()=>{cat=k;render()};c.appendChild(b)})}
 function renderList(){let items=visible();if(pos)items=items.map(e=>({...e,d:km(pos,e)})).sort((a,b)=>a.d-b.d);else items.sort((a,b)=>a.n.localeCompare(b.n,"de"));
   const inReg=ALL.filter(e=>region==="all"||e.r===region);$("count").textContent=inReg.filter(e=>done.has(e.id)).length+" / "+inReg.length;
   $("list").innerHTML=items.map((e,i)=>`<div class="item${done.has(e.id)?" done":""}" style="--c:${CATS[e.c].c}" data-id="${e.id}"><div class="mark">${done.has(e.id)?"✓":(pos?i+1:"")}</div><div><div class="nm">${esc(e.n)}</div><div class="jp">${esc(e.jp)} · ${esc(e.t)}</div></div><div class="dist">${pos?fmtKm(e.d)+"<small>"+walk(e.d)+"</small>":""}</div></div>`).join("")||'<div class="status">Keine Stempelorte für diese Auswahl.</div>'}
-$("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=markers[it.dataset.id];if(m){follow=false;map.setView(m.getLatLng(),Math.max(map.getZoom(),15));m.openPopup()}};
+$("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=markers[it.dataset.id];if(m){follow=false;go(()=>map.setView(m.getLatLng(),Math.max(map.getZoom(),15)));m.openPopup()}};
 $("q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};$("hideDone").onchange=e=>{hideDone=e.target.checked;render()};
 function render(){renderChips();drawMarkers();renderList()}
 render();
 // GPS
-const locBtn=document.createElement("button");locBtn.className="locbtn";locBtn.textContent="◎";locBtn.title="Zu mir";locBtn.onclick=()=>{follow=true;if(pos)map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),15))};$("map").appendChild(locBtn);
+const locBtn=document.createElement("button");locBtn.className="locbtn";locBtn.textContent="◎";locBtn.title="Zu mir";locBtn.onclick=()=>{follow=true;if(pos)go(()=>map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),15)))};$("map").appendChild(locBtn);
 if(navigator.geolocation){navigator.geolocation.watchPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};const ll=[pos.lat,pos.lng];
-  if(!meMarker){meMarker=L.circleMarker(ll,{radius:8,color:"#fff",weight:2,fillColor:"#1d6fe0",fillOpacity:1}).addTo(map).bindTooltip("Du",{permanent:true,direction:"top",offset:[0,-8]});meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#1d6fe0",weight:1,fillOpacity:.1}).addTo(map);map.setView(ll,15)}
-  else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(p.coords.accuracy);if(follow)map.panTo(ll)}
+  if(!meMarker){meMarker=L.circleMarker(ll,{radius:8,color:"#fff",weight:2,fillColor:"#1d6fe0",fillOpacity:1}).addTo(map).bindTooltip("Du",{permanent:true,direction:"top",offset:[0,-8]});meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#1d6fe0",weight:1,fillOpacity:.1}).addTo(map);go(()=>map.setView(ll,15))}
+  else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(p.coords.accuracy);if(follow)go(()=>map.panTo(ll))}
   $("status").textContent="GPS aktiv (±"+Math.round(p.coords.accuracy)+" m) – Liste nach Entfernung sortiert";renderList()},
   err=>{$("status").textContent="Kein GPS: "+err.message+" – Standortfreigabe im Browser prüfen.";if(!pos)fitRegion()},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}
 else{$("status").textContent="Dieser Browser kann keinen Standort liefern.";fitRegion()}
