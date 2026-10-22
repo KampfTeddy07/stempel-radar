@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stempel-Radar</title>
+<meta name="theme-color" content="#c8372a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stempel-Radar">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#f3f4f0;--paper:#fff;--fg:#1d221d;--muted:#6a716a;--line:#d9ddd6;--shu:#c8372a;--shu-soft:#fbe9e6;--jr:#2f8f5b;--pb:#3b6fc9;--sight:#d98b1f;--go:#b03a7a;--me:#1d6fe0}
+@media (prefers-color-scheme:dark){:root{--bg:#171a17;--paper:#21251f;--fg:#eceee8;--muted:#9aa196;--line:#363c35;--shu:#ef6a58;--shu-soft:#3a2420;--jr:#5ec98c;--pb:#7ea6f0;--sight:#f0b352;--go:#e27ab0;--me:#5aa0ff;color-scheme:dark}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;font-size:15px;line-height:1.4;display:flex;flex-direction:column}
+.top{padding:max(8px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+.row{display:flex;gap:6px;align-items:center}
+h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-variant-numeric:tabular-nums}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip.cat[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:#fff}
+#map{flex:1 1 0;min-height:45vh}
+.bottom{max-height:40vh;overflow-y:auto;background:var(--bg);padding:6px max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+.tools{display:flex;gap:6px;margin-bottom:6px}.tools input{flex:1;font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--fg);min-width:0}
+.btn{font:inherit;font-size:13px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--fg)}
+.item{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:5px}
+.item.done{opacity:.55}.item .mark{width:28px;height:28px;border-radius:50%;border:2px solid var(--c);color:var(--c);display:grid;place-items:center;font-size:12px;font-weight:700}
+.item.done .mark{background:var(--c);color:#fff}.item .nm{font-weight:700}.item .jp{font-size:12px;color:var(--muted)}
+.item .dist{text-align:right;font-weight:700;font-size:13px;white-space:nowrap}.item .dist small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.status{font-size:12px;color:var(--muted)}
+.leaflet-popup-content{font-family:inherit;font-size:14px}.pop b{display:block}.pop .jp{color:#666;font-size:12px}.pop .tip{font-size:12px;margin:4px 0}.pop a,.pop button{display:inline-block;margin:4px 6px 0 0;font:inherit;font-size:13px}
+.locbtn{position:absolute;right:10px;bottom:10px;z-index:1000;width:42px;height:42px;border-radius:50%;border:none;background:#fff;color:var(--me);font-size:22px;box-shadow:0 1px 5px rgba(0,0,0,.3)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="row"><h1>Stempel-Radar Japan</h1><span class="cnt" id="count"></span></div>
+  <div class="chips" id="regions"></div>
+  <div class="chips" id="cats"></div>
+</div>
+<div id="map" style="position:relative"></div>
+<div class="bottom">
+  <div class="tools"><input type="search" id="q" placeholder="Suchen …"><label class="status"><input type="checkbox" id="hideDone"> gesammelte ausblenden</label></div>
+  <div class="status" id="status">GPS wird gesucht …</div>
+  <div id="list"></div>
+</div>
+<script>
+const RAW=[
+["ky-kyoto","Kyoto Station","京都駅","kyoto","jr",34.9858,135.7588,"Großer Stempel am Zentralausgang (中央口)"],
+["ky-umekoji","Umekoji-Kyōtonishi","梅小路京都西駅","kyoto","jr",34.9869,135.7414,"Nächster Bahnhof zum Eisenbahnmuseum"],
+["ky-tambaguchi","Tambaguchi","丹波口駅","kyoto","jr",34.9929,135.7418],
+["ky-nijo","Nijō Station","二条駅","kyoto","jr",35.0107,135.7415,"Nahe Nijō-Burg"],
+["ky-enmachi","Enmachi","円町駅","kyoto","jr",35.0243,135.7372],
+["ky-hanazono","Hanazono","花園駅","kyoto","jr",35.0196,135.7231,"Nahe Myōshin-ji"],
+["ky-uzumasa","Uzumasa","太秦駅","kyoto","jr",35.0155,135.7060],
+["ky-saga","Saga-Arashiyama","嵯峨嵐山駅","kyoto","jr",35.0177,135.6815,"Stempel am Sperrenschalter, Bambuswald 10 Min."],
+["ky-torokko","Torokko Saga (Romantic Train)","トロッコ嵯峨駅","kyoto","pb",35.0175,135.6805,"Stempel im Wartebereich des Sagano-Bummelzugs"],
+["ky-tofukuji","Tōfukuji Station","東福寺駅","kyoto","jr",34.9777,135.7715],
+["ky-inari","Inari Station","稲荷駅","kyoto","jr",34.9690,135.7718,"Fuchs-Stempel, direkt vor Fushimi Inari"],
+["ky-yamashina","Yamashina","山科駅","kyoto","jr",34.9922,135.8175],
+["ky-katsura","Katsura (Hankyu)","桂駅","kyoto","pb",34.9834,135.7079],
+["ky-kawaramachi","Kyoto-Kawaramachi (Hankyu)","京都河原町駅","kyoto","pb",35.0038,135.7692],
+["ky-demachi","Demachiyanagi (Keihan / Eizan)","出町柳駅","kyoto","pb",35.0303,135.7730,"Eizan-Bahn hat eigenen Stempel"],
+["ky-gion","Gion-Shijō (Keihan)","祇園四条駅","kyoto","pb",35.0038,135.7725],
+["ky-fushimi","Fushimi-Inari (Keihan)","伏見稲荷駅","kyoto","pb",34.9688,135.7702],
+["ky-inari-t","Fushimi Inari Taisha","伏見稲荷大社","kyoto","go",34.9671,135.7727,"Goshuin am Hauptschrein und oben am Okusha"],
+["ky-kinkaku","Kinkaku-ji","金閣寺","kyoto","go",35.0394,135.7292],
+["ky-kiyomizu","Kiyomizu-dera","清水寺","kyoto","go",34.9949,135.7850],
+["ky-ginkaku","Ginkaku-ji","銀閣寺","kyoto","go",35.0270,135.7982],
+["ky-ryoan","Ryōan-ji","龍安寺","kyoto","go",35.0345,135.7183],
+["ky-tenryu","Tenryū-ji (Arashiyama)","天龍寺","kyoto","go",35.0159,135.6737],
+["ky-heian","Heian-Schrein","平安神宮","kyoto","go",35.0163,135.7823],
+["ky-yasaka","Yasaka-Schrein","八坂神社","kyoto","go",35.0037,135.7786],
+["ky-nijojo","Nijō-Burg","二条城","kyoto","sight",35.0142,135.7481,"Erinnerungsstempel beim Eingang"],
+["ky-tower","Kyoto Tower","京都タワー","kyoto","sight",34.9875,135.7593,"Stempel auf der Aussichtsplattform"],
+["ky-museum","Kyoto Eisenbahnmuseum","京都鉄道博物館","kyoto","sight",34.9873,135.7427,"Stempelrallye mit mehreren Stempeln im Museum"],
+["ky-arashi","Arashiyama Togetsukyō","渡月橋","kyoto","sight",35.0128,135.6775,"Stempel an der Touristeninfo am Bahnhof Arashiyama (Randen)"],
+["ka-uji","Uji Station (JR)","宇治駅","kansai","jr",34.8901,135.8008,"Teekannen-Stempel"],
+["ka-byodoin","Byōdō-in","平等院","kansai","go",34.8893,135.8076],
+["ka-osaka","Osaka Station","大阪駅","kansai","jr",34.7025,135.4959],
+["ka-shinosaka","Shin-Osaka","新大阪駅","kansai","jr",34.7335,135.5002,"Shinkansen-Stempel beim Shinkansen-Sperrenschalter"],
+["ka-nara","Nara Station (JR)","奈良駅","kansai","jr",34.6809,135.8188,"Hirsch-Stempel"],
+["ka-kintetsunara","Kintetsu-Nara","近鉄奈良駅","kansai","pb",34.6832,135.8300],
+["ka-todaiji","Tōdai-ji","東大寺","kansai","go",34.6889,135.8398,"Goshuin in der Daibutsuden-Halle"],
+["ka-kasuga","Kasuga-Taisha","春日大社","kansai","go",34.6815,135.8482],
+["fu-otsuki","Ōtsuki Station","大月駅","fuji","jr",35.6108,138.9412,"Umstieg Chūō-Linie → Fujikyū; beide Bahnen haben Stempel"],
+["fu-shimoyoshida","Shimoyoshida (Fujikyū)","下吉田駅","fuji","pb",35.4824,138.8068,"Bahnhof für die Chūreitō-Pagode"],
+["fu-chureito","Arakurayama Sengen Park / Chūreitō","新倉山浅間公園","fuji","sight",35.5005,138.8015,"Stempel am Aussichtsdeck neben der Pagode"],
+["fu-fujisan","Fujisan Station (Fujikyū)","富士山駅","fuji","pb",35.4850,138.7995,"Großer Fuji-Stempel in der Halle"],
+["fu-kitaguchi","Kitaguchi Hongū Fuji Sengen","北口本宮冨士浅間神社","fuji","go",35.4625,138.7985],
+["fu-kawaguchiko","Kawaguchiko Station","河口湖駅","fuji","pb",35.4990,138.7650,"Stempel am Schalter; Busse zur 5. Station"],
+["fu-heritage","Fujisan World Heritage Center (Yamanashi)","富士山世界遺産センター","fuji","sight",35.4716,138.7773],
+["fu-5th","Fuji Subaru Line 5. Station","富士スバルライン五合目","fuji","sight",35.3925,138.7330,"Stempel im Postamt der 5. Station (Postkarte vom Fuji!) und im Komitake-Schrein"],
+["fu-oshino","Oshino Hakkai","忍野八海","fuji","sight",35.4598,138.8307,"Stempel bei der Touristeninfo"],
+["fu-gotemba","Gotemba Station","御殿場駅","fuji","jr",35.3095,138.9340],
+["fu-mishima","Mishima Station","三島駅","fuji","jr",35.1264,138.9112,"Shinkansen-Halt"],
+["fu-shinfuji","Shin-Fuji Station","新富士駅","fuji","jr",35.1427,138.6632,"Shinkansen-Halt mit Fuji-Blick"],
+["fu-fujinomiya","Fujinomiya Station","富士宮駅","fuji","jr",35.2194,138.6175],
+["fu-sengen","Fujisan Hongū Sengen Taisha","富士山本宮浅間大社","fuji","go",35.2241,138.6097,"Hauptschrein aller Sengen-Schreine"],
+["to-tokyo","Tokyo Station","東京駅","tokyo","jr",35.6812,139.7671,"Mehrere Stempel: Marunouchi-Seite und Shinkansen-Sperre"],
+["to-kanda","Kanda","神田駅","tokyo","jr",35.6918,139.7709],
+["to-akihabara","Akihabara","秋葉原駅","tokyo","jr",35.6984,139.7731],
+["to-okachimachi","Okachimachi","御徒町駅","tokyo","jr",35.7075,139.7747],
+["to-ueno","Ueno","上野駅","tokyo","jr",35.7141,139.7774,"Panda-Stempel"],
+["to-uguisudani","Uguisudani","鶯谷駅","tokyo","jr",35.7206,139.7785],
+["to-nippori","Nippori","日暮里駅","tokyo","jr",35.7278,139.7708],
+["to-nishinippori","Nishi-Nippori","西日暮里駅","tokyo","jr",35.7322,139.7668],
+["to-tabata","Tabata","田端駅","tokyo","jr",35.7380,139.7608],
+["to-komagome","Komagome","駒込駅","tokyo","jr",35.7365,139.7469],
+["to-sugamo","Sugamo","巣鴨駅","tokyo","jr",35.7336,139.7393],
+["to-otsuka","Ōtsuka","大塚駅","tokyo","jr",35.7318,139.7286],
+["to-ikebukuro","Ikebukuro","池袋駅","tokyo","jr",35.7295,139.7109],
+["to-mejiro","Mejiro","目白駅","tokyo","jr",35.7211,139.7064],
+["to-takadanobaba","Takadanobaba","高田馬場駅","tokyo","jr",35.7126,139.7039],
+["to-shinokubo","Shin-Ōkubo","新大久保駅","tokyo","jr",35.7011,139.7000],
+["to-shinjuku","Shinjuku","新宿駅","tokyo","jr",35.6896,139.7006,"Stempel am Ostausgang-Schalter"],
+["to-yoyogi","Yoyogi","代々木駅","tokyo","jr",35.6832,139.7021],
+["to-harajuku","Harajuku","原宿駅","tokyo","jr",35.6702,139.7027],
+["to-shibuya","Shibuya","渋谷駅","tokyo","jr",35.6580,139.7016,"Hachikō-Stempel"],
+["to-ebisu","Ebisu","恵比寿駅","tokyo","jr",35.6467,139.7101],
+["to-meguro","Meguro","目黒駅","tokyo","jr",35.6340,139.7158],
+["to-gotanda","Gotanda","五反田駅","tokyo","jr",35.6262,139.7233],
+["to-osaki","Ōsaki","大崎駅","tokyo","jr",35.6197,139.7286],
+["to-shinagawa","Shinagawa","品川駅","tokyo","jr",35.6285,139.7387],
+["to-takanawa","Takanawa Gateway","高輪ゲートウェイ駅","tokyo","jr",35.6355,139.7404],
+["to-tamachi","Tamachi","田町駅","tokyo","jr",35.6457,139.7476],
+["to-hamamatsucho","Hamamatsuchō","浜松町駅","tokyo","jr",35.6553,139.7571,"Nahe Tokyo Tower"],
+["to-shimbashi","Shimbashi","新橋駅","tokyo","jr",35.6662,139.7584],
+["to-yurakucho","Yūrakuchō","有楽町駅","tokyo","jr",35.6750,139.7630],
+["to-ochanomizu","Ochanomizu","御茶ノ水駅","tokyo","jr",35.6994,139.7651],
+["to-iidabashi","Iidabashi","飯田橋駅","tokyo","jr",35.7020,139.7450],
+["to-nakano","Nakano","中野駅","tokyo","jr",35.7057,139.6657],
+["to-kichijoji","Kichijōji","吉祥寺駅","tokyo","jr",35.7032,139.5797],
+["to-m-asakusa","Asakusa (Metro Ginza-Linie)","浅草駅","tokyo","pb",35.7110,139.7977,"Jede Tokyo-Metro-Station hat einen eigenen Stempel"],
+["to-m-ginza","Ginza (Metro)","銀座駅","tokyo","pb",35.6717,139.7640],
+["to-m-roppongi","Roppongi (Metro)","六本木駅","tokyo","pb",35.6627,139.7313],
+["to-m-oshiage","Oshiage / Skytree (Metro)","押上駅","tokyo","pb",35.7102,139.8132],
+["to-m-meiji","Meiji-jingūmae (Metro)","明治神宮前駅","tokyo","pb",35.6690,139.7055],
+["to-m-omotesando","Omotesandō (Metro)","表参道駅","tokyo","pb",35.6653,139.7124],
+["to-m-otemachi","Ōtemachi (Metro)","大手町駅","tokyo","pb",35.6859,139.7660],
+["to-m-shinjuku3","Shinjuku-sanchōme (Metro)","新宿三丁目駅","tokyo","pb",35.6908,139.7059],
+["to-m-ueno","Ueno (Metro Ginza/Hibiya)","上野駅","tokyo","pb",35.7117,139.7771],
+["to-m-tsukiji","Tsukiji (Metro)","築地駅","tokyo","pb",35.6679,139.7723],
+["to-haneda","Flughafen Haneda","羽田空港","tokyo","sight",35.5494,139.7798,"Stempel in jedem Terminal bei der Info"],
+["to-tower","Tokyo Tower","東京タワー","tokyo","sight",35.6586,139.7454,"Stempel auf dem Main Deck"],
+["to-skytree","Tokyo Skytree","東京スカイツリー","tokyo","sight",35.7101,139.8107,"Stempel auf dem Tembo Deck"],
+["to-shibuyasky","Shibuya Sky","渋谷スカイ","tokyo","sight",35.6585,139.7021],
+["to-zoo","Ueno Zoo","上野動物園","tokyo","sight",35.7164,139.7714,"Panda-Stempel am Eingang"],
+["to-tnm","Tokyo National Museum","東京国立博物館","tokyo","sight",35.7188,139.7765],
+["to-sensoji","Sensō-ji","浅草寺","tokyo","go",35.7148,139.7967,"Goshuin links neben der Haupthalle"],
+["to-meijijingu","Meiji-Jingū","明治神宮","tokyo","go",35.6764,139.6993],
+["to-zojoji","Zōjō-ji","増上寺","tokyo","go",35.6575,139.7483,"Direkt unter dem Tokyo Tower"],
+["to-kanda-myojin","Kanda Myōjin","神田明神","tokyo","go",35.7019,139.7678],
+["to-nezu","Nezu-Schrein","根津神社","tokyo","go",35.7284,139.7612],
+["to-hiejinja","Hie-Schrein","日枝神社","tokyo","go",35.6745,139.7398]
+];
+const LINES=[
+ ["ky-saga","ky-uzumasa","ky-hanazono","ky-enmachi","ky-nijo","ky-tambaguchi","ky-umekoji","ky-kyoto","ky-tofukuji","ky-inari"],
+ ["ky-yamashina","ky-kyoto"],["ky-demachi","ky-gion","ky-fushimi"],["ky-katsura","ky-kawaramachi"],
+ ["ka-shinosaka","ka-osaka"],["ka-nara","ka-kintetsunara"],
+ ["fu-otsuki","fu-shimoyoshida","fu-fujisan","fu-kawaguchiko"],["fu-mishima","fu-shinfuji"],["fu-shinfuji","fu-fujinomiya"],
+ ["to-tokyo","to-kanda","to-akihabara","to-okachimachi","to-ueno","to-uguisudani","to-nippori","to-nishinippori","to-tabata","to-komagome","to-sugamo","to-otsuka","to-ikebukuro","to-mejiro","to-takadanobaba","to-shinokubo","to-shinjuku","to-yoyogi","to-harajuku","to-shibuya","to-ebisu","to-meguro","to-gotanda","to-osaki","to-shinagawa","to-takanawa","to-tamachi","to-hamamatsucho","to-shimbashi","to-yurakucho","to-tokyo"],
+ ["to-tokyo","to-kanda","to-ochanomizu","to-iidabashi","to-shinjuku","to-nakano","to-kichijoji"]
+];
+const CATS={jr:{n:"JR-Bahnhof",c:"#2f8f5b",tip:"Stempel am Sperrenschalter – Personal fragen"},pb:{n:"Privatbahn / Metro",c:"#3b6fc9",tip:"Stempel im Stationsbüro hinter der Sperre"},sight:{n:"Sehenswürdigkeit",c:"#d98b1f",tip:"Stempel am Eingang, Info oder Shop"},go:{n:"Goshuin",c:"#b03a7a",tip:"Handgeschriebener Tempelstempel am Goshuin-Schalter (納経所), ca. ¥300–500"}};
+const REG={kyoto:"Kyoto",kansai:"Osaka · Nara · Uji",fuji:"Fuji",tokyo:"Tokio"};
+const ALL=RAW.map(r=>({id:r[0],n:r[1],jp:r[2],r:r[3],c:r[4],lat:r[5],lng:r[6],t:r[7]||CATS[r[4]].tip}));
+const byId=id=>ALL.find(e=>e.id===id);
+const store={get(k,d){try{const v=localStorage.getItem("sr."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("sr."+k,JSON.stringify(v))}catch(e){}}};
+let done=new Set(store.get("done",[])),region=store.get("region","all"),cat="",pos=null,hideDone=false,q="",follow=true;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function km(a,b){const R=6371,dL=(b.lat-a.lat)*Math.PI/180,dG=(b.lng-a.lng)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dG/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+const fmtKm=d=>d<1?Math.round(d*1000)+" m":(d<10?d.toFixed(1).replace(".",","):Math.round(d))+" km";
+const walk=d=>{const m=Math.round(d/0.075);return m<60?m+" Min. zu Fuß":Math.round(m/60*10)/10+" Std. zu Fuß"};
+const visible=()=>ALL.filter(e=>(region==="all"||e.r===region)&&(!cat||e.c===cat)&&(!hideDone||!done.has(e.id))&&(!q||(e.n+" "+e.jp+" "+e.t).toLowerCase().includes(q)));
+
+const map=L.map("map",{zoomControl:true}).setView([35.3,137.3],6);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
+const layer=L.layerGroup().addTo(map); const lineLayer=L.layerGroup().addTo(map);
+LINES.forEach(ln=>L.polyline(ln.map(byId).map(e=>[e.lat,e.lng]),{color:"#2b3550",opacity:.45,weight:3}).addTo(lineLayer));
+let meMarker=null,meCircle=null;
+const markers={};
+function popup(e){const d=done.has(e.id);return `<div class="pop"><b>${esc(e.n)}</b><span class="jp">${esc(e.jp)} · ${esc(CATS[e.c].n)}</span><div class="tip">${esc(e.t)}</div>${pos?`<div class="tip">${fmtKm(km(pos,e))} · ${walk(km(pos,e))}</div>`:""}<button type="button" onclick="toggleDone('${e.id}')">${d?"Gesammelt ✓":"Als gesammelt markieren"}</button><a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Route</a></div>`}
+function drawMarkers(){layer.clearLayers();visible().forEach(e=>{const d=done.has(e.id);const m=L.circleMarker([e.lat,e.lng],{radius:8,color:CATS[e.c].c,weight:2.5,fillColor:d?CATS[e.c].c:"#fff",fillOpacity:1}).bindPopup(()=>popup(e));markers[e.id]=m;m.addTo(layer)})}
+window.toggleDone=id=>{done.has(id)?done.delete(id):done.add(id);store.set("done",[...done]);render();if(markers[id])markers[id].openPopup()};
+function fitRegion(){const set=ALL.filter(e=>region==="all"||e.r===region);map.fitBounds(L.latLngBounds(set.map(e=>[e.lat,e.lng])),{padding:[20,20]});follow=false}
+function renderChips(){const r=$("regions");r.innerHTML="";[["all","Alle"],...Object.entries(REG)].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",region===k);b.onclick=()=>{region=k;store.set("region",k);render();fitRegion()};r.appendChild(b)});
+  const c=$("cats");c.innerHTML="";[["","Alle Arten"],...Object.entries(CATS).map(([k,v])=>[k,v.n])].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip"+(k?" cat":"");if(k)b.style.setProperty("--c",CATS[k].c);b.textContent=n;b.setAttribute("aria-pressed",cat===k);b.onclick=()=>{cat=k;render()};c.appendChild(b)})}
+function renderList(){let items=visible();if(pos)items=items.map(e=>({...e,d:km(pos,e)})).sort((a,b)=>a.d-b.d);else items.sort((a,b)=>a.n.localeCompare(b.n,"de"));
+  const inReg=ALL.filter(e=>region==="all"||e.r===region);$("count").textContent=inReg.filter(e=>done.has(e.id)).length+" / "+inReg.length;
+  $("list").innerHTML=items.map((e,i)=>`<div class="item${done.has(e.id)?" done":""}" style="--c:${CATS[e.c].c}" data-id="${e.id}"><div class="mark">${done.has(e.id)?"✓":(pos?i+1:"")}</div><div><div class="nm">${esc(e.n)}</div><div class="jp">${esc(e.jp)} · ${esc(e.t)}</div></div><div class="dist">${pos?fmtKm(e.d)+"<small>"+walk(e.d)+"</small>":""}</div></div>`).join("")||'<div class="status">Keine Stempelorte für diese Auswahl.</div>'}
+$("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=markers[it.dataset.id];if(m){follow=false;map.setView(m.getLatLng(),Math.max(map.getZoom(),15));m.openPopup()}};
+$("q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};$("hideDone").onchange=e=>{hideDone=e.target.checked;render()};
+function render(){renderChips();drawMarkers();renderList()}
+render();
+// GPS
+const locBtn=document.createElement("button");locBtn.className="locbtn";locBtn.textContent="◎";locBtn.title="Zu mir";locBtn.onclick=()=>{follow=true;if(pos)map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),15))};$("map").appendChild(locBtn);
+if(navigator.geolocation){navigator.geolocation.watchPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};const ll=[pos.lat,pos.lng];
+  if(!meMarker){meMarker=L.circleMarker(ll,{radius:8,color:"#fff",weight:2,fillColor:"#1d6fe0",fillOpacity:1}).addTo(map).bindTooltip("Du",{permanent:true,direction:"top",offset:[0,-8]});meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#1d6fe0",weight:1,fillOpacity:.1}).addTo(map);map.setView(ll,15)}
+  else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(p.coords.accuracy);if(follow)map.panTo(ll)}
+  $("status").textContent="GPS aktiv (±"+Math.round(p.coords.accuracy)+" m) – Liste nach Entfernung sortiert";renderList()},
+  err=>{$("status").textContent="Kein GPS: "+err.message+" – Standortfreigabe im Browser prüfen.";if(!pos)fitRegion()},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}
+else{$("status").textContent="Dieser Browser kann keinen Standort liefern.";fitRegion()}
+
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+</script>
+</body>
+</html>
