@@ -55,8 +55,11 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
   <div id="list"></div>
 </div>
 <script>
-const cap=window.Capacitor,native=!!(cap&&cap.isNativePlatform&&cap.isNativePlatform());
-const BG=native?cap.registerPlugin("BackgroundGeolocation"):null,LN=native?cap.registerPlugin("LocalNotifications"):null;
+window.addEventListener("error",e=>{const st=document.getElementById("status");if(st)st.textContent="Fehler: "+(e.message||e)});
+let cap=window.Capacitor,native=false,BG=null,LN=null;
+try{const reg=cap&&(cap.registerPlugin||(window.capacitorExports&&window.capacitorExports.registerPlugin));
+  native=!!(cap&&cap.isNativePlatform&&cap.isNativePlatform()&&reg);
+  if(native){BG=reg("BackgroundGeolocation");LN=reg("LocalNotifications")}}catch(e){native=false}
 const RAW=[
 ["ky-kyoto","Kyoto Station","京都駅","kyoto","jr",34.9858,135.7588,"Großer Stempel am Zentralausgang (中央口)"],
 ["ky-umekoji","Umekoji-Kyōtonishi","梅小路京都西駅","kyoto","jr",34.9869,135.7414,"Nächster Bahnhof zum Eisenbahnmuseum"],
