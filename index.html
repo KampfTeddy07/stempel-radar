@@ -35,6 +35,8 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 .item .dist{text-align:right;font-weight:700;font-size:13px;white-space:nowrap}.item .dist small{display:block;font-weight:400;color:var(--muted);font-size:11px}
 .status{font-size:12px;color:var(--muted)}
 .leaflet-popup-content{font-family:inherit;font-size:14px}.pop b{display:block}.pop .jp{color:#666;font-size:12px}.pop .tip{font-size:12px;margin:4px 0}.pop a,.pop button{display:inline-block;margin:4px 6px 0 0;font:inherit;font-size:13px}
+.fx{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:6px}.fx summary{cursor:pointer;font-weight:700;font-size:14px;list-style:none;display:flex;justify-content:space-between;align-items:center}.fx summary::-webkit-details-marker{display:none}.fx summary small{font-weight:400;color:var(--muted);font-size:12px}
+.fx .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}.fx label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);min-width:0}.fx input{font:inherit;font-size:18px;font-weight:700;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%;min-width:0;font-variant-numeric:tabular-nums}.fx .rate{font-size:12px;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.fx .rate button{font:inherit;font-size:12px;border:none;background:none;color:var(--me);padding:0}
 .radar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:6px}.radar select{font:inherit;font-size:13px;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--fg)}
 .alert{display:none;background:var(--shu);color:#fff;padding:10px 12px;border-radius:10px;margin-bottom:6px;font-weight:700}.alert.on{display:block}.alert small{display:block;font-weight:400;opacity:.9}
 .locbtn{position:absolute;right:10px;bottom:10px;z-index:1000;width:42px;height:42px;border-radius:50%;border:none;background:#fff;color:var(--me);font-size:22px;box-shadow:0 1px 5px rgba(0,0,0,.3)}
@@ -48,6 +50,9 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 </div>
 <div id="map" style="position:relative"></div>
 <div class="bottom">
+<details class="fx" id="fx"><summary>¥ Umrechner <small id="fxRate">Kurse laden …</small></summary>
+    <div class="grid"><label>Yen ¥<input type="number" inputmode="decimal" id="fxJPY" placeholder="1000"></label><label>Franken CHF<input type="number" inputmode="decimal" id="fxCHF" placeholder="5.20"></label><label>Euro €<input type="number" inputmode="decimal" id="fxEUR" placeholder="5.65"></label></div>
+    <div class="rate"><span id="fxInfo"></span><button type="button" id="fxRefresh">Kurse aktualisieren</button></div></details>
   <div class="tools"><input type="search" id="q" placeholder="Suchen …"><label class="status"><input type="checkbox" id="hideDone"> gesammelte ausblenden</label></div>
   <div class="radar"><label><input type="checkbox" id="radarOn"> Radar: melden, wenn ein Stempel im Umkreis von</label><select id="radarR"><option value="300">300 m</option><option value="500">500 m</option><option value="700" selected>700 m</option><option value="1000">1 km</option></select><label><input type="checkbox" id="wake"> Bildschirm anlassen</label></div>
   <div class="alert" id="alert"></div>
@@ -248,6 +253,15 @@ $("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=m
 $("q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};$("hideDone").onchange=e=>{hideDone=e.target.checked;render()};
 function render(){renderChips();drawMarkers();renderList()}
 render();
+// Yen-Umrechner: Kurse von der EZB (frankfurter.app), Fallback = letzter gespeicherter Kurs
+let fx=store.get("fx",{CHF:191.75,EUR:177,date:"2026-10-22",src:"Schätzkurs"});
+const fxIn={JPY:$("fxJPY"),CHF:$("fxCHF"),EUR:$("fxEUR")};
+function fxShow(){$("fxRate").textContent="1 CHF = "+Math.round(fx.CHF)+" ¥ · 1 € = "+Math.round(fx.EUR)+" ¥";$("fxInfo").textContent=fx.src+" vom "+fx.date.split("-").reverse().join(".")}
+function fxCalc(from){const v=parseFloat(fxIn[from].value.replace(",","."));if(isNaN(v)){Object.keys(fxIn).forEach(k=>{if(k!==from)fxIn[k].value=""});return}const yen=from==="JPY"?v:v*fx[from];
+  if(from!=="JPY")fxIn.JPY.value=Math.round(yen);if(from!=="CHF")fxIn.CHF.value=(yen/fx.CHF).toFixed(2);if(from!=="EUR")fxIn.EUR.value=(yen/fx.EUR).toFixed(2)}
+Object.keys(fxIn).forEach(k=>fxIn[k].addEventListener("input",()=>fxCalc(k)));
+async function fxLoad(){try{const r=await fetch("https://api.frankfurter.app/latest?from=CHF&to=JPY,EUR");const d=await r.json();if(d&&d.rates&&d.rates.JPY){fx={CHF:d.rates.JPY,EUR:d.rates.JPY/d.rates.EUR,date:d.date,src:"EZB-Kurs"};store.set("fx",fx);fxShow();const a=Object.keys(fxIn).find(k=>fxIn[k].value);if(a)fxCalc(a)}}catch(e){fxShow()}}
+$("fxRefresh").onclick=fxLoad;fxShow();fxLoad();
 // Radar: Vibration, Ton und Benachrichtigung, sobald ein ungesammelter Stempel im Umkreis liegt
 let radar=store.get("radar",false),radarR=store.get("radarR",700),alerted=new Set(),wakeLock=null,actx=null;
 $("radarOn").checked=radar;$("radarR").value=radarR;
