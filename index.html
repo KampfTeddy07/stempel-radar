@@ -51,7 +51,7 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 <div id="map" style="position:relative"></div>
 <div class="bottom">
 <details class="fx" id="fx"><summary>¥ Umrechner <small id="fxRate">Kurse laden …</small></summary>
-    <div class="grid"><label>Yen ¥<input type="text" inputmode="decimal" autocomplete="off" id="fxJPY" placeholder="1,000"></label><label>Franken CHF<input type="text" inputmode="decimal" autocomplete="off" id="fxCHF" placeholder="5.20"></label><label>Euro €<input type="text" inputmode="decimal" autocomplete="off" id="fxEUR" placeholder="5,65"></label></div>
+    <div class="grid"><label>Yen ¥<input type="text" inputmode="decimal" autocomplete="off" id="fxJPY" placeholder="1'000"></label><label>Franken CHF<input type="text" inputmode="decimal" autocomplete="off" id="fxCHF" placeholder="5.20"></label><label>Euro €<input type="text" inputmode="decimal" autocomplete="off" id="fxEUR" placeholder="5,65"></label></div>
     <div class="rate"><span id="fxInfo"></span><button type="button" id="fxRefresh">Kurse aktualisieren</button></div></details>
   <div class="tools"><input type="search" id="q" placeholder="Suchen …"><label class="status"><input type="checkbox" id="hideDone"> gesammelte ausblenden</label></div>
   <div class="radar"><label><input type="checkbox" id="radarOn"> Radar: melden, wenn ein Stempel im Umkreis von</label><select id="radarR"><option value="300">300 m</option><option value="500">500 m</option><option value="700" selected>700 m</option><option value="1000">1 km</option></select><label><input type="checkbox" id="wake"> Bildschirm anlassen</label></div>
@@ -282,21 +282,23 @@ updateData();updateApp();
 let fx=store.get("fx",{CHF:191.75,EUR:177,date:"2026-10-22",src:"Schätzkurs"});
 const fxIn={JPY:$("fxJPY"),CHF:$("fxCHF"),EUR:$("fxEUR")};
 function fxShow(){$("fxRate").textContent="1 CHF = "+fxFmt.JPY(fx.CHF)+" ¥ · 1 € = "+fxFmt.JPY(fx.EUR)+" ¥";$("fxInfo").textContent=fx.src+" vom "+fx.date.split("-").reverse().join(".")}
-// Zahlformate: Yen 1,000 (japanisch) · CHF 1'000.00 (schweizerisch) · Euro 1.000,00 (deutsch)
+// Zahlformate: Yen 15'000 · CHF 1'234.50 · Euro 1.234,50 – Trenner werden beim Tippen gesetzt
+const FMT={JPY:{g:"'",d:null},CHF:{g:"'",d:"."},EUR:{g:".",d:","}};
 const group=(intStr,sep)=>intStr.replace(/\B(?=(\d{3})+(?!\d))/g,sep);
-const fxFmt={JPY:v=>group(String(Math.round(v)),","),CHF:v=>{const [i,d]=v.toFixed(2).split(".");return group(i,"'")+"."+d},EUR:v=>{const [i,d]=v.toFixed(2).split(".");return group(i,".")+","+d}};
-function fxParse(k,str){let t=String(str).replace(/[\s'’¥€]/g,"").replace(/CHF|EUR|JPY/gi,"");if(k==="JPY")return parseFloat(t.replace(/[.,](?=\d{3}(\D|$))/g,"").replace(",","."));
-  const lastC=t.lastIndexOf(","),lastP=t.lastIndexOf(".");if(lastC>=0&&lastP>=0){t=lastC>lastP?t.replace(/\./g,"").replace(",","."):t.replace(/,/g,"")}
-  else if(lastC>=0){t=(t.length-lastC-1===3&&(t.match(/,/g)||[]).length>=1&&k==="CHF")?t.replace(/,/g,""):t.replace(/,/g,(m,o,str)=>str.length-o-1===3&&k==="EUR"&&(str.match(/,/g)||[]).length>1?"":".")}
-  else if(lastP>=0&&k==="EUR"&&t.length-lastP-1===3)t=t.replace(/\./g,"");
-  return parseFloat(t)}
-let fxActive=null;
+function fxSplit(k,str){const f=FMT[k];let t=String(str).replace(/[^\d.,]/g,"");let ip=t,dp=null;
+  if(f.d){const i=t.lastIndexOf(f.d);if(i>=0){ip=t.slice(0,i);dp=t.slice(i+1).replace(/[^\d]/g,"").slice(0,2)}}
+  ip=ip.replace(/[^\d]/g,"");return{ip,dp}}
+function fxParse(k,str){const {ip,dp}=fxSplit(k,str);if(!ip&&!dp)return NaN;return parseFloat((ip||"0")+"."+(dp||"0"))}
+function fxFormatTyped(k,str){const f=FMT[k],{ip,dp}=fxSplit(k,str);let out=group(ip,f.g);if(dp!==null&&f.d)out+=f.d+dp;return out}
+const fxFmt={JPY:v=>group(String(Math.round(v)),"'"),CHF:v=>{const [i,d]=v.toFixed(2).split(".");return group(i,"'")+"."+d},EUR:v=>{const [i,d]=v.toFixed(2).split(".");return group(i,".")+","+d}};
 function fxCalc(from){const v=fxParse(from,fxIn[from].value);if(isNaN(v)){Object.keys(fxIn).forEach(k=>{if(k!==from)fxIn[k].value=""});return}const yen=from==="JPY"?v:v*fx[from];
   if(from!=="JPY")fxIn.JPY.value=fxFmt.JPY(yen);if(from!=="CHF")fxIn.CHF.value=fxFmt.CHF(yen/fx.CHF);if(from!=="EUR")fxIn.EUR.value=fxFmt.EUR(yen/fx.EUR)}
-Object.keys(fxIn).forEach(k=>{fxIn[k].addEventListener("focus",()=>{fxActive=k;const v=fxParse(k,fxIn[k].value);if(!isNaN(v))fxIn[k].value=k==="JPY"?String(Math.round(v)):String(v)});
-  fxIn[k].addEventListener("input",()=>fxCalc(k));
-  fxIn[k].addEventListener("blur",()=>{const v=fxParse(k,fxIn[k].value);if(!isNaN(v))fxIn[k].value=fxFmt[k](v)})});
-async function fxLoad(){try{const r=await fetch("https://api.frankfurter.app/latest?from=CHF&to=JPY,EUR");const d=await r.json();if(d&&d.rates&&d.rates.JPY){fx={CHF:d.rates.JPY,EUR:d.rates.JPY/d.rates.EUR,date:d.date,src:"EZB-Kurs"};store.set("fx",fx);fxShow();const a=Object.keys(fxIn).find(k=>fxIn[k].value);if(a)fxCalc(a)}}catch(e){fxShow()}}
+Object.keys(fxIn).forEach(k=>{const el=fxIn[k];
+  el.addEventListener("input",()=>{const raw=el.value,caret=el.selectionStart==null?raw.length:el.selectionStart;const sig=raw.slice(0,caret).replace(/[^\d.,]/g,"").length;
+    const out=fxFormatTyped(k,raw);el.value=out;let n=0,pos=out.length;if(sig===0)pos=0;else{for(let i=0;i<out.length;i++){if(/[\d.,]/.test(out[i])){n++;if(n===sig){pos=i+1;break}}}}
+    try{el.setSelectionRange(pos,pos)}catch(e){}fxCalc(k)});
+  el.addEventListener("blur",()=>{const v=fxParse(k,el.value);if(!isNaN(v))el.value=fxFmt[k](v)})});
+async function fxLoad(){try{const r=await fetch("https://api.frankfurter.dev/v1/latest?from=CHF&to=JPY,EUR",{cache:"no-store"});const d=await r.json();if(d&&d.rates&&d.rates.JPY){fx={CHF:d.rates.JPY,EUR:d.rates.JPY/d.rates.EUR,date:d.date,src:"EZB-Kurs"};store.set("fx",fx);fxShow();const a=Object.keys(fxIn).find(k=>fxIn[k].value);if(a)fxCalc(a)}}catch(e){fxShow()}}
 $("fxRefresh").onclick=fxLoad;fxShow();fxLoad();
 // Radar: Vibration, Ton und Benachrichtigung, sobald ein ungesammelter Stempel im Umkreis liegt
 let radar=store.get("radar",false),radarR=store.get("radarR",700),alerted=new Set(),wakeLock=null,actx=null;
