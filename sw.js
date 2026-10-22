@@ -1,4 +1,4 @@
-const SHELL="stempel-shell-v10", TILES="stempel-tiles-v1", MAX_TILES=1500;
+const SHELL="stempel-shell-v11", TILES="stempel-tiles-v1", MAX_TILES=1500;
 const ASSETS=["./","./index.html","./manifest.webmanifest","./icon-192.png","./icon-512.png",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
   "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"];
