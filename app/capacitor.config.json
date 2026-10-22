@@ -1,0 +1,13 @@
+{
+  "appId": "de.kampfteddy.stempelradar",
+  "appName": "Stempel-Radar",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#c8372a"
+    }
+  }
+}

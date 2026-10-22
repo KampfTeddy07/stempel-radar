@@ -1,0 +1,16 @@
+{
+  "name": "stempel-radar-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stempel-Radar Japan – Android-App mit Hintergrund-GPS",
+  "dependencies": {
+    "@capacitor/android": "6.2.2",
+    "@capacitor/core": "6.2.2",
+    "@capacitor/local-notifications": "6.1.3",
+    "@capacitor-community/background-geolocation": "1.3.1",
+    "leaflet": "1.9.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "6.2.2"
+  }
+}

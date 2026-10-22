@@ -55,6 +55,8 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
   <div id="list"></div>
 </div>
 <script>
+const cap=window.Capacitor,native=!!(cap&&cap.isNativePlatform&&cap.isNativePlatform());
+const BG=native?cap.registerPlugin("BackgroundGeolocation"):null,LN=native?cap.registerPlugin("LocalNotifications"):null;
 const RAW=[
 ["ky-kyoto","Kyoto Station","京都駅","kyoto","jr",34.9858,135.7588,"Großer Stempel am Zentralausgang (中央口)"],
 ["ky-umekoji","Umekoji-Kyōtonishi","梅小路京都西駅","kyoto","jr",34.9869,135.7414,"Nächster Bahnhof zum Eisenbahnmuseum"],
@@ -247,28 +249,37 @@ render();
 let radar=store.get("radar",false),radarR=store.get("radarR",700),alerted=new Set(),wakeLock=null,actx=null;
 $("radarOn").checked=radar;$("radarR").value=radarR;
 function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);o.frequency.value=880;g.gain.setValueAtTime(.25,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.6);o.start();o.stop(actx.currentTime+.6)}catch(e){}}
-async function notify(title,body){try{if("Notification" in window&&Notification.permission==="granted"){const reg=await navigator.serviceWorker.getRegistration();if(reg&&reg.showNotification){reg.showNotification(title,{body,tag:"stempel-radar",renotify:true,vibrate:[200,100,200,100,400],icon:"icon-192.png"});return}new Notification(title,{body})}}catch(e){}}
+async function notify(title,body){if(native&&LN){try{await LN.schedule({notifications:[{id:Math.floor(Math.random()*1e6),title,body,schedule:{at:new Date(Date.now()+300),allowWhileIdle:true}}]})}catch(e){}return}try{if("Notification" in window&&Notification.permission==="granted"){const reg=await navigator.serviceWorker.getRegistration();if(reg&&reg.showNotification){reg.showNotification(title,{body,tag:"stempel-radar",renotify:true,vibrate:[200,100,200,100,400],icon:"icon-192.png"});return}new Notification(title,{body})}}catch(e){}}
 function checkRadar(){if(!radar||!pos)return;const near=ALL.filter(e=>!done.has(e.id)).map(e=>({...e,d:km(pos,e)})).filter(e=>e.d*1000<=radarR).sort((a,b)=>a.d-b.d);
   const box=$("alert");if(!near.length){box.className="alert";box.textContent="";alerted.forEach(id=>{const e=byId(id);if(!e||km(pos,e)*1000>radarR+150)alerted.delete(id)});return}
   box.className="alert on";box.innerHTML="Stempel in der Nähe: "+near.slice(0,3).map(e=>esc(e.n)+" ("+fmtKm(e.d)+")").join(", ")+(near.length>3?" +"+(near.length-3):"")+"<small>Antippen in der Liste zeigt den Weg.</small>";
   const fresh=near.filter(e=>!alerted.has(e.id));if(!fresh.length)return;fresh.forEach(e=>alerted.add(e.id));
   try{navigator.vibrate&&navigator.vibrate([200,100,200,100,400])}catch(e){}beep();
   notify("Stempel in "+fmtKm(fresh[0].d)+": "+fresh[0].n,(fresh.length>1?fresh.length+" Stempel im Umkreis – ":"")+fresh[0].jp+" · "+fresh[0].t)}
-$("radarOn").onchange=async e=>{radar=e.target.checked;store.set("radar",radar);if(radar){beep();try{if("Notification" in window&&Notification.permission==="default")await Notification.requestPermission()}catch(x){}alerted.clear();checkRadar()}else{$("alert").className="alert"}};
-$("radarR").onchange=e=>{radarR=+e.target.value;store.set("radarR",radarR);alerted.clear();checkRadar()};
+$("radarOn").onchange=async e=>{radar=e.target.checked;store.set("radar",radar);if(radar){beep();try{if(native&&LN)await LN.requestPermissions();else if("Notification" in window&&Notification.permission==="default")await Notification.requestPermission()}catch(x){}alerted.clear();checkRadar()}else{$("alert").className="alert"}if(native)startNative()};
+$("radarR").onchange=e=>{radarR=+e.target.value;store.set("radarR",radarR);alerted.clear();checkRadar();if(native&&radar)startNative()};
 async function setWake(on){try{if(on&&"wakeLock" in navigator){wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener("release",()=>{if($("wake").checked)setTimeout(()=>setWake(true),500)})}else if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){$("status").textContent="Bildschirm-an wird von diesem Browser nicht unterstützt."}}
 $("wake").onchange=e=>setWake(e.target.checked);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&$("wake").checked)setWake(true)});
 // GPS
 const locBtn=document.createElement("button");locBtn.className="locbtn";locBtn.textContent="◎";locBtn.title="Zu mir";locBtn.onclick=()=>{follow=true;if(pos)go(()=>map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),15)))};$("map").appendChild(locBtn);
-if(navigator.geolocation){navigator.geolocation.watchPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude};const ll=[pos.lat,pos.lng];
+function onPos(lat,lng,acc){pos={lat,lng};const ll=[lat,lng];const p={coords:{accuracy:acc||0}};
   if(!meMarker){meMarker=L.circleMarker(ll,{radius:8,color:"#fff",weight:2,fillColor:"#1d6fe0",fillOpacity:1}).addTo(map).bindTooltip("Du",{permanent:true,direction:"top",offset:[0,-8]});meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#1d6fe0",weight:1,fillOpacity:.1}).addTo(map);go(()=>map.setView(ll,15))}
   else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(p.coords.accuracy);if(follow)go(()=>map.panTo(ll))}
-  $("status").textContent="GPS aktiv (±"+Math.round(p.coords.accuracy)+" m) – Liste nach Entfernung sortiert";renderList();checkRadar()},
-  err=>{$("status").textContent="Kein GPS: "+err.message+" – Standortfreigabe im Browser prüfen.";if(!pos)fitRegion()},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}
+  $("status").textContent="GPS aktiv (±"+Math.round(p.coords.accuracy)+" m) – Liste nach Entfernung sortiert";renderList();checkRadar()}
+
+function onErr(msg){$("status").textContent="Kein GPS: "+msg;if(!pos)fitRegion()}
+let watcherId=null;
+async function startNative(){try{if(watcherId){await BG.removeWatcher({id:watcherId});watcherId=null}
+  const opts={requestPermissions:true,stale:false,distanceFilter:radar?25:50};
+  if(radar){opts.backgroundTitle="Stempel-Radar aktiv";opts.backgroundMessage="Sucht Stempel im Umkreis von "+(radarR>=1000?"1 km":radarR+" m")+" – zum Beenden Radar in der App ausschalten"}
+  watcherId=await BG.addWatcher(opts,(loc,err)=>{if(err){onErr(err.code==="NOT_AUTHORIZED"?"Standort nicht erlaubt – bitte in den Android-Einstellungen freigeben":err.message||String(err));if(err.code==="NOT_AUTHORIZED")BG.openSettings();return}onPos(loc.latitude,loc.longitude,loc.accuracy)})}
+  catch(e){onErr(e.message||String(e))}}
+if(native&&BG){$("wake").parentElement.hidden=true;startNative()}
+else if(navigator.geolocation){navigator.geolocation.watchPosition(p=>onPos(p.coords.latitude,p.coords.longitude,p.coords.accuracy),err=>onErr(err.message+" – Standortfreigabe im Browser prüfen."),{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}
 else{$("status").textContent="Dieser Browser kann keinen Standort liefern.";fitRegion()}
 
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+if(!native&&"serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
 </script>
 </body>
 </html>
