@@ -2,7 +2,7 @@ name: Android APK
 on:
   push:
     branches: [main]
-    paths: ["index.html", "icon-*.png", "app/**", ".github/workflows/android.yml"]
+    paths: ["index.html", "icon-*.png", "app/**", "tools/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -14,6 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Versionsnummern bestimmen
+        id: ver
+        run: |
+          echo "data=$(git rev-list --count HEAD)" >> $GITHUB_OUTPUT
+          echo "apk=${{ github.run_number }}" >> $GITHUB_OUTPUT
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -35,6 +42,8 @@ jobs:
           sed -i 's#<script src="leaflet/leaflet.js"></script>#<script src="capacitor.js"></script>\n<script src="leaflet/leaflet.js"></script>#' www/index.html
           grep -c 'capacitor.js' www/index.html
           sed -i '/manifest.webmanifest/d; /apple-touch-icon/d' www/index.html
+          sed -i 's/const DATA_VER=0,APP_BUILD=0,/const DATA_VER=${{ steps.ver.outputs.data }},APP_BUILD=${{ steps.ver.outputs.apk }},/' www/index.html
+          grep -o 'const DATA_VER=[0-9]*,APP_BUILD=[0-9]*' www/index.html
           npx cap sync android
       - name: APK bauen
         working-directory: app/android
@@ -53,3 +62,11 @@ jobs:
           name: Stempel-Radar Android (aktuell)
           body: "Neueste Android-App. Auf dem Handy Stempel-Radar.apk herunterladen, öffnen und Installation aus unbekannter Quelle erlauben."
           files: Stempel-Radar.apk
+      - name: data.json und version.json veröffentlichen
+        run: |
+          node tools/extract-data.js index.html ${{ steps.ver.outputs.data }} data.json
+          echo '{"apk": ${{ steps.ver.outputs.apk }}, "ver": ${{ steps.ver.outputs.data }}, "url": "https://github.com/KampfTeddy07/stempel-radar/releases/download/android-latest/Stempel-Radar.apk"}' > version.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json version.json
+          git diff --cached --quiet || (git commit -m "Daten/Version aktualisiert (Build ${{ steps.ver.outputs.apk }}) [skip ci]" && git push)

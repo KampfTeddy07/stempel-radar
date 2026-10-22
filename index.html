@@ -65,6 +65,7 @@ let cap=window.Capacitor,native=false,BG=null,LN=null;
 try{const reg=cap&&(cap.registerPlugin||(window.capacitorExports&&window.capacitorExports.registerPlugin));
   native=!!(cap&&cap.isNativePlatform&&cap.isNativePlatform()&&reg);
   if(native){BG=reg("BackgroundGeolocation");LN=reg("LocalNotifications")}}catch(e){native=false}
+const DATA_VER=0,APP_BUILD=0,BASE="https://kampfteddy07.github.io/stempel-radar/";
 const RAW=[
 ["ky-kyoto","Kyoto Station","京都駅","kyoto","jr",34.9858,135.7588,"Großer Stempel am Zentralausgang (中央口)"],
 ["ky-umekoji","Umekoji-Kyōtonishi","梅小路京都西駅","kyoto","jr",34.9869,135.7414,"Nächster Bahnhof zum Eisenbahnmuseum"],
@@ -237,7 +238,8 @@ const LINES=[
 ];
 const CATS={jr:{n:"JR-Bahnhof",c:"#2f8f5b",tip:"Stempel am Sperrenschalter – Personal fragen"},pb:{n:"Privatbahn / Metro",c:"#3b6fc9",tip:"Stempel im Stationsbüro hinter der Sperre"},sight:{n:"Sehenswürdigkeit",c:"#d98b1f",tip:"Stempel am Eingang, Info oder Shop"},go:{n:"Goshuin",c:"#b03a7a",tip:"Handgeschriebener Tempelstempel am Goshuin-Schalter (納経所), ca. ¥300–500"},ev:{n:"Aktion (befristet)",c:"#7a5cd6",tip:"Zeitlich begrenzte Stempelrallye"}};
 const REG={kyoto:"Kyoto",kansai:"Osaka · Nara · Uji",fuji:"Fuji",tokyo:"Tokio"};
-const ALL=RAW.map(r=>({id:r[0],n:r[1],jp:r[2],r:r[3],c:r[4],lat:r[5],lng:r[6],t:r[7]||CATS[r[4]].tip}));
+const mk=r=>({id:r[0],n:r[1],jp:r[2],r:r[3],c:r[4],lat:r[5],lng:r[6],t:r[7]||CATS[r[4]].tip});
+let ALL=RAW.map(mk),LINESX=LINES;
 const byId=id=>ALL.find(e=>e.id===id);
 const store={get(k,d){try{const v=localStorage.getItem("sr."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("sr."+k,JSON.stringify(v))}catch(e){}}};
 let done=new Set(store.get("done",[])),region=store.get("region","all"),cat="",pos=null,hideDone=false,q="",follow=true;
@@ -251,7 +253,7 @@ const visible=()=>ALL.filter(e=>(region==="all"||e.r===region)&&(!cat||e.c===cat
 const map=L.map("map",{zoomControl:true}).setView([35.3,137.3],6);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
 const layer=L.layerGroup().addTo(map); const lineLayer=L.layerGroup().addTo(map);
-LINES.forEach(ln=>L.polyline(ln.map(byId).map(e=>[e.lat,e.lng]),{color:"#2b3550",opacity:.45,weight:3}).addTo(lineLayer));
+function drawLines(){lineLayer.clearLayers();LINESX.forEach(ln=>{const pts=ln.map(byId).filter(Boolean);if(pts.length>1)L.polyline(pts.map(e=>[e.lat,e.lng]),{color:"#2b3550",opacity:.45,weight:3}).addTo(lineLayer)})}drawLines();
 let meMarker=null,meCircle=null,auto=false;
 function go(fn){auto=true;try{fn()}finally{setTimeout(()=>auto=false,50)}}
 map.on("movestart zoomstart",()=>{if(!auto)follow=false});
@@ -269,6 +271,13 @@ $("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=m
 $("q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};$("hideDone").onchange=e=>{hideDone=e.target.checked;render()};
 function render(){renderChips();drawMarkers();renderList()}
 render();
+// Auto-Update: Stempeldaten von der Webseite, APK-Hinweis für die Android-App
+let dataVer=DATA_VER;
+function applyData(d){if(!d||!Array.isArray(d.raw))return;ALL=d.raw.map(mk);LINESX=d.lines||LINESX;dataVer=d.ver||dataVer;drawLines();render();if(pos)checkRadar()}
+(function(){const st=store.get("data",null);if(st&&st.ver>DATA_VER)applyData(st)})();
+async function updateData(){try{const r=await fetch(BASE+"data.json?t="+Date.now(),{cache:"no-store"});const d=await r.json();if(d&&d.ver>dataVer){store.set("data",d);applyData(d);$("status").textContent="Stempelliste aktualisiert ("+ALL.length+" Einträge)"}}catch(e){}}
+async function updateApp(){if(!native)return;try{const r=await fetch(BASE+"version.json?t="+Date.now(),{cache:"no-store"});const v=await r.json();if(v&&v.apk>APP_BUILD){const b=document.createElement("div");b.className="alert on";b.style.background="var(--me)";b.innerHTML='Neue App-Version verfügbar (Build '+v.apk+', du hast '+APP_BUILD+'). <a href="'+v.url+'" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">Update laden</a> – danach „Installieren" bestätigen.';$("alert").parentNode.insertBefore(b,$("alert"))}}catch(e){}}
+updateData();updateApp();
 // Yen-Umrechner: Kurse von der EZB (frankfurter.app), Fallback = letzter gespeicherter Kurs
 let fx=store.get("fx",{CHF:191.75,EUR:177,date:"2026-10-22",src:"Schätzkurs"});
 const fxIn={JPY:$("fxJPY"),CHF:$("fxCHF"),EUR:$("fxEUR")};
