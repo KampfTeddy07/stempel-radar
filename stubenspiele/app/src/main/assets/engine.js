@@ -172,6 +172,11 @@
       room.players.push(p); broadcast(room);
       return [200, { code: room.code, pid: p.id, token: p.token }];
     }
+    if (path === '/api/state') {
+      const room = rooms.get(b.code); const p = auth(room, b.pid, b.token);
+      if (!p) return [403, { error: 'Nicht mehr im Spiel.' }];
+      return [200, roomView(room, p.id)];
+    }
     if (path === '/api/action') {
       const room = rooms.get(b.code); const p = auth(room, b.pid, b.token);
       if (!p) return [403, { error: 'Nicht mehr im Spiel.' }];

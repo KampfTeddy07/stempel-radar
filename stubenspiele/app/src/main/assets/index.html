@@ -141,14 +141,17 @@ async function post(path,data){
 function connect(){
   if(es)es.close();
   es=new EventSource(`/api/events?code=${encodeURIComponent(C.code)}&pid=${encodeURIComponent(C.pid)}&token=${encodeURIComponent(C.token)}`);
-  es.onmessage=e=>{C.online=true;const room=JSON.parse(e.data);
-    if(room.view&&room.view.game==='kniffel'&&room.view.seq!==C.lastSeq&&C.lastSeq>=0){C.anim=true;setTimeout(()=>{C.anim=false;render();},480);}
-    if(room.view&&room.view.game==='kniffel')C.lastSeq=room.view.seq;
-    if(!room.view||room.view.game!=='schnauz'||room.view.current!==room.view.me)C.sel={h:-1,t:-1};
-    C.room=room;C.page=room.phase==='lobby'?'lobby':'game';render();};
+  es.onmessage=e=>{applyRoom(JSON.parse(e.data));};
   es.onerror=()=>{C.online=false;render();};
   es.onopen=()=>{C.online=true;render();};
 }
+function applyRoom(room){C.online=true;
+    if(room.view&&room.view.game==='kniffel'&&room.view.seq!==C.lastSeq&&C.lastSeq>=0){C.anim=true;setTimeout(()=>{C.anim=false;render();},480);}
+    if(room.view&&room.view.game==='kniffel')C.lastSeq=room.view.seq;
+    if(!room.view||room.view.game!=='schnauz'||room.view.current!==room.view.me)C.sel={h:-1,t:-1};
+    C.room=room;C.page=room.phase==='lobby'?'lobby':'game';render();}
+// Sicherheitsnetz: alle 3 s den Stand abholen, falls die Live-Verbindung hängt
+setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;try{const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());}catch(e){C.online=false;render();}},3000);
 function act(action,data){post('/api/action',{code:C.code,pid:C.pid,token:C.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();});}
 function leave(){if(es)es.close();es=null;C.code=C.pid=C.token=null;C.room=null;C.page='home';C.confirm=false;persist();render();}
 
@@ -181,7 +184,7 @@ function lobby(){
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button></div>
   <p class="hint">${r.game==='schnauz'?'2 bis 4 Spieler · drei Leben plus Schwimmen':'1 bis 4 Spieler · 13 Züge'}</p>
   ${r.isHost?`<button class="btn btn-primary btn-big" data-a="start" ${n<min||n>4||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>`:`<p class="notice soft">Warten, bis ${esc(r.players.find(p=>p.host)?.name||'der Gastgeber')} startet.</p>`}
-  <button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></section>`;
+  <div class="actions"><button class="btn btn-ghost" data-a="reload">Neu laden</button><button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></div></section>`;
 }
 function topbar(title,meta){
   const r=C.room;
@@ -272,6 +275,7 @@ $app.addEventListener('click',async e=>{
   switch(a){
     case 'create':{const r=await post('/api/create',{name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
     case 'join':{const r=await post('/api/join',{code:C.codeIn,name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
+    case 'reload':location.reload();break;
     case 'leaveLobby':act('leave');leave();break;
     case 'leaveGame':leave();break;
     case 'menu':C.confirm=!C.confirm;render();break;
