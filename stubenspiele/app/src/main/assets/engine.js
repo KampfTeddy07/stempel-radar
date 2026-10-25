@@ -23,14 +23,14 @@
     return Math.max(...Object.values(by));
   }
   function szNew(names) {
-    const g = { players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
+    const g = { players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false, passed: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
     szStartRound(g, 0); return g;
   }
   const szActive = g => g.players.map((p, i) => i).filter(i => !g.players[i].out);
   function szNext(g, i) { let j = i; for (let k = 0; k < g.players.length; k++) { j = (j + 1) % g.players.length; if (!g.players[j].out) return j; } return i; }
   function szStartRound(g, dealer) {
     g.deck = makeDeck(); g.dealer = dealer; g.knocker = null; g.passes = 0; g.result = null; g.table = []; g.ev = null;
-    for (const p of g.players) { p.hand = []; p.val = 0; p.lost = false; }
+    for (const p of g.players) { p.hand = []; p.val = 0; p.lost = false; p.passed = false; }
     for (const i of szActive(g)) g.players[i].hand = g.deck.splice(0, 3);
     g.alt = g.deck.splice(0, 3);
     g.current = dealer; g.phase = 'dealer';
@@ -40,8 +40,9 @@
     if (g.knocker !== null && next === g.knocker) { szShowdown(g, 'klopf'); return; }
     g.current = next; g.phase = 'turn';
   }
+  const szClearPasses = g => { g.passes = 0; for (const p of g.players) p.passed = false; };
   function szAfterMove(g) {
-    g.passes = 0; const v = handValue(g.players[g.current].hand);
+    szClearPasses(g); const v = handValue(g.players[g.current].hand);
     if (v === 33) { szShowdown(g, 'feuer'); return; }
     if (v === 31) { szShowdown(g, 'schnauz'); return; }
     szAdvance(g);
@@ -74,12 +75,12 @@
       if (a === 'swap') { const h = +d.h, t = +d.t; if (!(h >= 0 && h < 3 && t >= 0 && t < 3)) return; const tmp = p.hand[h]; p.hand[h] = g.table[t]; g.table[t] = tmp; szEv(g, pi, 'swap', { t, gave: tmp, took: p.hand[h] }); szAfterMove(g); return; }
       if (a === 'swapAll') { const tmp = p.hand; p.hand = g.table; g.table = tmp; szEv(g, pi, 'swapAll'); szAfterMove(g); return; }
       if (a === 'pass') {
-        g.passes++;
-        if (g.passes >= szActive(g).length) { if (g.deck.length >= 3) { g.table = g.deck.splice(0, 3); g.passes = 0; szEv(g, pi, 'newTable'); szAdvance(g); } else szShowdown(g, 'deck'); }
+        g.passes++; p.passed = true;
+        if (g.passes >= szActive(g).length) { if (g.deck.length >= 3) { g.table = g.deck.splice(0, 3); szClearPasses(g); szEv(g, pi, 'newTable'); szAdvance(g); } else szShowdown(g, 'deck'); }
         else { szEv(g, pi, 'pass'); szAdvance(g); }
         return;
       }
-      if (a === 'knock' && g.knocker === null) { g.knocker = pi; g.passes = 0; szEv(g, pi, 'knock'); szAdvance(g); return; }
+      if (a === 'knock' && g.knocker === null) { g.knocker = pi; szClearPasses(g); szEv(g, pi, 'knock'); szAdvance(g); return; }
     }
     if (g.phase === 'roundEnd' && a === 'nextRound' && g.result && g.result.winner === null && !g.result.draw) { g.round++; szStartRound(g, szNext(g, g.dealer)); }
   }
@@ -88,7 +89,7 @@
     return {
       game: 'schnauz', round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
       table: g.phase === 'dealer' ? null : g.table,
-      players: g.players.map((p, i) => ({ name: p.name, lives: p.lives, swim: p.swim, out: p.out, lost: p.lost, val: open ? p.val : null, hand: (open || i === pi) ? p.hand : p.hand.length })),
+      players: g.players.map((p, i) => ({ name: p.name, lives: p.lives, swim: p.swim, out: p.out, lost: p.lost, passed: p.passed, val: open ? p.val : null, hand: (open || i === pi) ? p.hand : p.hand.length })),
     };
   }
 

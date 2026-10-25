@@ -52,13 +52,26 @@ input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
 .plist .row{padding:10px 14px}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--felt-line);display:inline-block}
 .dot.on{background:#7fd18f}
-.seats{display:flex;flex-wrap:wrap;gap:6px}
+.seats{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .seat{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;border:1px solid var(--felt-line);font-size:.9rem;min-width:0}
+.seat.back{background:transparent;color:var(--muted);font:700 .9rem var(--font-body);cursor:pointer;min-height:34px;touch-action:manipulation}
 .seat.cur{background:var(--brass-tint);border-color:var(--brass)} .seat.out{opacity:.4;text-decoration:line-through}
 .seat.me .nm::after{content:" (du)";color:var(--muted);font-weight:400}
 .seat .nm{font-weight:700;max-width:11ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lives{letter-spacing:.12em;color:var(--brass);font-size:.8rem;white-space:nowrap}
 .tag{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);font-weight:700} .tag.swim{color:#8fc9e8} .tag.soft{color:var(--muted)}
+/* Schwimmender Fisch für Spieler ohne Leben */
+.tag.swim{display:inline-flex;align-items:center;gap:2px;overflow:hidden}
+.fish{display:inline-block;width:1.6em;height:1.2em;text-align:center;font-size:1.05rem;line-height:1.2;letter-spacing:0;animation:fishswim 3.2s ease-in-out infinite;transform-origin:center}
+@keyframes fishswim{0%{transform:translate(-5px,0) scaleX(1)}20%{transform:translate(0,-2px) scaleX(1)}45%{transform:translate(5px,1px) scaleX(1)}50%{transform:translate(5px,0) scaleX(-1)}70%{transform:translate(0,-2px) scaleX(-1)}95%{transform:translate(-5px,1px) scaleX(-1)}100%{transform:translate(-5px,0) scaleX(1)}}
+/* Wirbelnder Schnauzer bei Schnauz (31) */
+.whoosh{position:fixed;inset:0;z-index:50;pointer-events:none;overflow:hidden;display:grid;place-items:center}
+.whoosh-fly{position:absolute;top:38%;left:-30vw;animation:whooshfly 2.4s cubic-bezier(.2,.7,.3,1) forwards;filter:drop-shadow(0 10px 18px rgba(0,0,0,.5))}
+.whoosh-stache{display:block;animation:whooshspin 2.4s cubic-bezier(.3,.1,.3,1) forwards}
+.whoosh-word{position:absolute;top:58%;font-family:var(--font-display);font-size:clamp(2.6rem,14vw,5rem);color:var(--brass);text-shadow:0 4px 14px rgba(0,0,0,.6);opacity:0;animation:whooshword 2.4s ease-out forwards;letter-spacing:.04em}
+@keyframes whooshfly{0%{left:-30vw;transform:scale(.4)}55%{left:calc(50% - 110px);transform:scale(1.15)}75%{left:calc(50% - 110px);transform:scale(1)}100%{left:130vw;transform:scale(.6)}}
+@keyframes whooshspin{0%{transform:rotate(0)}55%{transform:rotate(1080deg)}75%{transform:rotate(1080deg)}100%{transform:rotate(1440deg)}}
+@keyframes whooshword{0%,35%{opacity:0;transform:translateY(12px) scale(.8)}50%{opacity:1;transform:translateY(0) scale(1.05)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translateY(-10px)}}
 .lastline{font-size:.95rem;color:var(--muted);padding:8px 12px;border-left:3px solid var(--brass);background:var(--felt-tint);border-radius:0 10px 10px 0}
 .lastline b{color:var(--cream)} .lastline b.rc{color:#f08a8f}
 .lastline.fresh{animation:linein 1.2s ease-out}
@@ -71,7 +84,7 @@ input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
 .zone{display:flex;flex-direction:column;gap:10px;align-items:center}
 .zone-head{display:flex;justify-content:space-between;align-items:baseline;width:100%;gap:10px}
 .cards{display:flex;gap:clamp(8px,3vw,16px);justify-content:center;width:100%}
-.card{flex:0 0 clamp(78px,24vw,108px);aspect-ratio:5/7;max-width:100%;background:var(--cream);color:var(--ink);border:1px solid var(--cream-2);border-radius:10px;position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 6px 18px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.4) inset;transition:transform .15s,outline-color .15s;outline:3px solid transparent}
+.card{flex:0 0 clamp(60px,min(24vw,12.5vh),108px);aspect-ratio:5/7;max-width:100%;background:var(--cream);color:var(--ink);border:1px solid var(--cream-2);border-radius:10px;position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 6px 18px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.4) inset;transition:transform .15s,outline-color .15s;outline:3px solid transparent}
 .card.red{color:var(--rouge)} .card.sel{outline-color:var(--brass);transform:translateY(-10px)} .card.flat{cursor:default}
 .card .rk{position:absolute;top:6px;left:8px;font-size:1.1rem;font-weight:700;line-height:1}
 .card .rk2{position:absolute;bottom:6px;right:8px;font-size:1.1rem;font-weight:700;line-height:1;transform:rotate(180deg)}
@@ -82,6 +95,11 @@ input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
 .value{font-family:var(--font-display);font-size:1.6rem;font-variant-numeric:tabular-nums}
 .notice{padding:12px 16px;border-radius:12px;background:var(--brass-tint);border:1px solid var(--brass);font-size:.95rem}
 .notice.soft{background:var(--felt-tint);border-color:var(--felt-line);color:var(--muted)}
+.notice.slim{padding:8px 12px;font-size:.9rem;line-height:1.3} .notice.slim .hint{font-size:.85rem}
+.actions.three{grid-template-columns:1fr 1fr 1fr} .actions.three .btn{padding-inline:6px;font-size:.98rem;min-height:48px}
+/* Spielansichten: engere Abstände, damit alles ohne Scrollen auf einen Handybildschirm passt */
+#app.game{gap:10px;padding-block:8px 14px}
+#app.game .zone{gap:6px} #app.game .lastline{padding:5px 10px;font-size:.88rem} #app.game .seat{padding:4px 10px;font-size:.84rem;gap:6px} #app.game .notice.slim{padding:6px 12px}
 .wait{display:flex;flex-direction:column;align-items:center;gap:12px;padding-block:22px;text-align:center}
 .wait h2{font-size:1.9rem}
 .result{display:flex;flex-direction:column;gap:12px}
@@ -162,7 +180,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 @keyframes fly{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(260px,-30px) rotate(var(--r))}}
 .ltext{min-width:0;line-height:1.3}
 @media (prefers-reduced-motion:reduce){.fan .ucard.fanin{animation:none}.fly{display:none}.launcher.fire .lslot{animation:none}}
-@media (prefers-reduced-motion:reduce){.die.rolling{animation:none}.card,.die,.btn{transition:none}.card.flip-in,.seat.bump,.seat.knock,.lastline.fresh{animation:none}}
+@media (prefers-reduced-motion:reduce){.die.rolling{animation:none}.card,.die,.btn{transition:none}.card.flip-in,.seat.bump,.seat.knock,.lastline.fresh,.fish{animation:none}.whoosh{display:none}}
 </style>
 </head>
 <body>
@@ -292,7 +310,7 @@ function cardHtml(c,o={}){
 const backHtml=sm=>`<div class="card back ${sm?'sm':''}" aria-hidden="true"></div>`;
 const fmtVal=v=>v===33?'Feuer':v===30.5?'30½':v===31?'31 · Schnauz':String(v);
 function handValue(h){if(!Array.isArray(h)||h.length<3)return 0;if(h[0].r===h[1].r&&h[1].r===h[2].r)return h[0].r==='A'?33:30.5;const by={};for(const c of h)by[c.s]=(by[c.s]||0)+c.v;return Math.max(...Object.values(by));}
-function livesHtml(p){if(p.out)return'<span class="tag">raus</span>';let s='';for(let i=0;i<3;i++)s+=i<p.lives?'●':'○';return`<span class="lives">${s}</span>${p.swim?'<span class="tag swim">schwimmt</span>':''}`;}
+function livesHtml(p){if(p.out)return'<span class="tag">raus</span>';let s='';for(let i=0;i<3;i++)s+=i<p.lives?'●':'○';return`<span class="lives">${s}</span>${p.swim?'<span class="tag swim"><span class="fish" aria-hidden="true">🐟</span>schwimmt</span>':''}`;}
 
 function home(){
   const online=C.mode==='online';const len=online?6:4;
@@ -320,45 +338,48 @@ function lobby(){
   ${r.isHost?`<button class="btn btn-primary btn-big" data-a="start" ${n<min||n>4||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>`:`<p class="notice soft">Warten, bis ${esc(r.players.find(p=>p.host)?.name||'der Gastgeber')} startet.</p>`}
   <div class="actions">${C.mode==='online'&&C.isHost?'':'<button class="btn btn-ghost" data-a="reload">Neu laden</button>'}<button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></div></section>`;
 }
-function topbar(title,meta){
+function topbar(title,meta,mini){
   const r=C.room;
-  return`<div class="bar"><button class="btn btn-ghost" data-a="menu">‹ Tisch ${esc(r.code)}</button><span class="bar-title">${title}</span><span class="bar-meta">${meta}</span></div>
-  ${C.confirm?`<div class="confirm"><p>${r.isHost?'Spiel abbrechen und alle zurück in die Lobby?':'Den Tisch verlassen? Du kannst nicht wieder in das laufende Spiel.'}</p><div class="actions"><button class="btn btn-primary" data-a="${r.isHost?'backToLobby':'leaveGame'}">${r.isHost?'Zur Lobby':'Verlassen'}</button><button class="btn btn-outline" data-a="menuNo">Weiterspielen</button></div></div>`:''}`;
+  const confirm=C.confirm?`<div class="confirm"><p>${r.isHost?'Spiel abbrechen und alle zurück in die Lobby?':'Den Tisch verlassen? Du kannst nicht wieder in das laufende Spiel.'}</p><div class="actions"><button class="btn btn-primary" data-a="${r.isHost?'backToLobby':'leaveGame'}">${r.isHost?'Zur Lobby':'Verlassen'}</button><button class="btn btn-outline" data-a="menuNo">Weiterspielen</button></div></div>`:'';
+  // mini: kein eigener Header – Zurück-Knopf und Info wandern als Pills in die Spielerzeile
+  if(mini)return{confirm,pre:`<button class="seat back" data-a="menu" aria-label="Tisch ${esc(r.code)} verlassen">‹ ${esc(r.code)}</button>`};
+  return`<div class="bar"><button class="btn btn-ghost" data-a="menu">‹ Tisch ${esc(r.code)}</button><span class="bar-title">${title}</span><span class="bar-meta">${meta}</span></div>${confirm}`;
 }
 
 function schnauz(){
   const r=C.room,g=r.view,me=g.me,cur=g.players[g.current],myTurn=g.current===me;
-  let h=topbar('Schnauz · Runde '+g.round,'Stapel '+g.deck);
+  const tb=topbar('','',true);let h=tb.confirm;const meta='Runde '+g.round+' · Stapel '+g.deck;
   const ev=g.ev;const fresh=!!ev&&ev.seq!==C.szSeq;if(ev)C.szSeq=ev.seq;
   const cn=c=>`<b class="${c.red?'rc':''}">${c.r}${c.s}</b>`;
   const evText=!ev?'':ev.type==='swap'?`${esc(g.players[ev.pi].name)} legt ${cn(ev.gave)} in die Mitte und nimmt ${cn(ev.took)}.`:ev.type==='swapAll'?`${esc(g.players[ev.pi].name)} tauscht alle drei Karten.`:ev.type==='pass'?`${esc(g.players[ev.pi].name)} schiebt.`:ev.type==='knock'?`${esc(g.players[ev.pi].name)} klopft! Jeder hat noch genau einen Zug.`:ev.type==='newTable'?'Alle haben geschoben: drei neue Karten in der Mitte.':ev.type==='dealerKeep'?`${esc(g.players[ev.pi].name)} behält die Karten, der zweite Stapel liegt offen.`:ev.type==='dealerSwap'?`${esc(g.players[ev.pi].name)} tauscht blind gegen den zweiten Stapel.`:'';
   const seatAnim=i=>fresh&&ev.pi===i?(ev.type==='knock'?' knock':' bump'):'';
   const flip=i=>fresh&&ev&&((ev.type==='swap'&&ev.t===i)||ev.type==='swapAll'||ev.type==='newTable'||ev.type==='dealerKeep'||ev.type==='dealerSwap');
-  h+=`<div class="seats">${g.players.map((p,i)=>`<span class="seat ${i===g.current&&g.phase!=='roundEnd'?'cur':''} ${p.out?'out':''} ${i===me?'me':''}${seatAnim(i)}"><span class="nm">${esc(p.name)}</span>${livesHtml(p)}${i===g.dealer&&!p.out?'<span class="tag">gibt</span>':''}${i===g.knocker?'<span class="tag">klopft</span>':''}${ev&&ev.type==='pass'&&ev.pi===i&&g.phase==='turn'?'<span class="tag soft">schiebt</span>':''}</span>`).join('')}</div>`;
+  h+=`<div class="seats">${tb.pre}${g.players.map((p,i)=>`<span class="seat ${i===g.current&&g.phase!=='roundEnd'?'cur':''} ${p.out?'out':''} ${i===me?'me':''}${seatAnim(i)}"><span class="nm">${esc(p.name)}</span>${livesHtml(p)}${i===g.dealer&&!p.out?'<span class="tag">gibt</span>':''}${i===g.knocker?'<span class="tag">klopft</span>':''}${p.passed&&g.phase==='turn'?'<span class="tag soft">schiebt</span>':''}</span>`).join('')}</div>`;
   if(evText&&g.phase!=='roundEnd')h+=`<p class="lastline ${fresh?'fresh':''}">${evText}</p>`;
   const mine=g.players[me];const myHand=Array.isArray(mine.hand)?mine.hand:[];
   const handZone=(sel)=>`<div class="zone"><div class="zone-head"><span class="eyebrow">Deine Karten</span><span class="value">${myHand.length?fmtVal(handValue(myHand)):'–'}</span></div><div class="cards">${myHand.length?myHand.map((c,i)=>cardHtml(c,sel?{a:'selH',i,sel:C.sel.h===i}:{flat:true})).join(''):'<p class="hint">Du setzt diese Runde aus.</p>'}</div></div>`;
   if(g.phase==='dealer'){
-    h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">Zweiter Stapel · verdeckt</span></div><div class="cards">${backHtml()}${backHtml()}${backHtml()}</div></div>`+handZone(false);
+    h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">Zweiter Stapel · verdeckt</span><span class="hint">${meta}</span></div><div class="cards">${backHtml()}${backHtml()}${backHtml()}</div></div>`+handZone(false);
     h+=myTurn?`<p class="notice soft">Du gibst. Behalte deine Hand oder tausche sie blind gegen den zweiten Stapel.</p><div class="actions"><button class="btn btn-primary" data-a="dealerKeep">Behalten</button><button class="btn btn-outline" data-a="dealerSwap">Blind tauschen</button></div>`
       :`<p class="notice soft">${esc(cur.name)} gibt und entscheidet gerade.</p>`;
     return h;
   }
   if(g.phase==='turn'){
     const canSwap=myTurn&&C.sel.h>=0&&C.sel.t>=0;
-    h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">In der Mitte</span><span class="hint">${g.knocker!==null?'Letzte Runde':''}</span></div><div class="cards">${g.table.map((c,i)=>cardHtml(c,Object.assign(myTurn?{a:'selT',i,sel:C.sel.t===i}:{flat:true},flip(i)?{cls:'flip-in',delay:i*220}:{}))).join('')}</div></div>`;
+    h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">In der Mitte</span><span class="hint">${g.knocker!==null?'Letzte Runde · ':''}${meta}</span></div><div class="cards">${g.table.map((c,i)=>cardHtml(c,Object.assign(myTurn?{a:'selT',i,sel:C.sel.t===i}:{flat:true},flip(i)?{cls:'flip-in',delay:i*220}:{}))).join('')}</div></div>`;
     h+=handZone(myTurn);
     if(myTurn){
-      h+=`<p class="notice">Du bist dran.${g.knocker!==null?' '+esc(g.players[g.knocker].name)+' hat geklopft – letzter Zug.':''}</p>
-      <p class="hint">${canSwap?'Tauschen: '+myHand[C.sel.h].r+myHand[C.sel.h].s+' gegen '+g.table[C.sel.t].r+g.table[C.sel.t].s:'Tippe eine Karte oben und eine unten an, um sie zu tauschen.'}</p>
-      <div class="actions"><button class="btn btn-primary wide" data-a="swap" ${canSwap&&!C.busy?'':'disabled'}>Tauschen</button>
+      const sub=g.knocker!==null?esc(g.players[g.knocker].name)+' hat geklopft – letzter Zug.':canSwap?'Tauschen: '+myHand[C.sel.h].r+myHand[C.sel.h].s+' gegen '+g.table[C.sel.t].r+g.table[C.sel.t].s:'Tippe oben und unten je eine Karte an.';
+      h+=`<p class="notice slim"><b>Du bist dran.</b> <span class="hint">${sub}</span></p>
+      <div class="actions three"><button class="btn btn-primary wide" data-a="swap" ${canSwap&&!C.busy?'':'disabled'}>Tauschen</button>
       <button class="btn btn-outline" data-a="swapAll" ${C.busy?'disabled':''}>Alle drei</button><button class="btn btn-outline" data-a="pass" ${C.busy?'disabled':''}>Schieben</button>
-      <button class="btn wide" data-a="knock" ${g.knocker!==null||C.busy?'disabled':''}>${g.knocker!==null?'Es wurde schon geklopft':'Klopfen'}</button></div>`;
+      <button class="btn" data-a="knock" ${g.knocker!==null||C.busy?'disabled':''}>${g.knocker!==null?'Geklopft':'Klopfen'}</button></div>`;
     }else h+=`<div class="wait"><p class="eyebrow">Am Zug</p><h2>${esc(cur.name)}</h2>${g.knocker!==null?`<p class="hint">${esc(g.players[g.knocker].name)} hat geklopft – letzte Runde.</p>`:''}</div>`;
     return h;
   }
   if(g.phase==='roundEnd'){
     const res=g.result;
+    if(res.reason==='schnauz'&&C.szWhoosh!==g.round){C.szWhoosh=g.round;setTimeout(schnauzWhoosh,0);}
     const why={klopf:'Nach dem Klopfen wird abgerechnet.',schnauz:'31 auf der Hand – die Runde ist sofort vorbei.',feuer:'Feuer! Drei Asse – alle anderen verlieren ein Leben.',deck:'Der Stapel ist leer – Abrechnung.'}[res.reason];
     h+=`<div class="result"><p class="notice">${why}</p>${res.players.map(i=>{const p=g.players[i];const lost=res.losers.includes(i);const best=!lost&&(res.reason==='schnauz'||res.reason==='feuer')&&p.val>=31;
       return`<div class="row ${lost?'lost':''} ${best?'win':''}"><span class="who">${esc(p.name)}${i===me?' <span class="hint">(du)</span>':''}</span><div class="cards">${p.hand.map(c=>cardHtml(c,{flat:true,sm:true})).join('')}</div><span class="val">${fmtVal(p.val)}</span>${lost?`<span class="note">${esc(res.notes[i])}</span>`:''}</div>`;}).join('')}`;
@@ -459,11 +480,19 @@ function fanHtml(g,hand,myTurn,pick,anim){
   return`<div class="fanwrap"><div class="fan" style="width:${width}px;height:${Math.round(cw*1.4+spread*mid*mid*0.55+34)}px">${cards}</div></div>`;
 }
 
+/* Wirbelnder Schnauzer, wenn jemand Schnauz (31) hat */
+function schnauzWhoosh(){
+  const old=document.querySelector('.whoosh');if(old)old.remove();
+  const el=document.createElement('div');el.className='whoosh';el.setAttribute('aria-hidden','true');
+  el.innerHTML=`<div class="whoosh-fly"><svg class="whoosh-stache" viewBox="0 0 200 80" width="220" height="88"><path d="M100 48c-9-16-22-24-36-22-14 2-24 12-30 24-4 8-3 16 3 20 9 6 20 1 28-5 6-5 10-7 15-7 9 0 15 4 20 11 5-7 11-11 20-11 5 0 9 2 15 7 8 6 19 11 28 5 6-4 7-12 3-20-6-12-16-22-30-24-14-2-27 6-36 22z" fill="#2a1a10" stroke="#d4a84b" stroke-width="3" stroke-linejoin="round"/></svg></div><div class="whoosh-word">Schnauz!</div>`;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),2600);
+}
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
   let h=C.online||C.page==='home'?'':'<div class="offline">Verbindung wird neu aufgebaut …</div>';
   if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():kniffel();
   $app.innerHTML=h;
+  $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
 }
 
