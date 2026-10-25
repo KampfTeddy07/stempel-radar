@@ -23,13 +23,13 @@
     return Math.max(...Object.values(by));
   }
   function szNew(names) {
-    const g = { players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null };
+    const g = { players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
     szStartRound(g, 0); return g;
   }
   const szActive = g => g.players.map((p, i) => i).filter(i => !g.players[i].out);
   function szNext(g, i) { let j = i; for (let k = 0; k < g.players.length; k++) { j = (j + 1) % g.players.length; if (!g.players[j].out) return j; } return i; }
   function szStartRound(g, dealer) {
-    g.deck = makeDeck(); g.dealer = dealer; g.knocker = null; g.passes = 0; g.result = null; g.table = [];
+    g.deck = makeDeck(); g.dealer = dealer; g.knocker = null; g.passes = 0; g.result = null; g.table = []; g.ev = null;
     for (const p of g.players) { p.hand = []; p.val = 0; p.lost = false; }
     for (const i of szActive(g)) g.players[i].hand = g.deck.splice(0, 3);
     g.alt = g.deck.splice(0, 3);
@@ -62,30 +62,31 @@
     g.result = { reason, losers, notes, players: act.slice(), winner: left.length === 1 ? left[0] : null, draw: left.length === 0 };
     g.phase = 'roundEnd';
   }
+  function szEv(g, pi, type, extra) { g.ev = Object.assign({ seq: ++g.evSeq, pi, type }, extra || {}); }
   function szAction(g, pi, a, d) {
     const mine = g.current === pi;
     if (g.phase === 'dealer' && mine) {
-      if (a === 'dealerKeep') { g.table = g.alt; g.alt = []; g.current = szNext(g, g.dealer); g.phase = 'turn'; return; }
-      if (a === 'dealerSwap') { const p = g.players[g.dealer]; g.table = p.hand; p.hand = g.alt; g.alt = []; g.current = szNext(g, g.dealer); g.phase = 'turn'; return; }
+      if (a === 'dealerKeep') { g.table = g.alt; g.alt = []; szEv(g, pi, 'dealerKeep'); g.current = szNext(g, g.dealer); g.phase = 'turn'; return; }
+      if (a === 'dealerSwap') { const p = g.players[g.dealer]; g.table = p.hand; p.hand = g.alt; g.alt = []; szEv(g, pi, 'dealerSwap'); g.current = szNext(g, g.dealer); g.phase = 'turn'; return; }
     }
     if (g.phase === 'turn' && mine) {
       const p = g.players[pi];
-      if (a === 'swap') { const h = +d.h, t = +d.t; if (!(h >= 0 && h < 3 && t >= 0 && t < 3)) return; const tmp = p.hand[h]; p.hand[h] = g.table[t]; g.table[t] = tmp; szAfterMove(g); return; }
-      if (a === 'swapAll') { const tmp = p.hand; p.hand = g.table; g.table = tmp; szAfterMove(g); return; }
+      if (a === 'swap') { const h = +d.h, t = +d.t; if (!(h >= 0 && h < 3 && t >= 0 && t < 3)) return; const tmp = p.hand[h]; p.hand[h] = g.table[t]; g.table[t] = tmp; szEv(g, pi, 'swap', { t, gave: tmp, took: p.hand[h] }); szAfterMove(g); return; }
+      if (a === 'swapAll') { const tmp = p.hand; p.hand = g.table; g.table = tmp; szEv(g, pi, 'swapAll'); szAfterMove(g); return; }
       if (a === 'pass') {
         g.passes++;
-        if (g.passes >= szActive(g).length) { if (g.deck.length >= 3) { g.table = g.deck.splice(0, 3); g.passes = 0; szAdvance(g); } else szShowdown(g, 'deck'); }
-        else szAdvance(g);
+        if (g.passes >= szActive(g).length) { if (g.deck.length >= 3) { g.table = g.deck.splice(0, 3); g.passes = 0; szEv(g, pi, 'newTable'); szAdvance(g); } else szShowdown(g, 'deck'); }
+        else { szEv(g, pi, 'pass'); szAdvance(g); }
         return;
       }
-      if (a === 'knock' && g.knocker === null) { g.knocker = pi; g.passes = 0; szAdvance(g); return; }
+      if (a === 'knock' && g.knocker === null) { g.knocker = pi; g.passes = 0; szEv(g, pi, 'knock'); szAdvance(g); return; }
     }
     if (g.phase === 'roundEnd' && a === 'nextRound' && g.result && g.result.winner === null && !g.result.draw) { g.round++; szStartRound(g, szNext(g, g.dealer)); }
   }
   function szView(g, pi) {
     const open = g.phase === 'roundEnd';
     return {
-      game: 'schnauz', round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result,
+      game: 'schnauz', round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
       table: g.phase === 'dealer' ? null : g.table,
       players: g.players.map((p, i) => ({ name: p.name, lives: p.lives, swim: p.swim, out: p.out, lost: p.lost, val: open ? p.val : null, hand: (open || i === pi) ? p.hand : p.hand.length })),
     };

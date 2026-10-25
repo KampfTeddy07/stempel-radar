@@ -58,7 +58,16 @@ input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
 .seat.me .nm::after{content:" (du)";color:var(--muted);font-weight:400}
 .seat .nm{font-weight:700;max-width:11ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lives{letter-spacing:.12em;color:var(--brass);font-size:.8rem;white-space:nowrap}
-.tag{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);font-weight:700} .tag.swim{color:#8fc9e8}
+.tag{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);font-weight:700} .tag.swim{color:#8fc9e8} .tag.soft{color:var(--muted)}
+.lastline{font-size:.95rem;color:var(--muted);padding:8px 12px;border-left:3px solid var(--brass);background:var(--felt-tint);border-radius:0 10px 10px 0}
+.lastline b{color:var(--cream)} .lastline b.rc{color:#f08a8f}
+.lastline.fresh{animation:linein .5s ease-out}
+@keyframes linein{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+.seat.bump{animation:bump .6s ease-out} .seat.knock{animation:knock .7s ease-out}
+@keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.12);background:var(--brass-tint)}100%{transform:scale(1)}}
+@keyframes knock{0%,100%{transform:translateX(0)}15%{transform:translateX(-6px)}30%{transform:translateX(6px)}45%{transform:translateX(-5px)}60%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+.card.flip-in{animation:flipin .6s cubic-bezier(.2,.8,.2,1) both;transform-style:preserve-3d}
+@keyframes flipin{0%{transform:rotateY(90deg) translateY(-10px);opacity:.2}60%{transform:rotateY(-12deg)}100%{transform:none;opacity:1}}
 .zone{display:flex;flex-direction:column;gap:10px;align-items:center}
 .zone-head{display:flex;justify-content:space-between;align-items:baseline;width:100%;gap:10px}
 .cards{display:flex;gap:clamp(8px,3vw,16px);justify-content:center;width:100%}
@@ -153,7 +162,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 @keyframes fly{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(260px,-30px) rotate(var(--r))}}
 .ltext{min-width:0;line-height:1.3}
 @media (prefers-reduced-motion:reduce){.fan .ucard.fanin{animation:none}.fly{display:none}.launcher.fire .lslot{animation:none}}
-@media (prefers-reduced-motion:reduce){.die.rolling{animation:none}.card,.die,.btn{transition:none}}
+@media (prefers-reduced-motion:reduce){.die.rolling{animation:none}.card,.die,.btn{transition:none}.card.flip-in,.seat.bump,.seat.knock,.lastline.fresh{animation:none}}
 </style>
 </head>
 <body>
@@ -168,7 +177,7 @@ const LS='stubenspiele-lan';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LAN_OK=location.protocol==='http:'&&!/github\.io$/.test(location.hostname);
 const WEB_URL='kampfteddy07.github.io/stempel-radar/spiele';
-let C={mode:LAN_OK?'lan':'online',wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
+let C={szSeq:0,mode:LAN_OK?'lan':'online',wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
 let es=null;
 try{const r=localStorage.getItem(LS);if(r)Object.assign(C,JSON.parse(r));}catch(e){}
 if(!LAN_OK)C.mode='online';
@@ -274,10 +283,11 @@ const newCid=()=>Array.from({length:16},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Ma
 
 /* ---- Darstellung ---- */
 function cardHtml(c,o={}){
-  const cls=['card',c.red?'red':'',o.sel?'sel':'',o.sm?'sm':'',o.flat?'flat':''].join(' ');
+  const cls=['card',c.red?'red':'',o.sel?'sel':'',o.sm?'sm':'',o.flat?'flat':'',o.cls||''].join(' ');
+  const st=o.delay?` style="animation-delay:${o.delay}ms"`:'';
   const inner=`<span class="rk">${c.r}</span><span class="su">${c.s}</span><span class="rk2">${c.r}</span>`;
-  if(o.flat)return`<div class="${cls}">${inner}</div>`;
-  return`<button class="${cls}" data-a="${o.a}" data-i="${o.i}" aria-pressed="${!!o.sel}" aria-label="${c.r}${c.s}">${inner}</button>`;
+  if(o.flat)return`<div class="${cls}"${st}>${inner}</div>`;
+  return`<button class="${cls}"${st} data-a="${o.a}" data-i="${o.i}" aria-pressed="${!!o.sel}" aria-label="${c.r}${c.s}">${inner}</button>`;
 }
 const backHtml=sm=>`<div class="card back ${sm?'sm':''}" aria-hidden="true"></div>`;
 const fmtVal=v=>v===33?'Feuer':v===30.5?'30½':v===31?'31 · Schnauz':String(v);
@@ -319,7 +329,13 @@ function topbar(title,meta){
 function schnauz(){
   const r=C.room,g=r.view,me=g.me,cur=g.players[g.current],myTurn=g.current===me;
   let h=topbar('Schnauz · Runde '+g.round,'Stapel '+g.deck);
-  h+=`<div class="seats">${g.players.map((p,i)=>`<span class="seat ${i===g.current&&g.phase!=='roundEnd'?'cur':''} ${p.out?'out':''} ${i===me?'me':''}"><span class="nm">${esc(p.name)}</span>${livesHtml(p)}${i===g.dealer&&!p.out?'<span class="tag">gibt</span>':''}${i===g.knocker?'<span class="tag">klopft</span>':''}</span>`).join('')}</div>`;
+  const ev=g.ev;const fresh=!!ev&&ev.seq!==C.szSeq;if(ev)C.szSeq=ev.seq;
+  const cn=c=>`<b class="${c.red?'rc':''}">${c.r}${c.s}</b>`;
+  const evText=!ev?'':ev.type==='swap'?`${esc(g.players[ev.pi].name)} legt ${cn(ev.gave)} in die Mitte und nimmt ${cn(ev.took)}.`:ev.type==='swapAll'?`${esc(g.players[ev.pi].name)} tauscht alle drei Karten.`:ev.type==='pass'?`${esc(g.players[ev.pi].name)} schiebt.`:ev.type==='knock'?`${esc(g.players[ev.pi].name)} klopft! Jeder hat noch genau einen Zug.`:ev.type==='newTable'?'Alle haben geschoben: drei neue Karten in der Mitte.':ev.type==='dealerKeep'?`${esc(g.players[ev.pi].name)} behält die Karten, der zweite Stapel liegt offen.`:ev.type==='dealerSwap'?`${esc(g.players[ev.pi].name)} tauscht blind gegen den zweiten Stapel.`:'';
+  const seatAnim=i=>fresh&&ev.pi===i?(ev.type==='knock'?' knock':' bump'):'';
+  const flip=i=>fresh&&ev&&((ev.type==='swap'&&ev.t===i)||ev.type==='swapAll'||ev.type==='newTable'||ev.type==='dealerKeep'||ev.type==='dealerSwap');
+  h+=`<div class="seats">${g.players.map((p,i)=>`<span class="seat ${i===g.current&&g.phase!=='roundEnd'?'cur':''} ${p.out?'out':''} ${i===me?'me':''}${seatAnim(i)}"><span class="nm">${esc(p.name)}</span>${livesHtml(p)}${i===g.dealer&&!p.out?'<span class="tag">gibt</span>':''}${i===g.knocker?'<span class="tag">klopft</span>':''}${ev&&ev.type==='pass'&&ev.pi===i&&g.phase==='turn'?'<span class="tag soft">schiebt</span>':''}</span>`).join('')}</div>`;
+  if(evText&&g.phase!=='roundEnd')h+=`<p class="lastline ${fresh?'fresh':''}">${evText}</p>`;
   const mine=g.players[me];const myHand=Array.isArray(mine.hand)?mine.hand:[];
   const handZone=(sel)=>`<div class="zone"><div class="zone-head"><span class="eyebrow">Deine Karten</span><span class="value">${myHand.length?fmtVal(handValue(myHand)):'–'}</span></div><div class="cards">${myHand.length?myHand.map((c,i)=>cardHtml(c,sel?{a:'selH',i,sel:C.sel.h===i}:{flat:true})).join(''):'<p class="hint">Du setzt diese Runde aus.</p>'}</div></div>`;
   if(g.phase==='dealer'){
@@ -330,7 +346,7 @@ function schnauz(){
   }
   if(g.phase==='turn'){
     const canSwap=myTurn&&C.sel.h>=0&&C.sel.t>=0;
-    h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">In der Mitte</span><span class="hint">${g.knocker!==null?'Letzte Runde':''}</span></div><div class="cards">${g.table.map((c,i)=>cardHtml(c,myTurn?{a:'selT',i,sel:C.sel.t===i}:{flat:true})).join('')}</div></div>`;
+    h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">In der Mitte</span><span class="hint">${g.knocker!==null?'Letzte Runde':''}</span></div><div class="cards">${g.table.map((c,i)=>cardHtml(c,Object.assign(myTurn?{a:'selT',i,sel:C.sel.t===i}:{flat:true},flip(i)?{cls:'flip-in',delay:i*110}:{}))).join('')}</div></div>`;
     h+=handZone(myTurn);
     if(myTurn){
       h+=`<p class="notice">Du bist dran.${g.knocker!==null?' '+esc(g.players[g.knocker].name)+' hat geklopft – letzter Zug.':''}</p>
