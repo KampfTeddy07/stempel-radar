@@ -212,38 +212,50 @@ const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mq
 const BROKER_LETTERS=['E','H','M'];
 const brokerFromCode=code=>{const i=BROKER_LETTERS.indexOf((code||'').slice(-1));return i<0?0:i;};
 const makeOnlineCode=idx=>Array.from({length:5},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('')+BROKER_LETTERS[idx];
-const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),ready:false,done:{},doneKeys:[],
+const OL={clients:[],brokerIdx:0,pending:{},n:0,lastSeen:{},route:{},subs:new Set(),ready:false,done:{},doneKeys:[],misses:0,
   topicHost(){return'stubenspiele/v1/'+C.code+'/host';},
   topicClient(cid){return'stubenspiele/v1/'+C.code+'/c/'+cid;},
-  connect(){
+  get client(){return this.clients.find(c=>c&&c.connected)||null;},
+  open(idx){ // eine Verbindung zu Relay idx; löst erst auf, wenn das Abo bestätigt ist
     return new Promise((resolve,reject)=>{
-      if(this.client){try{this.client.end(true);}catch(e){}this.client=null;}
       if(typeof mqtt==='undefined'){reject(new Error('Relay-Bibliothek fehlt.'));return;}
-      let settled=false;const url=BROKERS[this.brokerIdx%BROKERS.length];
-      const cl=mqtt.connect(url,{clean:false,keepalive:30,reconnectPeriod:1000,connectTimeout:10000,resubscribe:true,clientId:'stuben_'+C.cid});
-      this.client=cl;
-      const timer=setTimeout(()=>{if(!settled){settled=true;try{cl.end(true);}catch(e){}this.client=null;reject(new Error('Relay nicht erreichbar. Internet da?'));}},11000);
-      cl.on('connect',()=>{this.ready=true;setOnline(true);this.subscribeTopics(()=>{if(!settled){settled=true;clearTimeout(timer);resolve();}});render();});
-      cl.on('offline',()=>{this.ready=false;setOnline(false);});
-      cl.on('close',()=>{this.ready=false;setOnline(false);});
+      const old=this.clients[idx];if(old){try{old.end(true);}catch(e){}}
+      let settled=false;const url=BROKERS[idx];
+      const cl=mqtt.connect(url,{clean:false,keepalive:30,reconnectPeriod:1000,connectTimeout:10000,resubscribe:true,clientId:'stuben_'+C.cid+'_'+BROKER_LETTERS[idx]});
+      this.clients[idx]=cl;
+      const timer=setTimeout(()=>{if(!settled){settled=true;try{cl.end(true);}catch(e){}if(this.clients[idx]===cl)this.clients[idx]=null;reject(new Error('Relay nicht erreichbar. Internet da?'));}},11000);
+      cl.on('connect',()=>{this.ready=true;setOnline(true);this.subscribeOn(cl,()=>{if(!settled){settled=true;clearTimeout(timer);resolve(cl);}});render();});
+      cl.on('offline',()=>this.check());
+      cl.on('close',()=>this.check());
       cl.on('error',()=>{});
-      cl.on('message',(topic,payload)=>{let m;try{m=JSON.parse(payload.toString());}catch(e){return;}this.onMessage(m);});
+      cl.on('message',(topic,payload)=>{let m;try{m=JSON.parse(payload.toString());}catch(e){return;}this.onMessage(m,idx);});
     });
   },
-  subscribeTopics(done){if(!this.client||!C.code){if(done)done();return;}const t=C.isHost?this.topicHost():this.topicClient(C.cid);
-    this.client.subscribe(t,{qos:1},()=>{if(!C.isHost&&C.pid)this.pub(this.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});if(done)done();});},
-  async connectAny(){ // Gastgeber: Relays der Reihe nach probieren
-    for(let k=0;k<BROKERS.length;k++){this.brokerIdx=k;try{await this.connect();return k;}catch(e){}}
-    throw new Error('Kein Relay erreichbar. Internet da?');
+  check(){const any=this.clients.some(c=>c&&c.connected);this.ready=any;if(!any)setOnline(false);},
+  subscribeOn(cl,done){if(!cl||!C.code){if(done)done();return;}const t=C.isHost?this.topicHost():this.topicClient(C.cid);
+    cl.subscribe(t,{qos:1},()=>{if(!C.isHost&&C.pid)this.pubOn(cl,this.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});if(done)done();});},
+  subscribeTopics(done){const cs=this.clients.filter(c=>c&&c.connected);let left=cs.length;if(!left){if(done)done();return;}for(const c of cs)this.subscribeOn(c,()=>{if(--left===0&&done)done();});},
+  connect(){ // Gast: genau ein Relay (brokerIdx)
+    this.closeAll();return this.open(this.brokerIdx);
   },
-  pub(topic,obj){if(this.client)this.client.publish(topic,JSON.stringify(obj),{qos:1});},
-  onMessage(m){
+  async connectAny(){ // Gastgeber: auf allen erreichbaren Relays gleichzeitig lauschen; der Code trägt den Buchstaben des ersten
+    this.closeAll();const res=await Promise.allSettled(BROKERS.map((_,k)=>this.open(k)));
+    const ok=res.map((r,k)=>r.status==='fulfilled'?k:-1).filter(k=>k>=0);
+    if(!ok.length)throw new Error('Kein Relay erreichbar. Internet da?');
+    this.brokerIdx=ok[0];return ok[0];
+  },
+  closeAll(){for(const c of this.clients)if(c){try{c.end(true);}catch(e){}}this.clients=[];this.ready=false;},
+  pubOn(cl,topic,obj){if(cl&&cl.connected)cl.publish(topic,JSON.stringify(obj),{qos:1});},
+  pub(topic,obj,cid){ // Gastgeber antwortet über das Relay, auf dem der Gast zuletzt zu sehen war
+    let cl=cid!==undefined?this.clients[this.route[cid]]:null;if(!cl||!cl.connected)cl=this.client;this.pubOn(cl,topic,obj);},
+  onMessage(m,idx){
     if(C.isHost){
-      if(!m.from)return;this.lastSeen[m.from]=Date.now();
-      if(m.type==='req'){const key=m.from+'/'+m.id;if(this.done[key]){this.pub(this.topicClient(m.from),this.done[key]);return;}
-        Engine.request('o'+(++this.n),m.path,m.body||{},(st,body)=>{const res={type:'res',id:m.id,status:st,body};this.done[key]=res;this.doneKeys.push(key);if(this.doneKeys.length>80)delete this.done[this.doneKeys.shift()];this.pub(this.topicClient(m.from),res);});}
-      if(m.type==='sub'){this.subs.add(m.from);Engine.subscribe(m.from,C.code,m.pid,m.token,data=>this.pub(this.topicClient(m.from),data===null?{type:'closed'}:{type:'state',data}));}
+      if(!m.from)return;this.lastSeen[m.from]=Date.now();this.route[m.from]=idx;
+      if(m.type==='req'){const key=m.from+'/'+m.id;if(this.done[key]){this.pub(this.topicClient(m.from),this.done[key],m.from);return;}
+        Engine.request('o'+(++this.n),m.path,m.body||{},(st,body)=>{const res={type:'res',id:m.id,status:st,body};this.done[key]=res;this.doneKeys.push(key);if(this.doneKeys.length>80)delete this.done[this.doneKeys.shift()];this.pub(this.topicClient(m.from),res,m.from);});}
+      if(m.type==='sub'){const cid=m.from;this.subs.add(cid);Engine.subscribe(cid,C.code,m.pid,m.token,data=>this.pub(this.topicClient(cid),data===null?{type:'closed'}:{type:'state',data},cid));}
     }else{
+      this.misses=0;
       if(m.type==='res'&&this.pending[m.id]){const cb=this.pending[m.id];delete this.pending[m.id];cb(m);}
       if(m.type==='state')applyRoom(JSON.parse(m.data));
       if(m.type==='closed')leave();
@@ -254,12 +266,14 @@ const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),read
       if(C.isHost){Engine.request('l'+(++this.n),path,body,(status,b)=>resolve({status,body:b}));return;}
       const id='q'+(++this.n);const msg={type:'req',from:C.cid,id,path,body};
       const again=setInterval(()=>{if(this.pending[id])this.pub(this.topicHost(),msg);},3000);
-      const t=setTimeout(()=>{clearInterval(again);delete this.pending[id];resolve({status:0,body:{error:path==='/api/join'?'Kein Spiel mit diesem Code erreichbar. Ist der Gastgeber online und der Code richtig?':'Keine Antwort vom Gastgeber. Verbindung wird neu aufgebaut …'}});},path==='/api/join'?20000:12000);
+      const t=setTimeout(()=>{clearInterval(again);delete this.pending[id];
+        if(path!=='/api/join'&&++this.misses>=2&&C.code){this.misses=0;this.brokerIdx=(this.brokerIdx+1)%BROKERS.length;this.connect().catch(()=>{});} // Relay wechseln, wenn der Gastgeber wiederholt nicht antwortet
+        resolve({status:0,body:{error:path==='/api/join'?'Kein Spiel mit diesem Code erreichbar. Ist der Gastgeber online und der Code richtig?':'Keine Antwort vom Gastgeber. Verbindung wird neu aufgebaut …'}});},path==='/api/join'?9000:12000);
       this.pending[id]=m=>{clearTimeout(t);clearInterval(again);resolve({status:m.status,body:m.body});};
       this.pub(this.topicHost(),msg);
     });
   },
-  hostLoop(){ // Gäste, von denen 30 s nichts kam, gelten als weg
+  hostLoop(){ // Gäste, von denen 60 s nichts kam, gelten als weg
     setInterval(()=>{if(!C.isHost||!C.code)return;const now=Date.now();for(const cid of [...this.subs])if(now-(this.lastSeen[cid]||0)>60000){this.subs.delete(cid);Engine.unsubscribe(cid);}},5000);
   },
   wake(){try{if(navigator.wakeLock&&navigator.wakeLock.request)navigator.wakeLock.request('screen').catch(()=>{});}catch(e){}}
@@ -276,7 +290,7 @@ async function post(path,data){
 function connect(){
   if(C.mode==='online'){
     if(C.isHost){Engine.subscribe('local',C.code,C.pid,C.token,data=>{if(data===null)leave();else applyRoom(JSON.parse(data));});OL.wake();}
-    if(!OL.client)OL.connect().catch(e=>{C.err=e.message;render();});
+    if(!OL.clients.length)(C.isHost?OL.connectAny():OL.connect()).catch(e=>{C.err=e.message;render();});
     return;
   }
   if(es)es.close();
@@ -298,7 +312,7 @@ setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;
     const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());
   }catch(e){setOnline(false);}},C.mode==='online'?5000:3000);
 function act(action,data){post('/api/action',{code:C.code,pid:C.pid,token:C.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();});}
-function leave(){if(es)es.close();es=null;if(OL.client){try{OL.client.end(true);}catch(e){}OL.client=null;OL.ready=false;}C.code=C.pid=C.token=null;C.isHost=false;C.room=null;C.roomKey=null;C.page='home';C.confirm=false;persist();render();}
+function leave(){if(es)es.close();es=null;OL.closeAll();C.code=C.pid=C.token=null;C.isHost=false;C.room=null;C.roomKey=null;C.page='home';C.confirm=false;persist();render();}
 const newCid=()=>Array.from({length:16},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random()*31)]).join('');
 
 /* ---- Darstellung ---- */
@@ -510,9 +524,15 @@ $app.addEventListener('click',async e=>{
         const r=await post('/api/create',{name:C.name,codeLen:6,code:makeOnlineCode(idx)});if(!r){leave();break;}Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();OL.subscribeTopics();connect();break;}
       const r=await post('/api/create',{name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
     case 'join':{
-      if(C.mode==='online'){C.cid=tabCid();C.isHost=false;C.code=C.codeIn.toUpperCase();OL.brokerIdx=brokerFromCode(C.code);C.busy=true;C.err='';render();
-        try{await OL.connect();}catch(e){C.err=e.message;C.busy=false;C.code=null;render();break;}C.busy=false;
-        const r=await post('/api/join',{code:C.code,name:C.name});if(!r){C.code=null;if(OL.client){try{OL.client.end(true);}catch(e){}OL.client=null;}render();break;}
+      if(C.mode==='online'){C.cid=tabCid();C.isHost=false;C.code=C.codeIn.toUpperCase();const first=brokerFromCode(C.code);C.busy=true;C.err='';render();
+        let r=null;
+        for(let k=0;k<BROKERS.length;k++){OL.brokerIdx=(first+k)%BROKERS.length;C.err=k?'Keine Antwort – versuche Relay '+(k+1)+' von '+BROKERS.length+' …':'';render();
+          try{await OL.connect();}catch(e){C.err=e.message;continue;}
+          const res=await OL.send('/api/join',{code:C.code,name:C.name});
+          if(res.status===200){r=res.body;break;}
+          C.err=res.body&&res.body.error||'Fehler';if(res.status!==0)break; // echte Antwort (voll, läuft schon): nicht weiterprobieren
+        }
+        C.busy=false;if(!r){C.code=null;OL.closeAll();render();break;}
         Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();OL.pub(OL.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});break;}
       const r=await post('/api/join',{code:C.codeIn,name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
     case 'reload':location.reload();break;
