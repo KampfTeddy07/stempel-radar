@@ -177,6 +177,9 @@ function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:
 /* ---- Netz: zwei Wege zum Gastgeber ----
    lan:    HTTP + SSE direkt zum Server (App oder Node) im gleichen WLAN/Hotspot
    online: öffentlicher MQTT-Relay über das Internet; die Engine läuft im Browser/der App des Gastgebers */
+let offlineTimer=null;
+function setOnline(on){if(on){clearTimeout(offlineTimer);offlineTimer=null;if(!C.online){C.online=true;render();}return;}
+  if(offlineTimer||!C.online)return;offlineTimer=setTimeout(()=>{offlineTimer=null;C.online=false;render();},4000);}
 const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081'];
 const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),ready:false,
   topicHost(){return'stubenspiele/v1/'+C.code+'/host';},
@@ -186,13 +189,14 @@ const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),read
       if(this.client){try{this.client.end(true);}catch(e){}this.client=null;}
       if(typeof mqtt==='undefined'){reject(new Error('Relay-Bibliothek fehlt.'));return;}
       let settled=false;const url=BROKERS[this.brokerIdx%BROKERS.length];
-      const cl=mqtt.connect(url,{clean:true,keepalive:20,reconnectPeriod:2000,connectTimeout:8000,clientId:'stuben_'+C.cid});
+      const cl=mqtt.connect(url,{clean:false,keepalive:30,reconnectPeriod:1000,connectTimeout:10000,resubscribe:true,clientId:'stuben_'+C.cid});
       this.client=cl;
-      const timer=setTimeout(()=>{if(!settled){settled=true;this.brokerIdx++;try{cl.end(true);}catch(e){}reject(new Error('Relay nicht erreichbar. Internet da?'));}},9000);
-      cl.on('connect',()=>{this.ready=true;C.online=true;const t=C.isHost?this.topicHost():this.topicClient(C.cid);cl.subscribe(t,{qos:1});
+      const timer=setTimeout(()=>{if(!settled){settled=true;this.brokerIdx++;try{cl.end(true);}catch(e){}reject(new Error('Relay nicht erreichbar. Internet da?'));}},11000);
+      cl.on('connect',()=>{this.ready=true;setOnline(true);const t=C.isHost?this.topicHost():this.topicClient(C.cid);cl.subscribe(t,{qos:1});
         if(!C.isHost&&C.pid)this.pub(this.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});
         if(!settled){settled=true;clearTimeout(timer);resolve();}render();});
-      cl.on('offline',()=>{this.ready=false;C.online=false;render();});
+      cl.on('offline',()=>{this.ready=false;setOnline(false);});
+      cl.on('close',()=>{this.ready=false;setOnline(false);});
       cl.on('error',()=>{});
       cl.on('message',(topic,payload)=>{let m;try{m=JSON.parse(payload.toString());}catch(e){return;}this.onMessage(m);});
     });
@@ -212,13 +216,13 @@ const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),read
   send(path,body){
     return new Promise((resolve)=>{
       if(C.isHost){Engine.request('l'+(++this.n),path,body,(status,b)=>resolve({status,body:b}));return;}
-      const id='q'+(++this.n);const t=setTimeout(()=>{delete this.pending[id];resolve({status:0,body:{error:path==='/api/join'?'Kein Spiel mit diesem Code erreichbar. Ist der Gastgeber online und der Code richtig?':'Keine Antwort vom Gastgeber.'}});},path==='/api/join'?9000:7000);
+      const id='q'+(++this.n);const t=setTimeout(()=>{delete this.pending[id];resolve({status:0,body:{error:path==='/api/join'?'Kein Spiel mit diesem Code erreichbar. Ist der Gastgeber online und der Code richtig?':'Keine Antwort vom Gastgeber. Verbindung wird neu aufgebaut …'}});},path==='/api/join'?12000:12000);
       this.pending[id]=m=>{clearTimeout(t);resolve({status:m.status,body:m.body});};
       this.pub(this.topicHost(),{type:'req',from:C.cid,id,path,body});
     });
   },
   hostLoop(){ // Gäste, von denen 30 s nichts kam, gelten als weg
-    setInterval(()=>{if(!C.isHost||!C.code)return;const now=Date.now();for(const cid of [...this.subs])if(now-(this.lastSeen[cid]||0)>30000){this.subs.delete(cid);Engine.unsubscribe(cid);}},5000);
+    setInterval(()=>{if(!C.isHost||!C.code)return;const now=Date.now();for(const cid of [...this.subs])if(now-(this.lastSeen[cid]||0)>60000){this.subs.delete(cid);Engine.unsubscribe(cid);}},5000);
   },
   wake(){try{if(navigator.wakeLock&&navigator.wakeLock.request)navigator.wakeLock.request('screen').catch(()=>{});}catch(e){}}
 };
@@ -240,10 +244,10 @@ function connect(){
   if(es)es.close();
   es=new EventSource(`/api/events?code=${encodeURIComponent(C.code)}&pid=${encodeURIComponent(C.pid)}&token=${encodeURIComponent(C.token)}`);
   es.onmessage=e=>{applyRoom(JSON.parse(e.data));};
-  es.onerror=()=>{C.online=false;render();};
-  es.onopen=()=>{C.online=true;render();};
+  es.onerror=()=>{setOnline(false);};
+  es.onopen=()=>{setOnline(true);};
 }
-function applyRoom(room){const key=JSON.stringify(room);if(key===C.roomKey&&C.online){return;}C.roomKey=key;C.online=true;
+function applyRoom(room){setOnline(true);const key=JSON.stringify(room);if(key===C.roomKey){return;}C.roomKey=key;
     if(room.view&&room.view.game==='kniffel'&&room.view.seq!==C.lastSeq&&C.lastSeq>=0){C.anim=true;setTimeout(()=>{C.anim=false;render();},480);}
     if(room.view&&room.view.game==='kniffel')C.lastSeq=room.view.seq;
     if(!room.view||room.view.game!=='schnauz'||room.view.current!==room.view.me)C.sel={h:-1,t:-1};
@@ -254,7 +258,7 @@ setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;
   try{
     if(C.mode==='online'){if(C.isHost||!OL.ready)return;const r=await OL.send('/api/state',{code:C.code,pid:C.pid,token:C.token});if(r.status===403){leave();return;}if(r.status===200)applyRoom(r.body);return;}
     const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());
-  }catch(e){C.online=false;render();}},C.mode==='online'?5000:3000);
+  }catch(e){setOnline(false);}},C.mode==='online'?5000:3000);
 function act(action,data){post('/api/action',{code:C.code,pid:C.pid,token:C.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();});}
 function leave(){if(es)es.close();es=null;if(OL.client){try{OL.client.end(true);}catch(e){}OL.client=null;OL.ready=false;}C.code=C.pid=C.token=null;C.isHost=false;C.room=null;C.roomKey=null;C.page='home';C.confirm=false;persist();render();}
 const newCid=()=>Array.from({length:16},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random()*31)]).join('');
@@ -432,7 +436,7 @@ function fanHtml(g,hand,myTurn,pick,anim){
 
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
-  let h=C.online||C.page==='home'?'':'<div class="offline">Verbindung zum Server unterbrochen – versuche es neu …</div>';
+  let h=C.online||C.page==='home'?'':'<div class="offline">Verbindung wird neu aufgebaut … der Tisch bleibt bestehen.</div>';
   if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():kniffel();
   $app.innerHTML=h;
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}

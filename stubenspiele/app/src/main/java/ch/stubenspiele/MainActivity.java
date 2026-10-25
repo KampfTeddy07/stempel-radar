@@ -1,6 +1,8 @@
 package ch.stubenspiele;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -20,6 +22,12 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
+        try {
+            Intent svc = new Intent(this, KeepAliveService.class);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc); else startService(svc);
+        } catch (Exception ignored) {}
         web = new WebView(this);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -56,6 +64,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        try { stopService(new Intent(this, KeepAliveService.class)); } catch (Exception ignored) {}
         if (server != null) server.stop();
         if (web != null) web.destroy();
         super.onDestroy();
