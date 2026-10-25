@@ -1,0 +1,39 @@
+name: Stubenspiele APK
+on:
+  push:
+    branches: [main]
+    paths: ["stubenspiele/**", ".github/workflows/stubenspiele.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: stubenspiele
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: APK bauen
+        working-directory: stubenspiele
+        env:
+          APK_BUILD: ${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../Stubenspiele.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stubenspiele-apk
+          path: Stubenspiele.apk
+      - name: Als Release veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: stubenspiele-latest
+          name: Stubenspiele Android (aktuell)
+          body: "Schnauz & Kniffel für bis zu 4 Leute über WLAN/Hotspot. Stubenspiele.apk herunterladen, öffnen, Installation aus unbekannter Quelle erlauben. Das Handy mit der App ist der Server, die anderen spielen im Browser."
+          files: Stubenspiele.apk
