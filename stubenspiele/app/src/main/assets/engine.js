@@ -254,7 +254,9 @@
   }
   function route(path, b) {
     if (path === '/api/create') {
-      const code = newCode(b.codeLen === 6 ? 6 : 4); const p = { id: uid(), token: uid(), name: cleanName(b.name), streams: [] };
+      let code = newCode(b.codeLen === 6 ? 6 : 4);
+      if (typeof b.code === 'string' && /^[A-Z0-9]{6}$/.test(b.code) && !rooms.has(b.code)) code = b.code;
+      const p = { id: uid(), token: uid(), name: cleanName(b.name), streams: [] };
       rooms.set(code, { code, host: p.id, players: [p], phase: 'lobby', game: 'schnauz', state: null, created: Date.now(), online: b.codeLen === 6 });
       return [200, { code, pid: p.id, token: p.token }];
     }
