@@ -27,7 +27,7 @@ jobs:
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" != "0" ]; then
-            { echo "Build-Log (letzte 150 Zeilen):"; echo '```'; tail -n 150 build.log; echo '```'; } > fehler.md
+            { echo "Build-Log (letzte 150 Zeilen):"; echo '```'; grep -vE '^\s+at |^\s+\.\.\. [0-9]+ more' build.log | tail -n 120; echo '```'; } > fehler.md
             gh issue create --title "Stubenspiele-Build fehlgeschlagen (Run ${{ github.run_number }})" --body-file fehler.md || true
             exit 1
           fi

@@ -7,8 +7,9 @@ android {
         applicationId "ch.stubenspiele"
         minSdk 21
         targetSdk 34
-        versionCode (System.getenv("APK_BUILD") ?: "1").toInteger()
-        versionName "1." + (System.getenv("APK_BUILD") ?: "0")
+        def build = (System.getenv("APK_BUILD") ?: "1") as Integer
+        versionCode = build
+        versionName = "1." + build
     }
     signingConfigs {
         release {
