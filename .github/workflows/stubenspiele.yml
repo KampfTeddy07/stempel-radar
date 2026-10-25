@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  issues: write
 concurrency:
   group: stubenspiele
   cancel-in-progress: true
@@ -14,18 +15,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
       - name: APK bauen
         working-directory: stubenspiele
-        env:
-          APK_BUILD: ${{ github.run_number }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          set +e
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" != "0" ]; then
+            { echo "Build-Log (letzte 150 Zeilen):"; echo '```'; tail -n 150 build.log; echo '```'; } > fehler.md
+            gh issue create --title "Stubenspiele-Build fehlgeschlagen (Run ${{ github.run_number }})" --body-file fehler.md || true
+            exit 1
+          fi
           cp app/build/outputs/apk/release/app-release.apk ../Stubenspiele.apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_BUILD: ${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: Stubenspiele-apk
