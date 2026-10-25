@@ -83,9 +83,10 @@ input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
 .row .note{width:100%;font-size:.85rem;color:var(--muted)}
 .winner{text-align:center;padding-block:14px} .winner h2{font-size:2.4rem;color:var(--brass)}
 .dice{display:flex;gap:clamp(6px,2.5vw,12px);justify-content:center;width:100%}
-.die{flex:0 0 clamp(50px,16vw,70px);aspect-ratio:1;max-width:100%;border-radius:14px;border:none;background:var(--cream);padding:14%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.5) inset;outline:3px solid transparent;transition:transform .15s,outline-color .15s;position:relative}
+.die{--ds:clamp(50px,16vw,70px);flex:0 0 var(--ds);width:var(--ds);height:var(--ds);border-radius:14px;border:none;background:var(--cream);padding:0;display:block;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.5) inset;outline:3px solid transparent;transition:transform .15s,outline-color .15s;position:relative;overflow:visible}
+.die .face{position:absolute;inset:14%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}
 .die:disabled{cursor:default}
-.die .p{border-radius:50%;background:var(--ink);visibility:hidden;width:70%;height:70%;place-self:center}
+.die .p{display:block;border-radius:50%;background:var(--ink);visibility:hidden;width:70%;height:70%;place-self:center;margin:auto}
 .die[data-v="1"] .p:nth-child(5){visibility:visible}
 .die[data-v="2"] .p:nth-child(1),.die[data-v="2"] .p:nth-child(9){visibility:visible}
 .die[data-v="3"] .p:nth-child(1),.die[data-v="3"] .p:nth-child(5),.die[data-v="3"] .p:nth-child(9){visibility:visible}
@@ -286,7 +287,7 @@ function kniffel(){
   }else{
     const left=3-g.rolls;
     h+=`<div class="dice-wrap"><div class="turnline"><b>${myTurn?'Du bist dran':esc(p.name)+' ist dran'}</b><span class="hint">${g.rolls===0?'Noch nicht gewürfelt':left>0?left+(left===1?' Wurf':' Würfe')+' übrig':'Eintragen'}</span></div>
-    <div class="dice">${g.dice.map((v,i)=>g.rolls===0?`<div class="die blank">${'<span class="p"></span>'.repeat(9)}</div>`:`<button class="die ${g.held[i]?'held':''} ${C.anim&&!g.held[i]?'rolling':''}" data-a="hold" data-i="${i}" data-v="${v}" ${myTurn&&left>0?'':'disabled'} aria-pressed="${g.held[i]}">${'<span class="p"></span>'.repeat(9)}</button>`).join('')}</div>
+    <div class="dice">${g.dice.map((v,i)=>g.rolls===0?`<div class="die blank"><span class="face">${'<span class="p"></span>'.repeat(9)}</span></div>`:`<button class="die ${g.held[i]?'held':''} ${C.anim&&!g.held[i]?'rolling':''}" data-a="hold" data-i="${i}" data-v="${v}" ${myTurn&&left>0?'':'disabled'} aria-pressed="${g.held[i]}"><span class="face">${'<span class="p"></span>'.repeat(9)}</span></button>`).join('')}</div>
     ${myTurn?`<button class="btn btn-primary btn-big" data-a="roll" ${left===0||C.busy?'disabled':''}>${g.rolls===0?'Würfeln':left===0?'Keine Würfe mehr – eintragen':'Nochmal würfeln'}</button>`:`<p class="notice soft">${esc(p.name)} würfelt. Du siehst live mit.</p>`}</div>`;
     if(myTurn&&g.rolls>0&&left>0)h+=`<p class="hint" style="text-align:center">Tippe Würfel an, um sie festzuhalten. Oder trage unten direkt ein.</p>`;
   }
