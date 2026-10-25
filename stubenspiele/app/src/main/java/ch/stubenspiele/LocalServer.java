@@ -66,16 +66,20 @@ public class LocalServer {
 
     public void stop() { running = false; try { if (ss != null) ss.close(); } catch (IOException ignored) {} pool.shutdownNow(); }
 
+    /** Nur WLAN/Hotspot-Adressen; VPN-Tunnel (tun) und Mobilfunk (rmnet, ccmni) sind für Mitspieler nutzlos. */
     public List<String> urls() {
-        List<String> out = new ArrayList<>();
+        List<String> wifi = new ArrayList<>(), rest = new ArrayList<>();
         try {
             for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
                 if (!ni.isUp() || ni.isLoopback()) continue;
+                String n = ni.getName();
+                if (n.startsWith("tun") || n.startsWith("ppp") || n.startsWith("rmnet") || n.startsWith("ccmni") || n.startsWith("clat") || n.startsWith("dummy")) continue;
+                boolean isWifi = n.startsWith("wlan") || n.startsWith("swlan") || n.startsWith("ap") || n.startsWith("eth") || n.startsWith("p2p");
                 for (InetAddress a : Collections.list(ni.getInetAddresses()))
-                    if (a instanceof Inet4Address && !a.isLoopbackAddress()) out.add("http://" + a.getHostAddress() + ":" + port);
+                    if (a instanceof Inet4Address && !a.isLoopbackAddress()) (isWifi ? wifi : rest).add("http://" + a.getHostAddress() + ":" + port);
             }
         } catch (Exception ignored) {}
-        return out;
+        return wifi.isEmpty() ? rest : wifi;
     }
 
     private void handle(Socket sock) {
