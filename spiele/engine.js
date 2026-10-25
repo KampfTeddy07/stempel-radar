@@ -245,6 +245,7 @@
         if (n >= min && n <= 4) { room.state = newGame(room); room.phase = 'playing'; }
       }
       if (a === 'leave') { room.players.splice(pi, 1); if (room.host === p.id && room.players[0]) room.host = room.players[0].id; }
+      if (a === 'kick' && room.host === p.id) { const t = room.players[+d.i]; if (t && t.id !== room.host && t.streams.length === 0) room.players.splice(+d.i, 1); }
       return;
     }
     if (a === 'backToLobby' && room.host === p.id) { room.phase = 'lobby'; room.state = null; return; }
@@ -266,8 +267,16 @@
       const room = rooms.get(String(b.code || '').toUpperCase().trim());
       if (!room) return [404, { error: 'Kein Spiel mit diesem Code.' }];
       if (room.phase !== 'lobby') return [409, { error: 'Das Spiel läuft schon.' }];
-      if (room.players.length >= 4) return [409, { error: 'Der Tisch ist voll (4 Spieler).' }];
-      const p = { id: uid(), token: uid(), name: cleanName(b.name), streams: [] };
+      const name = cleanName(b.name);
+      // Gleicher Name, aber nicht verbunden (z. B. Beitritt ohne Antwort): Platz übernehmen statt Geist anlegen
+      const ghost = room.players.find(p => p.name === name && p.id !== room.host && p.streams.length === 0);
+      if (ghost) { ghost.token = uid(); broadcast(room); return [200, { code: room.code, pid: ghost.id, token: ghost.token }]; }
+      if (room.players.length >= 4) {
+        const gi = room.players.findIndex(p => p.id !== room.host && p.streams.length === 0);
+        if (gi < 0) return [409, { error: 'Der Tisch ist voll (4 Spieler).' }];
+        room.players.splice(gi, 1);
+      }
+      const p = { id: uid(), token: uid(), name, streams: [] };
       room.players.push(p); broadcast(room);
       return [200, { code: room.code, pid: p.id, token: p.token }];
     }
