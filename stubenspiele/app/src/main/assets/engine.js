@@ -1,14 +1,15 @@
-// Stubenspiele – Spiel-Engine. Läuft nur auf dem Host-Handy im WebView; Java reicht HTTP-Anfragen hier herein.
+// Stubenspiele – Spiel-Engine. Läuft beim Gastgeber: in der App reicht Java HTTP-Anfragen herein (Bridge),
+// im Internet-Modus reicht die Seite selbst Nachrichten vom Relay herein (Callbacks).
 (function () {
   'use strict';
-  if (!window.Bridge) return;
+  const B = window.Bridge || null;
   const rooms = new Map();
   const streams = new Map();
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const rnd = n => Math.floor(Math.random() * n);
   const uid = () => Array.from({ length: 24 }, () => CODE_CHARS[rnd(CODE_CHARS.length)]).join('');
-  function newCode() { let c; do { c = ''; for (let i = 0; i < 4; i++) c += CODE_CHARS[rnd(CODE_CHARS.length)]; } while (rooms.has(c)); return c; }
-  function lanUrls() { try { return JSON.parse(Bridge.urls()); } catch (e) { return []; } }
+  function newCode(len) { let c; do { c = ''; for (let i = 0; i < (len || 4); i++) c += CODE_CHARS[rnd(CODE_CHARS.length)]; } while (rooms.has(c)); return c; }
+  function lanUrls() { try { return B ? JSON.parse(B.urls()) : []; } catch (e) { return []; } }
 
   /* ---- Schnauz ---- */
   const SUITS = [{ s: '♠', red: false }, { s: '♥', red: true }, { s: '♦', red: true }, { s: '♣', red: false }];
@@ -223,12 +224,12 @@
   function newGame(room) { const nm = room.players.map(x => x.name); return room.game === 'schnauz' ? szNew(nm) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : knNew(nm); }
   function roomView(room, pid) {
     const pi = room.players.findIndex(p => p.id === pid);
-    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic' };
+    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', online: !!room.online };
     if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : room.game === 'uno' ? unoView(room.state, pi) : knView(room.state, pi);
     return base;
   }
   function broadcast(room) {
-    for (const p of room.players) { const data = JSON.stringify(roomView(room, p.id)); for (const sid of p.streams) Bridge.push(sid, data); }
+    for (const p of room.players) { const data = JSON.stringify(roomView(room, p.id)); for (const sid of p.streams) { const st = streams.get(sid); if (st && st.sink) st.sink(data); else if (B) B.push(sid, data); } }
   }
   function auth(room, pid, token) { const p = room && room.players.find(p => p.id === pid); return p && p.token === token ? p : null; }
   function cleanName(n) { return String(n || '').trim().slice(0, 14) || 'Spieler'; }
@@ -253,8 +254,8 @@
   }
   function route(path, b) {
     if (path === '/api/create') {
-      const code = newCode(); const p = { id: uid(), token: uid(), name: cleanName(b.name), streams: [] };
-      rooms.set(code, { code, host: p.id, players: [p], phase: 'lobby', game: 'schnauz', state: null, created: Date.now() });
+      const code = newCode(b.codeLen === 6 ? 6 : 4); const p = { id: uid(), token: uid(), name: cleanName(b.name), streams: [] };
+      rooms.set(code, { code, host: p.id, players: [p], phase: 'lobby', game: 'schnauz', state: null, created: Date.now(), online: b.codeLen === 6 });
       return [200, { code, pid: p.id, token: p.token }];
     }
     if (path === '/api/join') {
@@ -279,15 +280,16 @@
     }
     return [404, { error: 'Nicht gefunden' }];
   }
-  function request(id, path, bodyText) {
+  function request(id, path, bodyText, cb) {
     let res;
-    try { res = route(path, JSON.parse(bodyText || '{}')); } catch (e) { res = [500, { error: String(e) }]; }
-    Bridge.respond(id, res[0], JSON.stringify(res[1]));
+    try { res = route(path, typeof bodyText === 'string' ? JSON.parse(bodyText || '{}') : (bodyText || {})); } catch (e) { res = [500, { error: String(e) }]; }
+    if (cb) cb(res[0], res[1]); else if (B) B.respond(id, res[0], JSON.stringify(res[1]));
   }
-  function subscribe(id, code, pid, token) {
+  function subscribe(id, code, pid, token, sink) {
     const room = rooms.get(code); const p = auth(room, pid, token);
-    if (!p) { Bridge.closeStream(id); return; }
-    p.streams.push(id); streams.set(id, { room, p }); broadcast(room);
+    if (!p) { if (sink) sink(null); else if (B) B.closeStream(id); return; }
+    if (!p.streams.includes(id)) p.streams.push(id);
+    streams.set(id, { room, p, sink }); broadcast(room);
   }
   function unsubscribe(id) {
     const s = streams.get(id); if (!s) return;

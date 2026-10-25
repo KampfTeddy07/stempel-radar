@@ -158,26 +158,85 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 </head>
 <body>
 <div id="app"></div>
-<script src="/engine.js"></script>
+<script src="mqtt.min.js"></script>
+<script src="engine.js"></script>
 <script>
 (function(){
 'use strict';
 const $app=document.getElementById('app');
 const LS='stubenspiele-lan';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let C={wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
+const LAN_OK=location.protocol==='http:'&&!/github\.io$/.test(location.hostname);
+const WEB_URL='kampfteddy07.github.io/stempel-radar/spiele';
+let C={mode:LAN_OK?'lan':'online',wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
 let es=null;
 try{const r=localStorage.getItem(LS);if(r)Object.assign(C,JSON.parse(r));}catch(e){}
-function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:C.code,pid:C.pid,token:C.token}));}catch(e){}}
+if(!LAN_OK)C.mode='online';
+function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:C.code,pid:C.pid,token:C.token,mode:C.mode,cid:C.cid,isHost:C.isHost}));}catch(e){}}
 
-/* ---- Netz ---- */
+/* ---- Netz: zwei Wege zum Gastgeber ----
+   lan:    HTTP + SSE direkt zum Server (App oder Node) im gleichen WLAN/Hotspot
+   online: öffentlicher MQTT-Relay über das Internet; die Engine läuft im Browser/der App des Gastgebers */
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081'];
+const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),ready:false,
+  topicHost(){return'stubenspiele/v1/'+C.code+'/host';},
+  topicClient(cid){return'stubenspiele/v1/'+C.code+'/c/'+cid;},
+  connect(){
+    return new Promise((resolve,reject)=>{
+      if(this.client){try{this.client.end(true);}catch(e){}this.client=null;}
+      if(typeof mqtt==='undefined'){reject(new Error('Relay-Bibliothek fehlt.'));return;}
+      let settled=false;const url=BROKERS[this.brokerIdx%BROKERS.length];
+      const cl=mqtt.connect(url,{clean:true,keepalive:20,reconnectPeriod:2000,connectTimeout:8000,clientId:'stuben_'+C.cid});
+      this.client=cl;
+      const timer=setTimeout(()=>{if(!settled){settled=true;this.brokerIdx++;try{cl.end(true);}catch(e){}reject(new Error('Relay nicht erreichbar. Internet da?'));}},9000);
+      cl.on('connect',()=>{this.ready=true;C.online=true;const t=C.isHost?this.topicHost():this.topicClient(C.cid);cl.subscribe(t,{qos:1});
+        if(!C.isHost&&C.pid)this.pub(this.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});
+        if(!settled){settled=true;clearTimeout(timer);resolve();}render();});
+      cl.on('offline',()=>{this.ready=false;C.online=false;render();});
+      cl.on('error',()=>{});
+      cl.on('message',(topic,payload)=>{let m;try{m=JSON.parse(payload.toString());}catch(e){return;}this.onMessage(m);});
+    });
+  },
+  pub(topic,obj){if(this.client)this.client.publish(topic,JSON.stringify(obj),{qos:1});},
+  onMessage(m){
+    if(C.isHost){
+      if(!m.from)return;this.lastSeen[m.from]=Date.now();
+      if(m.type==='req')Engine.request('o'+(++this.n),m.path,m.body||{},(st,body)=>this.pub(this.topicClient(m.from),{type:'res',id:m.id,status:st,body}));
+      if(m.type==='sub'){this.subs.add(m.from);Engine.subscribe(m.from,C.code,m.pid,m.token,data=>this.pub(this.topicClient(m.from),data===null?{type:'closed'}:{type:'state',data}));}
+    }else{
+      if(m.type==='res'&&this.pending[m.id]){const cb=this.pending[m.id];delete this.pending[m.id];cb(m);}
+      if(m.type==='state')applyRoom(JSON.parse(m.data));
+      if(m.type==='closed')leave();
+    }
+  },
+  send(path,body){
+    return new Promise((resolve)=>{
+      if(C.isHost){Engine.request('l'+(++this.n),path,body,(status,b)=>resolve({status,body:b}));return;}
+      const id='q'+(++this.n);const t=setTimeout(()=>{delete this.pending[id];resolve({status:0,body:{error:path==='/api/join'?'Kein Spiel mit diesem Code erreichbar. Ist der Gastgeber online und der Code richtig?':'Keine Antwort vom Gastgeber.'}});},path==='/api/join'?9000:7000);
+      this.pending[id]=m=>{clearTimeout(t);resolve({status:m.status,body:m.body});};
+      this.pub(this.topicHost(),{type:'req',from:C.cid,id,path,body});
+    });
+  },
+  hostLoop(){ // Gäste, von denen 30 s nichts kam, gelten als weg
+    setInterval(()=>{if(!C.isHost||!C.code)return;const now=Date.now();for(const cid of [...this.subs])if(now-(this.lastSeen[cid]||0)>30000){this.subs.delete(cid);Engine.unsubscribe(cid);}},5000);
+  },
+  wake(){try{if(navigator.wakeLock&&navigator.wakeLock.request)navigator.wakeLock.request('screen').catch(()=>{});}catch(e){}}
+};
+OL.hostLoop();
 async function post(path,data){
   C.busy=true;render();
-  try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Fehler');C.err='';return j;}
+  try{
+    if(C.mode==='online'){const r=await OL.send(path,data);if(r.status!==200)throw new Error(r.body&&r.body.error||'Fehler');C.err='';return r.body;}
+    const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Fehler');C.err='';return j;}
   catch(e){C.err=e.message==='Failed to fetch'?'Server nicht erreichbar. Gleiches WLAN?':e.message;return null;}
   finally{C.busy=false;render();}
 }
 function connect(){
+  if(C.mode==='online'){
+    if(C.isHost){Engine.subscribe('local',C.code,C.pid,C.token,data=>{if(data===null)leave();else applyRoom(JSON.parse(data));});OL.wake();}
+    if(!OL.client)OL.connect().catch(e=>{C.err=e.message;render();});
+    return;
+  }
   if(es)es.close();
   es=new EventSource(`/api/events?code=${encodeURIComponent(C.code)}&pid=${encodeURIComponent(C.pid)}&token=${encodeURIComponent(C.token)}`);
   es.onmessage=e=>{applyRoom(JSON.parse(e.data));};
@@ -190,10 +249,15 @@ function applyRoom(room){const key=JSON.stringify(room);if(key===C.roomKey&&C.on
     if(!room.view||room.view.game!=='schnauz'||room.view.current!==room.view.me)C.sel={h:-1,t:-1};
     if(!room.view||room.view.game!=='uno'||room.view.current!==room.view.me){C.wildIdx=null;C.pick=null;}
     C.room=room;C.page=room.phase==='lobby'?'lobby':'game';render();}
-// Sicherheitsnetz: alle 3 s den Stand abholen, falls die Live-Verbindung hängt
-setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;try{const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());}catch(e){C.online=false;render();}},3000);
+// Sicherheitsnetz: regelmässig den Stand abholen (im Internet-Modus zugleich das Lebenszeichen an den Gastgeber)
+setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;
+  try{
+    if(C.mode==='online'){if(C.isHost||!OL.ready)return;const r=await OL.send('/api/state',{code:C.code,pid:C.pid,token:C.token});if(r.status===403){leave();return;}if(r.status===200)applyRoom(r.body);return;}
+    const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());
+  }catch(e){C.online=false;render();}},C.mode==='online'?5000:3000);
 function act(action,data){post('/api/action',{code:C.code,pid:C.pid,token:C.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();});}
-function leave(){if(es)es.close();es=null;C.code=C.pid=C.token=null;C.room=null;C.page='home';C.confirm=false;persist();render();}
+function leave(){if(es)es.close();es=null;if(OL.client){try{OL.client.end(true);}catch(e){}OL.client=null;OL.ready=false;}C.code=C.pid=C.token=null;C.isHost=false;C.room=null;C.roomKey=null;C.page='home';C.confirm=false;persist();render();}
+const newCid=()=>Array.from({length:16},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random()*31)]).join('');
 
 /* ---- Darstellung ---- */
 function cardHtml(c,o={}){
@@ -208,17 +272,22 @@ function handValue(h){if(!Array.isArray(h)||h.length<3)return 0;if(h[0].r===h[1]
 function livesHtml(p){if(p.out)return'<span class="tag">raus</span>';let s='';for(let i=0;i<3;i++)s+=i<p.lives?'●':'○';return`<span class="lives">${s}</span>${p.swim?'<span class="tag swim">schwimmt</span>':''}`;}
 
 function home(){
-  return`<header class="hero"><p class="eyebrow">Stubenspiele · WLAN</p><h1>Schnauz &amp; Kniffel</h1><p class="lede">Jeder spielt auf dem eigenen Handy. Einer eröffnet, die anderen treten mit dem Code bei.</p>${window.Bridge?`<div class="notice"><b>Dieses Handy ist der Server.</b> Hotspot einschalten oder alle ins gleiche WLAN, dann öffnen die anderen im Browser:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</header>
+  const online=C.mode==='online';const len=online?6:4;
+  return`<header class="hero"><p class="eyebrow">Stubenspiele</p><h1>Schnauz, Kniffel &amp; Vier Farben</h1><p class="lede">Jeder spielt auf dem eigenen Handy. Einer eröffnet, die anderen treten mit dem Code bei.</p></header>
+  ${LAN_OK?`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!online?'is-on':''}" data-a="setMode" data-m="lan">WLAN / Hotspot</button><button class="seg-btn ${online?'is-on':''}" data-a="setMode" data-m="online">Internet</button></div>
+  <p class="hint">${online?'Für Hotel-WLAN oder Mobilfunk: Läuft über einen öffentlichen Relay im Internet, alle brauchen nur Internet. Die anderen öffnen die Seite unter '+WEB_URL+'.':'Alle im gleichen WLAN oder am Hotspot dieses Handys; die anderen öffnen die unten gezeigte Adresse im Browser.'}</p>
+  ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy ist der Server.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
+  :`<p class="notice soft">Internet-Modus: Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.</p>`}
   <section class="panel"><h2>Dein Name</h2><input class="field" id="name" data-f="name" value="${esc(C.name)}" placeholder="z. B. Jim" maxlength="14" autocomplete="off">
   ${C.err?`<p class="error">${esc(C.err)}</p>`:''}
-  <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>Spiel eröffnen</button></section>
-  <section class="panel"><h2>Beitreten</h2><input class="field code" id="code" data-f="codeIn" value="${esc(C.codeIn)}" placeholder="CODE" maxlength="4" autocomplete="off" autocapitalize="characters">
-  <button class="btn btn-outline btn-big" data-a="join" ${C.busy||C.codeIn.length<4?'disabled':''}>Mitspielen</button></section>`;
+  <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':'Spiel eröffnen'}</button></section>
+  <section class="panel"><h2>Beitreten</h2><input class="field code" id="code" data-f="codeIn" value="${esc(C.codeIn)}" placeholder="${'·'.repeat(len)}" maxlength="${len}" autocomplete="off" autocapitalize="characters">
+  <button class="btn btn-outline btn-big" data-a="join" ${C.busy||C.codeIn.length<len?'disabled':''}>${C.busy?'Verbinde …':'Mitspielen'}</button></section>`;
 }
 function lobby(){
   const r=C.room;const n=r.players.length;const min=r.game==='kniffel'?1:2;
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
-  <p class="hint" style="text-align:center">Die anderen öffnen im Browser:</p><div class="urls" style="align-items:center">${r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div></header>
+  <p class="hint" style="text-align:center">Die anderen öffnen im Browser:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}</header>
   <section class="panel"><h2>Am Tisch (${n} von 4)</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno" ${r.isHost?'':'disabled'}>Vier Farben</button></div>
@@ -226,7 +295,7 @@ function lobby(){
   ${r.game==='uno'?`<div class="seg"><button class="seg-btn ${r.variant!=='extreme'?'is-on':''}" data-a="setVariant" data-v="classic" ${r.isHost?'':'disabled'}>Klassisch</button><button class="seg-btn ${r.variant==='extreme'?'is-on':''}" data-a="setVariant" data-v="extreme" ${r.isHost?'':'disabled'}>Extrem</button></div>
   <p class="hint">${r.variant==='extreme'?'Kartenwerfer statt Nachziehstapel: Pro Druck kommen 0 bis 8 Karten raus, +2 heisst zweimal drücken, +4 viermal. Nach dem Drücken ist der Zug vorbei.':'Normales Nachziehen: eine Karte, passt sie, darfst du sie gleich spielen.'}</p>`:''}
   ${r.isHost?`<button class="btn btn-primary btn-big" data-a="start" ${n<min||n>4||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>`:`<p class="notice soft">Warten, bis ${esc(r.players.find(p=>p.host)?.name||'der Gastgeber')} startet.</p>`}
-  <div class="actions"><button class="btn btn-ghost" data-a="reload">Neu laden</button><button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></div></section>`;
+  <div class="actions">${C.mode==='online'&&C.isHost?'':'<button class="btn btn-ghost" data-a="reload">Neu laden</button>'}<button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></div></section>`;
 }
 function topbar(title,meta){
   const r=C.room;
@@ -369,15 +438,24 @@ function render(){
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
 }
 
-$app.addEventListener('input',e=>{const t=e.target;if(!t.dataset.f)return;C[t.dataset.f]=t.dataset.f==='codeIn'?t.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4):t.value;if(t.dataset.f==='name')persist();
-  if(t.dataset.f==='codeIn'){const b=$app.querySelector('[data-a="join"]');if(b)b.disabled=C.codeIn.length<4||C.busy;}});
+$app.addEventListener('input',e=>{const t=e.target;if(!t.dataset.f)return;C[t.dataset.f]=t.dataset.f==='codeIn'?t.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,C.mode==='online'?6:4):t.value;if(t.dataset.f==='name')persist();
+  if(t.dataset.f==='codeIn'){const b=$app.querySelector('[data-a="join"]');if(b)b.disabled=C.codeIn.length<(C.mode==='online'?6:4)||C.busy;}});
 $app.addEventListener('click',async e=>{
   const t=e.target.closest('[data-a]');if(!t||t.disabled)return;const a=t.dataset.a,d=t.dataset;
   switch(a){
-    case 'create':{const r=await post('/api/create',{name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
-    case 'join':{const r=await post('/api/join',{code:C.codeIn,name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
+    case 'setMode':C.mode=d.m;C.err='';C.codeIn='';persist();render();break;
+    case 'create':{
+      if(C.mode==='online'){C.cid=newCid();C.isHost=true;const r=await post('/api/create',{name:C.name,codeLen:6});if(!r)break;Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();
+        C.busy=true;render();try{await OL.connect();}catch(e){C.err=e.message+' Versuche es gleich nochmal.';C.busy=false;leave();break;}C.busy=false;connect();break;}
+      const r=await post('/api/create',{name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
+    case 'join':{
+      if(C.mode==='online'){C.cid=newCid();C.isHost=false;C.code=C.codeIn.toUpperCase();C.busy=true;render();
+        try{await OL.connect();}catch(e){C.err=e.message;C.busy=false;C.code=null;render();break;}C.busy=false;
+        const r=await post('/api/join',{code:C.code,name:C.name});if(!r){C.code=null;if(OL.client){try{OL.client.end(true);}catch(e){}OL.client=null;}render();break;}
+        Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();OL.pub(OL.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});break;}
+      const r=await post('/api/join',{code:C.codeIn,name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
     case 'reload':location.reload();break;
-    case 'leaveLobby':act('leave');leave();break;
+    case 'leaveLobby':await post('/api/action',{code:C.code,pid:C.pid,token:C.token,action:'leave',data:{}});leave();break;
     case 'leaveGame':leave();break;
     case 'menu':C.confirm=!C.confirm;render();break;
     case 'menuNo':C.confirm=false;render();break;
@@ -398,7 +476,8 @@ $app.addEventListener('click',async e=>{
     default:act(a,{});
   }
 });
-if(C.code&&C.pid&&C.token)connect();else render();
+if(C.code&&C.pid&&C.token&&C.mode==='online'&&C.isHost){C.code=C.pid=C.token=null;C.isHost=false;persist();}
+if(C.code&&C.pid&&C.token){if(C.mode==='online'&&!C.cid)C.cid=newCid();connect();}else render();
 })();
 </script>
 </body>
