@@ -114,6 +114,24 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .cell-btn.zero{color:var(--muted);border-color:var(--felt-line)} .cell-btn:active{background:var(--brass-tint)}
 .confirm{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:14px;border:1px solid var(--brass);background:var(--brass-tint)}
 .offline{position:fixed;left:0;right:0;top:0;padding:8px 16px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:var(--rouge);color:#fff;text-align:center;font-size:.9rem;z-index:5}
+
+.ucard{flex:0 0 auto;width:clamp(50px,15vw,66px);aspect-ratio:5/7;border-radius:10px;border:3px solid var(--cream);background:var(--uc,#333);color:var(--cream);position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 4px 12px rgba(0,0,0,.35);outline:3px solid transparent;transition:transform .15s,outline-color .15s}
+.ucard.wild{background:conic-gradient(#c8372a 0 25%,#d9a521 0 50%,#2f6fb3 0 75%,#2e8b57 0);}
+.ucard.wild .us,.ucard.wild .uk,.ucard.wild .uk2{color:var(--cream);text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.ucard .us{position:absolute;inset:0;display:grid;place-items:center;font-size:1.7rem;font-weight:700}
+.ucard .uk{position:absolute;top:3px;left:6px;font-size:.7rem;font-weight:700}
+.ucard .uk2{position:absolute;bottom:3px;right:6px;font-size:.7rem;font-weight:700;transform:rotate(180deg)}
+.ucard.big{width:clamp(80px,24vw,104px);cursor:default} .ucard.big .us{font-size:2.6rem} .ucard.big .uk,.ucard.big .uk2{font-size:1rem}
+.ucard.dim{opacity:.4} .ucard:disabled{cursor:default} .ucard.sel{outline-color:var(--brass);transform:translateY(-8px)}
+.uhand{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;padding-block:8px 4px}
+.utable{display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap}
+.upile{display:flex;flex-direction:column;gap:6px;align-items:center}
+.uinfo{display:flex;flex-direction:column;gap:4px;min-width:0;max-width:22ch}
+.ucol{font-family:var(--font-display);font-size:1.4rem;display:flex;align-items:center;gap:8px}
+.udot{width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid var(--cream)}
+.ucolors{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ucolor{color:var(--cream);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.uno-btn{font-size:1.5rem;letter-spacing:.1em}
 @media (prefers-reduced-motion:reduce){.die.rolling{animation:none}.card,.die,.btn{transition:none}}
 </style>
 </head>
@@ -126,7 +144,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 const $app=document.getElementById('app');
 const LS='stubenspiele-lan';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let C={page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
+let C={wildIdx:null,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
 let es=null;
 try{const r=localStorage.getItem(LS);if(r)Object.assign(C,JSON.parse(r));}catch(e){}
 function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:C.code,pid:C.pid,token:C.token}));}catch(e){}}
@@ -149,6 +167,7 @@ function applyRoom(room){C.online=true;
     if(room.view&&room.view.game==='kniffel'&&room.view.seq!==C.lastSeq&&C.lastSeq>=0){C.anim=true;setTimeout(()=>{C.anim=false;render();},480);}
     if(room.view&&room.view.game==='kniffel')C.lastSeq=room.view.seq;
     if(!room.view||room.view.game!=='schnauz'||room.view.current!==room.view.me)C.sel={h:-1,t:-1};
+    if(!room.view||room.view.game!=='uno'||room.view.current!==room.view.me)C.wildIdx=null;
     C.room=room;C.page=room.phase==='lobby'?'lobby':'game';render();}
 // Sicherheitsnetz: alle 3 s den Stand abholen, falls die Live-Verbindung hängt
 setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;try{const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());}catch(e){C.online=false;render();}},3000);
@@ -176,13 +195,13 @@ function home(){
   <button class="btn btn-outline btn-big" data-a="join" ${C.busy||C.codeIn.length<4?'disabled':''}>Mitspielen</button></section>`;
 }
 function lobby(){
-  const r=C.room;const n=r.players.length;const min=r.game==='schnauz'?2:1;
+  const r=C.room;const n=r.players.length;const min=r.game==='kniffel'?1:2;
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
   <p class="hint" style="text-align:center">Die anderen öffnen im Browser:</p><div class="urls" style="align-items:center">${r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div></header>
   <section class="panel"><h2>Am Tisch (${n} von 4)</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>
-  <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button></div>
-  <p class="hint">${r.game==='schnauz'?'2 bis 4 Spieler · drei Leben plus Schwimmen':'1 bis 4 Spieler · 13 Züge'}</p>
+  <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno" ${r.isHost?'':'disabled'}>Vier Farben</button></div>
+  <p class="hint">${r.game==='schnauz'?'2 bis 4 Spieler · drei Leben plus Schwimmen':r.game==='uno'?'2 bis 4 Spieler · Uno-Regeln, bis 500 Punkte':'1 bis 4 Spieler · 13 Züge'}</p>
   ${r.isHost?`<button class="btn btn-primary btn-big" data-a="start" ${n<min||n>4||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>`:`<p class="notice soft">Warten, bis ${esc(r.players.find(p=>p.host)?.name||'der Gastgeber')} startet.</p>`}
   <div class="actions"><button class="btn btn-ghost" data-a="reload">Neu laden</button><button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></div></section>`;
 }
@@ -260,10 +279,53 @@ function kniffel(){
   return h;
 }
 
+const UC={r:'#c8372a',y:'#d9a521',g:'#2e8b57',b:'#2f6fb3'},UCN={r:'Rot',y:'Gelb',g:'Grün',b:'Blau'};
+function ucard(c,o={}){
+  const sym={skip:'⊘',rev:'⇄',d2:'+2',d4:'+4',wild:'✦'}[c.v]||c.v;
+  const cls='ucard'+(c.c==='w'?' wild':'')+(o.sel?' sel':'')+(o.dim?' dim':'')+(o.big?' big':'');
+  const style=c.c==='w'?'':`--uc:${UC[c.c]}`;
+  const inner=`<span class="uk">${sym}</span><span class="us">${sym}</span><span class="uk2">${sym}</span>`;
+  if(o.flat)return`<div class="${cls}" style="${style}">${inner}</div>`;
+  return`<button class="${cls}" style="${style}" data-a="${o.a}" data-i="${o.i}" ${o.disabled?'disabled':''} aria-label="${c.c==='w'?'Schwarz':UCN[c.c]} ${sym}">${inner}</button>`;
+}
+function unoPlayableC(g,card){return card.c==='w'||card.c===g.color||card.v===g.top.v;}
+function uno(){
+  const r=C.room,g=r.view,me=g.me,myTurn=g.current===me,mine=g.players[me],hand=mine.hand||[];
+  let h=topbar('Vier Farben · Runde '+g.round,'Stapel '+g.pile);
+  h+=`<div class="seats">${g.players.map((p,i)=>`<span class="seat ${i===g.current&&g.phase==='turn'?'cur':''} ${i===me?'me':''}"><span class="nm">${esc(p.name)}</span><span class="lives">${p.count} ${p.count===1?'Karte':'Karten'}</span>${p.said&&p.count===1?'<span class="tag">Uno!</span>':''}<span class="hint">${p.score} P.</span></span>`).join('')}</div>`;
+  if(g.phase==='roundEnd'){
+    const res=g.result;
+    h+=`<div class="result"><div class="winner"><p class="eyebrow">${res.gameOver?'Gewinnt das Spiel':'Gewinnt die Runde'}</p><h2>${esc(g.players[res.winner].name)}</h2><p class="hint">+${res.points} Punkte aus den Händen der anderen</p></div>
+    ${g.players.map((p,i)=>`<div class="row ${i===res.winner?'win':''}"><span class="who">${esc(p.name)}${i===me?' <span class="hint">(du)</span>':''}</span><span class="hint">${i===res.winner?'':res.hands[i]+' auf der Hand'}</span><span class="val">${p.score}</span></div>`).join('')}
+    ${res.gameOver?(r.isHost?`<div class="actions"><button class="btn btn-primary" data-a="rematch">Revanche</button><button class="btn btn-outline" data-a="backToLobby">Zur Lobby</button></div>`:`<p class="notice soft">Der Gastgeber kann eine Revanche starten.</p>`)
+      :(r.isHost?`<button class="btn btn-primary btn-big" data-a="nextRound" ${C.busy?'disabled':''}>Nächste Runde</button>`:`<p class="notice soft">Der Gastgeber startet die nächste Runde.</p>`)}</div>`;
+    return h;
+  }
+  const cur=g.players[g.current];
+  h+=`<div class="utable"><div class="upile"><p class="eyebrow">Ablage</p>${ucard(g.top,{flat:true,big:true})}</div>
+  <div class="uinfo"><p class="eyebrow">Farbe</p><p class="ucol"><span class="udot" style="background:${UC[g.color]}"></span>${UCN[g.color]}</p><p class="hint">Richtung ${g.dir===1?'↻':'↺'}</p>${g.last?`<p class="hint">${esc(g.last)}</p>`:''}</div></div>`;
+  const canCatch=g.uno&&!g.uno.said&&g.uno.player!==me&&g.players[g.uno.player].count===1;
+  if(canCatch)h+=`<button class="btn btn-big" data-a="catch" ${C.busy?'disabled':''}>${esc(g.players[g.uno.player].name)} hat nicht Uno gesagt!</button>`;
+  if(hand.length===1&&g.uno&&g.uno.player===me&&!g.uno.said)h+=`<button class="btn btn-primary btn-big uno-btn" data-a="uno" ${C.busy?'disabled':''}>UNO!</button>`;
+  if(myTurn){
+    if(C.wildIdx!==null&&hand[C.wildIdx]&&hand[C.wildIdx].c==='w'){
+      h+=`<div class="confirm"><p>Welche Farbe soll gelten?</p><div class="ucolors">${UCOLS_C.map(c=>`<button class="btn ucolor" style="background:${UC[c]}" data-a="wild" data-c="${c}">${UCN[c]}</button>`).join('')}</div><button class="btn btn-ghost" data-a="wildCancel">Abbrechen</button></div>`;
+    }else if(g.drew!==null){
+      h+=`<p class="notice">Die gezogene Karte passt. Spiel sie oder gib weiter.</p><button class="btn btn-outline btn-big" data-a="pass" ${C.busy?'disabled':''}>Weiter ohne zu spielen</button>`;
+    }else{
+      const any=hand.some(c=>unoPlayableC(g,c));
+      h+=`<p class="notice">Du bist dran.${any?' Tippe eine passende Karte an.':' Keine passende Karte, du musst ziehen.'}</p><button class="btn ${any?'btn-outline':'btn-primary'} btn-big" data-a="draw" ${C.busy?'disabled':''}>Karte ziehen</button>`;
+    }
+  }else h+=`<div class="wait"><p class="eyebrow">Am Zug</p><h2>${esc(cur.name)}</h2></div>`;
+  h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">Deine Karten · ${hand.length}</span></div><div class="uhand">${hand.map((c,i)=>{const ok=myTurn&&unoPlayableC(g,c)&&(g.drew===null||i===g.drew)&&C.wildIdx===null;return ucard(c,{a:'ucard',i,dim:!ok,disabled:!ok||C.busy,sel:C.wildIdx===i||(g.drew===i&&myTurn)});}).join('')}</div></div>`;
+  return h;
+}
+const UCOLS_C=['r','y','g','b'];
+
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
   let h=C.online||C.page==='home'?'':'<div class="offline">Verbindung zum Server unterbrochen – versuche es neu …</div>';
-  if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():kniffel();
+  if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():kniffel();
   $app.innerHTML=h;
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
 }
@@ -286,6 +348,9 @@ $app.addEventListener('click',async e=>{
     case 'selT':C.sel.t=C.sel.t===+d.i?-1:+d.i;render();break;
     case 'swap':act('swap',{h:C.sel.h,t:C.sel.t});C.sel={h:-1,t:-1};break;
     case 'hold':act('hold',{i:d.i});break;
+    case 'ucard':{const card=C.room.view.players[C.room.view.me].hand[+d.i];if(card&&card.c==='w'){C.wildIdx=+d.i;render();}else act('play',{i:d.i});break;}
+    case 'wild':{const i=C.wildIdx;C.wildIdx=null;act('play',{i,color:d.c});break;}
+    case 'wildCancel':C.wildIdx=null;render();break;
     case 'score':act('score',{k:d.k});break;
     default:act(a,{});
   }

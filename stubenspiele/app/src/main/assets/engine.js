@@ -129,11 +129,89 @@
     return { game: 'kniffel', me: pi, players: g.players, current: g.current, dice: g.dice, held: g.held, rolls: g.rolls, turn: g.turn, phase: g.phase, seq: g.seq, potential };
   }
 
+  /* ---- Vier Farben (Uno-Regeln) ---- */
+  const UCOLS = ['r', 'y', 'g', 'b'];
+  function unoDeck() {
+    const d = [];
+    for (const c of UCOLS) { d.push({ c, v: '0' }); for (const v of ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'rev', 'd2']) d.push({ c, v }, { c, v }); }
+    for (let i = 0; i < 4; i++) d.push({ c: 'w', v: 'wild' }, { c: 'w', v: 'd4' });
+    return shuffle(d);
+  }
+  function unoNew(names) {
+    const g = { players: names.map(n => ({ name: n, hand: [], score: 0, said: false })), dir: 1, current: 0, pile: [], discard: [], color: 'r', phase: 'turn', drew: null, uno: null, round: 1, starter: 0, last: '', result: null };
+    unoStartRound(g, 0); return g;
+  }
+  function unoStartRound(g, starter) {
+    g.pile = unoDeck(); g.discard = []; g.drew = null; g.uno = null; g.result = null; g.dir = 1;
+    for (const p of g.players) { p.hand = g.pile.splice(0, 7); p.said = false; }
+    let top = g.pile.shift();
+    while (top.c === 'w' || isNaN(+top.v)) { g.pile.push(top); top = g.pile.shift(); }
+    g.discard.push(top); g.color = top.c; g.current = starter; g.starter = starter; g.phase = 'turn';
+    g.last = g.players[starter].name + ' beginnt.';
+  }
+  function unoDraw(g, p, n) {
+    for (let i = 0; i < n; i++) {
+      if (!g.pile.length) { const top = g.discard.pop(); g.pile = shuffle(g.discard); g.discard = [top]; if (!g.pile.length) break; }
+      p.hand.push(g.pile.shift());
+    }
+  }
+  function unoNext(g, from, steps) { const n = g.players.length; return (((from + g.dir * steps) % n) + n) % n; }
+  function unoPlayable(g, card) { const top = g.discard[g.discard.length - 1]; return card.c === 'w' || card.c === g.color || card.v === top.v; }
+  function unoPoints(h) { return h.reduce((a, c) => a + (c.c === 'w' ? 50 : isNaN(+c.v) ? 20 : +c.v), 0); }
+  function unoAdvance(g, steps) { g.current = unoNext(g, g.current, steps); g.drew = null; }
+  function unoRoundEnd(g, winner) {
+    const pts = g.players.reduce((a, p, i) => a + (i === winner ? 0 : unoPoints(p.hand)), 0);
+    g.players[winner].score += pts; g.uno = null;
+    g.result = { winner, points: pts, gameOver: g.players[winner].score >= 500, hands: g.players.map(p => unoPoints(p.hand)) };
+    g.phase = 'roundEnd'; g.last = '';
+  }
+  function unoAction(g, pi, a, d) {
+    if (g.phase === 'roundEnd') { if (a === 'nextRound' && g.result && !g.result.gameOver) { g.round++; unoStartRound(g, unoNext(g, g.starter, 1)); } return; }
+    if (g.phase !== 'turn') return;
+    const p = g.players[pi];
+    if (a === 'uno') { if (p.hand.length === 1 && g.uno && g.uno.player === pi) { g.uno.said = true; p.said = true; g.last = p.name + ' ruft Uno!'; } return; }
+    if (a === 'catch') {
+      if (g.uno && !g.uno.said && g.uno.player !== pi) { const v = g.players[g.uno.player]; if (v.hand.length === 1) { unoDraw(g, v, 2); g.last = v.name + ' hat nicht Uno gesagt: zwei Strafkarten.'; } g.uno = null; }
+      return;
+    }
+    if (g.current !== pi) return;
+    if (g.uno && g.uno.player !== pi && (a === 'play' || a === 'draw')) g.uno = null;
+    if (a === 'draw' && g.drew === null) {
+      unoDraw(g, p, 1); const c = p.hand[p.hand.length - 1];
+      if (unoPlayable(g, c)) { g.drew = p.hand.length - 1; g.last = p.name + ' zieht eine Karte.'; }
+      else { g.last = p.name + ' zieht und schiebt.'; unoAdvance(g, 1); }
+      return;
+    }
+    if (a === 'pass' && g.drew !== null) { g.drew = null; g.last = p.name + ' schiebt.'; unoAdvance(g, 1); return; }
+    if (a === 'play') {
+      const i = +d.i; const card = p.hand[i];
+      if (!card || !unoPlayable(g, card)) return;
+      if (g.drew !== null && i !== g.drew) return;
+      if (card.c === 'w' && !UCOLS.includes(d.color)) return;
+      p.hand.splice(i, 1); g.drew = null; g.discard.push(card); g.color = card.c === 'w' ? d.color : card.c;
+      const names = { skip: 'Aussetzen', rev: 'Richtungswechsel', d2: '+2', wild: 'Farbwahl', d4: '+4' };
+      g.last = p.name + ' spielt ' + (names[card.v] || card.v) + '.';
+      if (p.hand.length === 0) { unoRoundEnd(g, pi); return; }
+      if (p.hand.length === 1) { g.uno = { player: pi, said: false }; p.said = false; }
+      let steps = 1;
+      if (card.v === 'rev') { g.dir *= -1; if (g.players.length === 2) steps = 2; }
+      if (card.v === 'skip') steps = 2;
+      if (card.v === 'd2' || card.v === 'd4') { const v = g.players[unoNext(g, pi, 1)]; unoDraw(g, v, card.v === 'd2' ? 2 : 4); steps = 2; }
+      unoAdvance(g, steps);
+    }
+  }
+  function unoView(g, pi) {
+    const open = g.phase === 'roundEnd';
+    return { game: 'uno', me: pi, round: g.round, current: g.current, dir: g.dir, color: g.color, top: g.discard[g.discard.length - 1], pile: g.pile.length, phase: g.phase, drew: g.drew, uno: g.uno, last: g.last, result: g.result,
+      players: g.players.map((p, i) => ({ name: p.name, score: p.score, count: p.hand.length, hand: (i === pi || open) ? p.hand : undefined, said: p.said })) };
+  }
+
   /* ---- Räume ---- */
+  function newGame(room) { const nm = room.players.map(x => x.name); return room.game === 'schnauz' ? szNew(nm) : room.game === 'uno' ? unoNew(nm) : knNew(nm); }
   function roomView(room, pid) {
     const pi = room.players.findIndex(p => p.id === pid);
     const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game };
-    if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : knView(room.state, pi);
+    if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : room.game === 'uno' ? unoView(room.state, pi) : knView(room.state, pi);
     return base;
   }
   function broadcast(room) {
@@ -144,17 +222,19 @@
   function handleAction(room, p, a, d) {
     const pi = room.players.indexOf(p);
     if (room.phase === 'lobby') {
-      if (a === 'setGame' && room.host === p.id && (d.g === 'schnauz' || d.g === 'kniffel')) room.game = d.g;
+      if (a === 'setGame' && room.host === p.id && (d.g === 'schnauz' || d.g === 'kniffel' || d.g === 'uno')) room.game = d.g;
       if (a === 'start' && room.host === p.id) {
-        const n = room.players.length; const min = room.game === 'schnauz' ? 2 : 1;
-        if (n >= min && n <= 4) { room.state = room.game === 'schnauz' ? szNew(room.players.map(x => x.name)) : knNew(room.players.map(x => x.name)); room.phase = 'playing'; }
+        const n = room.players.length; const min = room.game === 'kniffel' ? 1 : 2;
+        if (n >= min && n <= 4) { room.state = newGame(room); room.phase = 'playing'; }
       }
       if (a === 'leave') { room.players.splice(pi, 1); if (room.host === p.id && room.players[0]) room.host = room.players[0].id; }
       return;
     }
     if (a === 'backToLobby' && room.host === p.id) { room.phase = 'lobby'; room.state = null; return; }
-    if (a === 'rematch' && room.host === p.id) { room.state = room.game === 'schnauz' ? szNew(room.players.map(x => x.name)) : knNew(room.players.map(x => x.name)); return; }
-    if (room.game === 'schnauz') { if (a === 'nextRound' && room.host !== p.id) return; szAction(room.state, pi, a, d); }
+    if (a === 'rematch' && room.host === p.id) { room.state = newGame(room); return; }
+    if (a === 'nextRound' && room.host !== p.id) return;
+    if (room.game === 'schnauz') szAction(room.state, pi, a, d);
+    else if (room.game === 'uno') unoAction(room.state, pi, a, d);
     else knAction(room.state, pi, a, d);
   }
   function route(path, b) {
