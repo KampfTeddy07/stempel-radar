@@ -132,6 +132,26 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .ucolors{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ucolor{color:var(--cream);text-shadow:0 1px 2px rgba(0,0,0,.5)}
 .uno-btn{font-size:1.5rem;letter-spacing:.1em}
+.fanwrap{width:100%;overflow-x:auto;overflow-y:hidden;padding-block:30px 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.fanwrap::-webkit-scrollbar{display:none}
+.fan{position:relative;margin:0 auto;min-width:min(100%,0px)}
+.fan .ucard{position:absolute;left:0;top:0;transform:var(--tf);transform-origin:50% 120%;transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.fan .ucard.fanin{animation:fanin .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 28ms)}
+@keyframes fanin{from{transform:translate(0,40px) rotate(0deg);opacity:0}to{transform:var(--tf);opacity:1}}
+.fan .ucard.dim.fanin{animation-name:fanin-dim}
+@keyframes fanin-dim{from{transform:translate(0,40px) rotate(0deg);opacity:0}to{transform:var(--tf);opacity:.4}}
+.pickbar{display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:14px;border:1px solid var(--brass);background:var(--brass-tint)}
+.pickbar .ucard{width:52px;cursor:default}
+.pickinfo{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.launcher{position:relative;display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:14px;border:1px solid var(--felt-line);background:var(--felt-tint);overflow:hidden}
+.lslot{width:64px;height:44px;border-radius:8px;background:var(--ink);border:3px solid var(--brass);display:grid;place-items:center;flex:0 0 auto}
+.lcount{font-family:var(--font-display);font-size:1.6rem;color:var(--brass)}
+.launcher.fire .lslot{animation:kick .5s ease-out}
+@keyframes kick{0%{transform:scale(1)}20%{transform:scale(.9) rotate(-4deg)}50%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1)}}
+.fly{position:absolute;left:30px;top:16px;width:26px;height:36px;border-radius:5px;background:var(--cream);border:2px solid var(--brass);opacity:0;animation:fly .9s ease-out both;animation-delay:var(--d)}
+@keyframes fly{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(260px,-30px) rotate(var(--r))}}
+.ltext{min-width:0;line-height:1.3}
+@media (prefers-reduced-motion:reduce){.fan .ucard.fanin{animation:none}.fly{display:none}.launcher.fire .lslot{animation:none}}
 @media (prefers-reduced-motion:reduce){.die.rolling{animation:none}.card,.die,.btn{transition:none}}
 </style>
 </head>
@@ -144,7 +164,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 const $app=document.getElementById('app');
 const LS='stubenspiele-lan';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let C={wildIdx:null,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
+let C={wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
 let es=null;
 try{const r=localStorage.getItem(LS);if(r)Object.assign(C,JSON.parse(r));}catch(e){}
 function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:C.code,pid:C.pid,token:C.token}));}catch(e){}}
@@ -163,11 +183,11 @@ function connect(){
   es.onerror=()=>{C.online=false;render();};
   es.onopen=()=>{C.online=true;render();};
 }
-function applyRoom(room){C.online=true;
+function applyRoom(room){const key=JSON.stringify(room);if(key===C.roomKey&&C.online){return;}C.roomKey=key;C.online=true;
     if(room.view&&room.view.game==='kniffel'&&room.view.seq!==C.lastSeq&&C.lastSeq>=0){C.anim=true;setTimeout(()=>{C.anim=false;render();},480);}
     if(room.view&&room.view.game==='kniffel')C.lastSeq=room.view.seq;
     if(!room.view||room.view.game!=='schnauz'||room.view.current!==room.view.me)C.sel={h:-1,t:-1};
-    if(!room.view||room.view.game!=='uno'||room.view.current!==room.view.me)C.wildIdx=null;
+    if(!room.view||room.view.game!=='uno'||room.view.current!==room.view.me){C.wildIdx=null;C.pick=null;}
     C.room=room;C.page=room.phase==='lobby'?'lobby':'game';render();}
 // Sicherheitsnetz: alle 3 s den Stand abholen, falls die Live-Verbindung hängt
 setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;try{const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());}catch(e){C.online=false;render();}},3000);
@@ -202,6 +222,8 @@ function lobby(){
   <section class="panel"><h2>Spiel</h2>
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno" ${r.isHost?'':'disabled'}>Vier Farben</button></div>
   <p class="hint">${r.game==='schnauz'?'2 bis 4 Spieler · drei Leben plus Schwimmen':r.game==='uno'?'2 bis 4 Spieler · Uno-Regeln, bis 500 Punkte':'1 bis 4 Spieler · 13 Züge'}</p>
+  ${r.game==='uno'?`<div class="seg"><button class="seg-btn ${r.variant!=='extreme'?'is-on':''}" data-a="setVariant" data-v="classic" ${r.isHost?'':'disabled'}>Klassisch</button><button class="seg-btn ${r.variant==='extreme'?'is-on':''}" data-a="setVariant" data-v="extreme" ${r.isHost?'':'disabled'}>Extrem</button></div>
+  <p class="hint">${r.variant==='extreme'?'Kartenwerfer statt Nachziehstapel: Pro Druck kommen 0 bis 8 Karten raus, +2 heisst zweimal drücken, +4 viermal. Nach dem Drücken ist der Zug vorbei.':'Normales Nachziehen: eine Karte, passt sie, darfst du sie gleich spielen.'}</p>`:''}
   ${r.isHost?`<button class="btn btn-primary btn-big" data-a="start" ${n<min||n>4||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>`:`<p class="notice soft">Warten, bis ${esc(r.players.find(p=>p.host)?.name||'der Gastgeber')} startet.</p>`}
   <div class="actions"><button class="btn btn-ghost" data-a="reload">Neu laden</button><button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></div></section>`;
 }
@@ -282,8 +304,8 @@ function kniffel(){
 const UC={r:'#c8372a',y:'#d9a521',g:'#2e8b57',b:'#2f6fb3'},UCN={r:'Rot',y:'Gelb',g:'Grün',b:'Blau'};
 function ucard(c,o={}){
   const sym={skip:'⊘',rev:'⇄',d2:'+2',d4:'+4',wild:'✦'}[c.v]||c.v;
-  const cls='ucard'+(c.c==='w'?' wild':'')+(o.sel?' sel':'')+(o.dim?' dim':'')+(o.big?' big':'');
-  const style=c.c==='w'?'':`--uc:${UC[c.c]}`;
+  const cls='ucard'+(c.c==='w'?' wild':'')+(o.sel?' sel':'')+(o.dim?' dim':'')+(o.big?' big':'')+(o.cls?' '+o.cls:'');
+  const style=(c.c==='w'?'':`--uc:${UC[c.c]};`)+(o.style||'');
   const inner=`<span class="uk">${sym}</span><span class="us">${sym}</span><span class="uk2">${sym}</span>`;
   if(o.flat)return`<div class="${cls}" style="${style}">${inner}</div>`;
   return`<button class="${cls}" style="${style}" data-a="${o.a}" data-i="${o.i}" ${o.disabled?'disabled':''} aria-label="${c.c==='w'?'Schwarz':UCN[c.c]} ${sym}">${inner}</button>`;
@@ -291,7 +313,7 @@ function ucard(c,o={}){
 function unoPlayableC(g,card){return card.c==='w'||card.c===g.color||card.v===g.top.v;}
 function uno(){
   const r=C.room,g=r.view,me=g.me,myTurn=g.current===me,mine=g.players[me],hand=mine.hand||[];
-  let h=topbar('Vier Farben · Runde '+g.round,'Stapel '+g.pile);
+  let h=topbar('Vier Farben'+(g.extreme?' Extrem':'')+' · Runde '+g.round,'Stapel '+g.pile);
   h+=`<div class="seats">${g.players.map((p,i)=>`<span class="seat ${i===g.current&&g.phase==='turn'?'cur':''} ${i===me?'me':''}"><span class="nm">${esc(p.name)}</span><span class="lives">${p.count} ${p.count===1?'Karte':'Karten'}</span>${p.said&&p.count===1?'<span class="tag">Uno!</span>':''}<span class="hint">${p.score} P.</span></span>`).join('')}</div>`;
   if(g.phase==='roundEnd'){
     const res=g.result;
@@ -304,6 +326,8 @@ function uno(){
   const cur=g.players[g.current];
   h+=`<div class="utable"><div class="upile"><p class="eyebrow">Ablage</p>${ucard(g.top,{flat:true,big:true})}</div>
   <div class="uinfo"><p class="eyebrow">Farbe</p><p class="ucol"><span class="udot" style="background:${UC[g.color]}"></span>${UCN[g.color]}</p><p class="hint">Richtung ${g.dir===1?'↻':'↺'}</p>${g.last?`<p class="hint">${esc(g.last)}</p>`:''}</div></div>`;
+  if(g.extreme&&g.shot){const fresh=g.shot.seq!==C.shotSeq;if(fresh)C.shotSeq=g.shot.seq;
+    h+=`<div class="launcher ${fresh?'fire':''}"><div class="lslot"><span class="lcount">${g.shot.n===0?'–':g.shot.n}</span></div><div class="ltext"><b>${esc(g.players[g.shot.player].name)}</b> hat ${g.shot.presses===1?'einmal':g.shot.presses===2?'zweimal':'viermal'} gedrückt<br><span class="hint">${g.shot.n===0?'Nichts kam raus. Glück gehabt.':g.shot.n===1?'Eine Karte.':g.shot.n+' Karten auf einmal!'}</span></div>${fresh?Array.from({length:Math.min(g.shot.n,8)},(_,i)=>`<span class="fly" style="--d:${i*60}ms;--r:${(i%2?1:-1)*(10+i*7)}deg"></span>`).join(''):''}</div>`;}
   const canCatch=g.uno&&!g.uno.said&&g.uno.player!==me&&g.players[g.uno.player].count===1;
   if(canCatch)h+=`<button class="btn btn-big" data-a="catch" ${C.busy?'disabled':''}>${esc(g.players[g.uno.player].name)} hat nicht Uno gesagt!</button>`;
   if(hand.length===1&&g.uno&&g.uno.player===me&&!g.uno.said)h+=`<button class="btn btn-primary btn-big uno-btn" data-a="uno" ${C.busy?'disabled':''}>UNO!</button>`;
@@ -314,13 +338,27 @@ function uno(){
       h+=`<p class="notice">Die gezogene Karte passt. Spiel sie oder gib weiter.</p><button class="btn btn-outline btn-big" data-a="pass" ${C.busy?'disabled':''}>Weiter ohne zu spielen</button>`;
     }else{
       const any=hand.some(c=>unoPlayableC(g,c));
-      h+=`<p class="notice">Du bist dran.${any?' Tippe eine passende Karte an.':' Keine passende Karte, du musst ziehen.'}</p><button class="btn ${any?'btn-outline':'btn-primary'} btn-big" data-a="draw" ${C.busy?'disabled':''}>Karte ziehen</button>`;
+      h+=`<p class="notice">Du bist dran.${any?' Tippe eine passende Karte an.':g.extreme?' Keine passende Karte, du musst den Werfer drücken.':' Keine passende Karte, du musst ziehen.'}</p><button class="btn ${any?'btn-outline':'btn-primary'} btn-big" data-a="draw" ${C.busy?'disabled':''}>${g.extreme?'Werfer drücken':'Karte ziehen'}</button>`;
     }
   }else h+=`<div class="wait"><p class="eyebrow">Am Zug</p><h2>${esc(cur.name)}</h2></div>`;
-  h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">Deine Karten · ${hand.length}</span></div><div class="uhand">${hand.map((c,i)=>{const ok=myTurn&&unoPlayableC(g,c)&&(g.drew===null||i===g.drew)&&C.wildIdx===null;return ucard(c,{a:'ucard',i,dim:!ok,disabled:!ok||C.busy,sel:C.wildIdx===i||(g.drew===i&&myTurn)});}).join('')}</div></div>`;
+  const pick=C.wildIdx!==null?C.wildIdx:C.pick!==null?C.pick:(myTurn&&g.drew!==null?g.drew:null);
+  if(myTurn&&pick!==null&&hand[pick]&&hand[pick].c!=='w'&&C.wildIdx===null)h+=`<div class="pickbar">${ucard(hand[pick],{flat:true})}<div class="pickinfo"><b>${UCN[hand[pick].c]} ${({skip:'Aussetzen',rev:'Richtungswechsel',d2:'Plus zwei'})[hand[pick].v]||hand[pick].v}</b><span class="hint">Nochmal antippen oder hier spielen.</span></div><button class="btn btn-primary" data-a="playPick" ${C.busy?'disabled':''}>Spielen</button></div>`;
+  const key=hand.map(c=>c.c+c.v).join(',');const anim=key!==C.handKey;C.handKey=key;
+  h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">Deine Karten · ${hand.length}</span>${hand.length>8?'<span class="hint">seitlich wischen</span>':''}</div>${fanHtml(g,hand,myTurn,pick,anim)}</div>`;
   return h;
 }
 const UCOLS_C=['r','y','g','b'];
+function fanHtml(g,hand,myTurn,pick,anim){
+  const n=hand.length;if(!n)return'<p class="hint">Keine Karten.</p>';
+  const cw=Math.min(66,Math.max(50,Math.round(window.innerWidth*0.15)));
+  const avail=Math.min(window.innerWidth,720)-32-cw;
+  const step=Math.max(24,Math.min(cw*0.62,n>1?avail/(n-1):0));
+  const spread=Math.min(5,38/n);const mid=(n-1)/2;const width=Math.round(cw+step*(n-1))+24;
+  const cards=hand.map((c,i)=>{const ok=myTurn&&unoPlayableC(g,c)&&(g.drew===null||i===g.drew)&&C.wildIdx===null;const a=(i-mid)*spread;const lift=Math.abs(i-mid)*Math.abs(i-mid)*(spread*0.55);const sel=pick===i;
+    const tf=`translate(${Math.round(i*step)}px,${Math.round(lift)+(sel?-26:0)}px) rotate(${sel?0:a.toFixed(1)}deg)${sel?' scale(1.08)':''}`;
+    return ucard(c,{a:'ucard',i,dim:!ok,disabled:!ok||C.busy,sel,style:`--tf:${tf};--i:${i};z-index:${sel?99:i+1}`,cls:anim?'fanin':''});}).join('');
+  return`<div class="fanwrap"><div class="fan" style="width:${width}px;height:${Math.round(cw*1.4+spread*mid*mid*0.55+34)}px">${cards}</div></div>`;
+}
 
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
@@ -344,13 +382,17 @@ $app.addEventListener('click',async e=>{
     case 'menuNo':C.confirm=false;render();break;
     case 'backToLobby':C.confirm=false;act('backToLobby');break;
     case 'setGame':act('setGame',{g:d.g});break;
+    case 'setVariant':act('setVariant',{v:d.v});break;
     case 'selH':C.sel.h=C.sel.h===+d.i?-1:+d.i;render();break;
     case 'selT':C.sel.t=C.sel.t===+d.i?-1:+d.i;render();break;
     case 'swap':act('swap',{h:C.sel.h,t:C.sel.t});C.sel={h:-1,t:-1};break;
     case 'hold':act('hold',{i:d.i});break;
-    case 'ucard':{const card=C.room.view.players[C.room.view.me].hand[+d.i];if(card&&card.c==='w'){C.wildIdx=+d.i;render();}else act('play',{i:d.i});break;}
+    case 'ucard':{const i=+d.i;const card=C.room.view.players[C.room.view.me].hand[i];if(!card)break;
+      if(card.c==='w'){C.wildIdx=i;C.pick=null;render();break;}
+      if(C.pick===i||(C.room.view.drew===i&&C.pick===null)){C.pick=null;act('play',{i});}else{C.pick=i;render();}break;}
+    case 'playPick':{const i=C.pick!==null?C.pick:C.room.view.drew;C.pick=null;if(i!==null)act('play',{i});break;}
     case 'wild':{const i=C.wildIdx;C.wildIdx=null;act('play',{i,color:d.c});break;}
-    case 'wildCancel':C.wildIdx=null;render();break;
+    case 'wildCancel':C.wildIdx=null;C.pick=null;render();break;
     case 'score':act('score',{k:d.k});break;
     default:act(a,{});
   }
