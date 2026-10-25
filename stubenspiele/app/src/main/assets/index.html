@@ -212,7 +212,7 @@ const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mq
 const BROKER_LETTERS=['E','H','M'];
 const brokerFromCode=code=>{const i=BROKER_LETTERS.indexOf((code||'').slice(-1));return i<0?0:i;};
 const makeOnlineCode=idx=>Array.from({length:5},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('')+BROKER_LETTERS[idx];
-const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),ready:false,
+const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),ready:false,done:{},doneKeys:[],
   topicHost(){return'stubenspiele/v1/'+C.code+'/host';},
   topicClient(cid){return'stubenspiele/v1/'+C.code+'/c/'+cid;},
   connect(){
@@ -223,16 +223,15 @@ const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),read
       const cl=mqtt.connect(url,{clean:false,keepalive:30,reconnectPeriod:1000,connectTimeout:10000,resubscribe:true,clientId:'stuben_'+C.cid});
       this.client=cl;
       const timer=setTimeout(()=>{if(!settled){settled=true;try{cl.end(true);}catch(e){}this.client=null;reject(new Error('Relay nicht erreichbar. Internet da?'));}},11000);
-      cl.on('connect',()=>{this.ready=true;setOnline(true);this.subscribeTopics();
-        if(!settled){settled=true;clearTimeout(timer);resolve();}render();});
+      cl.on('connect',()=>{this.ready=true;setOnline(true);this.subscribeTopics(()=>{if(!settled){settled=true;clearTimeout(timer);resolve();}});render();});
       cl.on('offline',()=>{this.ready=false;setOnline(false);});
       cl.on('close',()=>{this.ready=false;setOnline(false);});
       cl.on('error',()=>{});
       cl.on('message',(topic,payload)=>{let m;try{m=JSON.parse(payload.toString());}catch(e){return;}this.onMessage(m);});
     });
   },
-  subscribeTopics(){if(!this.client||!C.code)return;const t=C.isHost?this.topicHost():this.topicClient(C.cid);this.client.subscribe(t,{qos:1});
-    if(!C.isHost&&C.pid)this.pub(this.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});},
+  subscribeTopics(done){if(!this.client||!C.code){if(done)done();return;}const t=C.isHost?this.topicHost():this.topicClient(C.cid);
+    this.client.subscribe(t,{qos:1},()=>{if(!C.isHost&&C.pid)this.pub(this.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});if(done)done();});},
   async connectAny(){ // Gastgeber: Relays der Reihe nach probieren
     for(let k=0;k<BROKERS.length;k++){this.brokerIdx=k;try{await this.connect();return k;}catch(e){}}
     throw new Error('Kein Relay erreichbar. Internet da?');
@@ -241,7 +240,8 @@ const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),read
   onMessage(m){
     if(C.isHost){
       if(!m.from)return;this.lastSeen[m.from]=Date.now();
-      if(m.type==='req')Engine.request('o'+(++this.n),m.path,m.body||{},(st,body)=>this.pub(this.topicClient(m.from),{type:'res',id:m.id,status:st,body}));
+      if(m.type==='req'){const key=m.from+'/'+m.id;if(this.done[key]){this.pub(this.topicClient(m.from),this.done[key]);return;}
+        Engine.request('o'+(++this.n),m.path,m.body||{},(st,body)=>{const res={type:'res',id:m.id,status:st,body};this.done[key]=res;this.doneKeys.push(key);if(this.doneKeys.length>80)delete this.done[this.doneKeys.shift()];this.pub(this.topicClient(m.from),res);});}
       if(m.type==='sub'){this.subs.add(m.from);Engine.subscribe(m.from,C.code,m.pid,m.token,data=>this.pub(this.topicClient(m.from),data===null?{type:'closed'}:{type:'state',data}));}
     }else{
       if(m.type==='res'&&this.pending[m.id]){const cb=this.pending[m.id];delete this.pending[m.id];cb(m);}
@@ -252,9 +252,11 @@ const OL={client:null,brokerIdx:0,pending:{},n:0,lastSeen:{},subs:new Set(),read
   send(path,body){
     return new Promise((resolve)=>{
       if(C.isHost){Engine.request('l'+(++this.n),path,body,(status,b)=>resolve({status,body:b}));return;}
-      const id='q'+(++this.n);const t=setTimeout(()=>{delete this.pending[id];resolve({status:0,body:{error:path==='/api/join'?'Kein Spiel mit diesem Code erreichbar. Ist der Gastgeber online und der Code richtig?':'Keine Antwort vom Gastgeber. Verbindung wird neu aufgebaut …'}});},path==='/api/join'?12000:12000);
-      this.pending[id]=m=>{clearTimeout(t);resolve({status:m.status,body:m.body});};
-      this.pub(this.topicHost(),{type:'req',from:C.cid,id,path,body});
+      const id='q'+(++this.n);const msg={type:'req',from:C.cid,id,path,body};
+      const again=setInterval(()=>{if(this.pending[id])this.pub(this.topicHost(),msg);},3000);
+      const t=setTimeout(()=>{clearInterval(again);delete this.pending[id];resolve({status:0,body:{error:path==='/api/join'?'Kein Spiel mit diesem Code erreichbar. Ist der Gastgeber online und der Code richtig?':'Keine Antwort vom Gastgeber. Verbindung wird neu aufgebaut …'}});},path==='/api/join'?20000:12000);
+      this.pending[id]=m=>{clearTimeout(t);clearInterval(again);resolve({status:m.status,body:m.body});};
+      this.pub(this.topicHost(),msg);
     });
   },
   hostLoop(){ // Gäste, von denen 30 s nichts kam, gelten als weg
