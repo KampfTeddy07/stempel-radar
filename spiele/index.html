@@ -65,6 +65,29 @@ input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
 .fish{display:inline-block;width:1.6em;height:1.2em;text-align:center;font-size:1.05rem;line-height:1.2;letter-spacing:0;animation:fishswim 3.2s ease-in-out infinite;transform-origin:center}
 @keyframes fishswim{0%{transform:translate(-5px,0) scaleX(1)}20%{transform:translate(0,-2px) scaleX(1)}45%{transform:translate(5px,1px) scaleX(1)}50%{transform:translate(5px,0) scaleX(-1)}70%{transform:translate(0,-2px) scaleX(-1)}95%{transform:translate(-5px,1px) scaleX(-1)}100%{transform:translate(-5px,0) scaleX(1)}}
 /* Wirbelnder Schnauzer bei Schnauz (31) */
+.fire{position:fixed;inset:0;z-index:50;pointer-events:none;overflow:hidden;display:grid;place-items:center;animation:firefade 4.2s ease-out both}
+@keyframes firefade{0%{opacity:0}6%{opacity:1}82%{opacity:1}100%{opacity:0}}
+.fire-glow{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 80%,rgba(255,120,20,.55),rgba(120,20,0,.35) 45%,rgba(0,0,0,.6) 80%);animation:glowpulse 1.2s ease-in-out infinite alternate}
+@keyframes glowpulse{from{opacity:.75}to{opacity:1}}
+.fire-cards{position:relative;display:flex;gap:10px;transform:translateY(-6%)}
+.fcard{position:relative;width:clamp(74px,21vw,104px);aspect-ratio:5/7;background:var(--cream);color:var(--ink);border-radius:10px;border:1px solid var(--cream-2);font-family:var(--font-display);box-shadow:0 8px 24px rgba(0,0,0,.5);transform:rotate(calc((var(--i) - 1) * 12deg)) translateY(calc((var(--i) - 1) * (var(--i) - 1) * 6px));overflow:hidden;animation:fcardin .7s cubic-bezier(.2,.8,.2,1) both,fchar 4.2s ease-in both;animation-delay:calc(var(--i) * 90ms),.9s}
+.fcard.red{color:var(--rouge)}
+.fcard .rk{position:absolute;top:6px;left:8px;font-size:1.1rem;font-weight:700} .fcard .rk2{position:absolute;bottom:6px;right:8px;font-size:1.1rem;font-weight:700;transform:rotate(180deg)} .fcard .su{position:absolute;inset:0;display:grid;place-items:center;font-size:2.6rem;font-family:var(--font-body)}
+@keyframes fcardin{from{opacity:0;transform:translateY(60px) scale(.8)}to{opacity:1}}
+@keyframes fchar{0%{filter:brightness(1) sepia(0)}40%{filter:brightness(.9) sepia(.4)}75%{filter:brightness(.45) sepia(.9) contrast(1.2)}100%{filter:brightness(.15) sepia(1) contrast(1.4)}}
+.fcard .char{position:absolute;left:-10%;right:-10%;bottom:-10%;height:0;background:radial-gradient(ellipse at 50% 100%,#1a0d05 55%,rgba(26,13,5,.0) 70%);animation:charup 3.4s ease-in both;animation-delay:1s;mix-blend-mode:multiply}
+@keyframes charup{to{height:135%}}
+.fcard .flames{position:absolute;left:0;right:0;bottom:-6px;height:70%;animation:flamesrise 3.2s ease-out both;animation-delay:.7s;opacity:0}
+@keyframes flamesrise{0%{opacity:0;transform:translateY(30%)}20%{opacity:1;transform:none}100%{opacity:1}}
+.fcard .flames i{position:absolute;bottom:0;width:34%;height:80%;border-radius:50% 50% 45% 45%/60% 60% 40% 40%;background:radial-gradient(ellipse at 50% 90%,#fff3b0 0%,#ffb020 30%,#ff5a1f 60%,rgba(255,60,0,0) 75%);filter:blur(1px);animation:flicker .55s ease-in-out infinite alternate;transform-origin:50% 100%;mix-blend-mode:screen}
+.fcard .flames i:nth-child(1){left:-4%;animation-delay:0s} .fcard .flames i:nth-child(2){left:18%;height:95%;animation-delay:.12s} .fcard .flames i:nth-child(3){left:36%;height:110%;animation-delay:.22s} .fcard .flames i:nth-child(4){left:56%;height:90%;animation-delay:.08s} .fcard .flames i:nth-child(5){left:72%;animation-delay:.18s}
+@keyframes flicker{from{transform:scaleY(.85) scaleX(.95) translateY(2px)}to{transform:scaleY(1.12) scaleX(1.05) translateY(-6px)}}
+.ember{position:absolute;left:var(--x);bottom:-10px;width:6px;height:6px;border-radius:50%;background:#ffb020;box-shadow:0 0 8px 2px rgba(255,140,30,.9);animation:emberup 2.6s ease-out infinite;animation-delay:var(--d);transform:scale(var(--s));opacity:0}
+@keyframes emberup{0%{opacity:0;transform:translate(0,0) scale(var(--s))}10%{opacity:1}100%{opacity:0;transform:translate(calc(var(--s) * 40px - 30px),-90vh) scale(calc(var(--s) * .4))}}
+.fire-text{position:absolute;left:50%;bottom:16%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;animation:kf-text 4.2s ease-out both}
+.fire-text b{font-family:var(--font-display);font-size:clamp(2.6rem,12vw,4rem);color:#ffd76a;text-shadow:0 0 18px rgba(255,120,20,.9),0 4px 14px rgba(0,0,0,.6);letter-spacing:.06em}
+.fire-text .who{font-size:1.2rem;color:var(--cream);text-shadow:0 2px 8px rgba(0,0,0,.6)}
+@media (prefers-reduced-motion:reduce){.fire,.fcard,.fcard .char,.fcard .flames,.fcard .flames i,.ember,.fire-text,.fire-glow{animation-duration:.01s!important}}
 .whoosh{position:fixed;inset:0;z-index:50;pointer-events:none;overflow:hidden;display:grid;place-items:center}
 .whoosh-fly{position:absolute;top:38%;left:-30vw;animation:whooshfly 2.4s cubic-bezier(.2,.7,.3,1) forwards;filter:drop-shadow(0 10px 18px rgba(0,0,0,.5))}
 .whoosh-stache{display:block;animation:whooshspin 2.4s cubic-bezier(.3,.1,.3,1) forwards}
@@ -638,6 +661,7 @@ function schnauz(){
   if(g.phase==='roundEnd'){
     const res=g.result;
     if(res.reason==='schnauz'&&C.szWhoosh!==g.round){C.szWhoosh=g.round;setTimeout(schnauzWhoosh,0);}
+    if(res.reason==='feuer'&&C.szFire!==g.round){C.szFire=g.round;const star=res.players.find(i=>!res.losers.includes(i));const sp=g.players[star!==undefined?star:0];setTimeout(()=>schnauzFire(sp?sp.name:'',sp&&Array.isArray(sp.hand)?sp.hand:[]),0);}
     const why={klopf:'Nach dem Klopfen wird abgerechnet.',schnauz:'31 auf der Hand – die Runde ist sofort vorbei.',hand:'Handschnauz! 31 direkt vom Geber – alle anderen verlieren ein Leben.',feuer:'Feuer! Drei Asse – alle anderen verlieren ein Leben.',deck:'Der Stapel ist leer – Abrechnung.'}[res.reason];
     h+=`<div class="result"><p class="notice">${why}</p>${res.players.map(i=>{const p=g.players[i];const lost=res.losers.includes(i);const best=!lost&&(res.reason==='schnauz'||res.reason==='feuer'||res.reason==='hand')&&p.val>=31;
       return`<div class="row ${lost?'lost':''} ${best?'win':''}"><span class="who">${esc(p.name)}${i===me?' <span class="hint">(du)</span>':''}</span><div class="cards">${p.hand.map(c=>cardHtml(c,{flat:true,sm:true})).join('')}</div><span class="val">${fmtVal(p.val)}</span>${lost?`<span class="note">${esc(res.notes[i])}</span>`:''}</div>`;}).join('')}`;
@@ -739,6 +763,14 @@ function fanHtml(g,hand,myTurn,pick,anim){
 }
 
 /* Wirbelnder Schnauzer, wenn jemand Schnauz (31) hat */
+function schnauzFire(name,hand){
+  const old=document.querySelector('.fire');if(old)old.remove();
+  const el=document.createElement('div');el.className='fire';el.setAttribute('aria-hidden','true');
+  const cards=(hand.length===3?hand:[{r:'A',s:'♥',red:true},{r:'A',s:'♠',red:false},{r:'A',s:'♣',red:false}]).map((c,i)=>`<div class="fcard ${c.red?'red':''}" style="--i:${i}"><span class="rk">${c.r}</span><span class="su">${c.s}</span><span class="rk2">${c.r}</span><div class="char"></div><div class="flames"><i></i><i></i><i></i><i></i><i></i></div></div>`).join('');
+  const embers=Array.from({length:26},(_,i)=>`<b class="ember" style="--x:${(Math.random()*100).toFixed(1)}%;--d:${(Math.random()*1.6).toFixed(2)}s;--s:${(0.6+Math.random()*0.9).toFixed(2)}"></b>`).join('');
+  el.innerHTML=`<div class="fire-glow"></div>${embers}<div class="fire-cards">${cards}</div><div class="fire-text"><span class="eyebrow">Drei Asse</span><b>FEUER!</b><span class="who">${esc(name)}</span></div>`;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),4200);
+}
 function schnauzWhoosh(){
   const old=document.querySelector('.whoosh');if(old)old.remove();
   const el=document.createElement('div');el.className='whoosh';el.setAttribute('aria-hidden','true');
