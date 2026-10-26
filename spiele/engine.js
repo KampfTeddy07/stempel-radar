@@ -316,7 +316,7 @@
       else if (pv > dv) { p.result = 'win'; p.chips += p.bet; }
       else if (pv < dv) { p.result = 'lose'; p.chips -= p.bet; }
       else { p.result = 'push'; }
-      if (p.result === 'bj') grant(g, i, 20, 'Black Jack!'); else if (p.result === 'win') grant(g, i, 10, 'Bank geschlagen');
+      if (p.result === 'bj') grant(g, i, 20, 'Siebzehn und Vier!'); else if (p.result === 'win') grant(g, i, 10, 'Bank geschlagen');
     }
     g.phase = 'result';
     bjEv(g, 'settle');

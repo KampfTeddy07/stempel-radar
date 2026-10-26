@@ -24,10 +24,7 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
-        try {
-            Intent svc = new Intent(this, KeepAliveService.class);
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc); else startService(svc);
-        } catch (Exception ignored) {}
+
         web = new WebView(this);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -77,5 +74,18 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void closeStream(String id) { server.closeStream(id); }
         @JavascriptInterface public String urls() { return new JSONArray(server.urls()).toString(); }
         @JavascriptInterface public int port() { return server.port; }
+        /** mode: "lan" = Server nach außen öffnen + Dienst, "online" = nur Dienst (Relay-Gastgeber), "none" = alles zu. */
+        @JavascriptInterface public void hosting(final String mode) {
+            runOnUiThread(new Runnable() { public void run() {
+                boolean lan = "lan".equals(mode), host = lan || "online".equals(mode);
+                new Thread(new Runnable() { public void run() { server.setPublic(lan); } }).start();
+                try {
+                    Intent svc = new Intent(MainActivity.this, KeepAliveService.class);
+                    if (host) { if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc); else startService(svc); }
+                    else stopService(svc);
+                } catch (Exception ignored) {}
+            } });
+        }
+        @JavascriptInterface public boolean isPublic() { return server.isPublic(); }
     }
 }

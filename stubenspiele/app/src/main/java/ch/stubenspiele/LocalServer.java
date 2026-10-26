@@ -41,17 +41,33 @@ public class LocalServer {
 
     public LocalServer(Context ctx, WebView web) { this.ctx = ctx; this.web = web; }
 
-    public int start() throws IOException {
+    private volatile boolean isPublic = false;
+    /** Bindet den Server neu: standardmäßig nur auf 127.0.0.1 (nur für die eigene App erreichbar), im WLAN-Modus auf alle Schnittstellen. */
+    private void bind(boolean pub) throws IOException {
         IOException last = null;
-        for (int p = 3000; p < 3011; p++) {
-            try { ss = new ServerSocket(); ss.setReuseAddress(true); ss.bind(new InetSocketAddress("0.0.0.0", p)); port = p; last = null; break; }
+        ServerSocket old = ss;
+        if (old != null) { try { old.close(); } catch (IOException ignored) {} }
+        for (int p = (port > 0 ? port : 3000); p < 3011; p++) {
+            try { ServerSocket n = new ServerSocket(); n.setReuseAddress(true); n.bind(new InetSocketAddress(pub ? "0.0.0.0" : "127.0.0.1", p)); ss = n; port = p; last = null; break; }
             catch (IOException e) { last = e; }
         }
         if (last != null) throw last;
+        isPublic = pub;
+    }
+    /** Vom JS aufgerufen: true = Tisch im WLAN eröffnet (von außen erreichbar), false = wieder schließen. */
+    public synchronized void setPublic(boolean pub) {
+        if (pub == isPublic) return;
+        try { bind(pub); } catch (IOException e) { /* alter Zustand bleibt */ }
+    }
+    public boolean isPublic() { return isPublic; }
+
+    public int start() throws IOException {
+        bind(false);
         running = true;
         Thread t = new Thread(new Runnable() { public void run() {
             while (running) {
-                try { final Socket s = ss.accept(); pool.execute(new Runnable() { public void run() { handle(s); } }); }
+                ServerSocket cur = ss;
+                try { final Socket s = cur.accept(); pool.execute(new Runnable() { public void run() { handle(s); } }); }
                 catch (IOException e) { if (running) try { Thread.sleep(50); } catch (InterruptedException ignored) {} }
             } } }, "accept");
         t.setDaemon(true); t.start();
