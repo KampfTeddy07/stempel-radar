@@ -16,6 +16,9 @@
   const RANKS = [['7', 7], ['8', 8], ['9', 9], ['10', 10], ['B', 10], ['D', 10], ['K', 10], ['A', 11]];
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1);[a[i], a[j]] = [a[j], a[i]]; } return a; }
   function makeDeck() { const d = []; for (const su of SUITS) for (const [r, v] of RANKS) d.push({ s: su.s, red: su.red, r, v }); return shuffle(d); }
+  /* Coins: Spielgeld-Belohnungen pro Spiel, werden an die Clients gemeldet und dort im Geldbeutel gutgeschrieben. */
+  function grant(g, pi, coins, reason) { if (!g.awards) { g.awards = []; g.awardSeq = 0; } g.awards.push({ id: (g.gid || 'g') + '-' + (++g.awardSeq), pi, coins, reason }); if (g.awards.length > 60) g.awards.shift(); }
+  function knTotal(p) { const up = ['n1','n2','n3','n4','n5','n6'].reduce((a, k) => a + (p.sheet[k] || 0), 0); const low = Object.keys(p.sheet).filter(k => k[0] !== 'n').reduce((a, k) => a + (p.sheet[k] || 0), 0); return up + (up >= 63 ? 35 : 0) + low + (p.bonus || 0); }
   function handValue(h) {
     if (h.length < 3) return 0;
     if (h[0].r === h[1].r && h[1].r === h[2].r) return h[0].r === 'A' ? 33 : 30.5;
@@ -61,6 +64,8 @@
     }
     const left = szActive(g);
     g.result = { reason, losers, notes, players: act.slice(), winner: left.length === 1 ? left[0] : null, draw: left.length === 0 };
+    if (g.result.winner !== null) { grant(g, g.result.winner, 50, 'Schnauz gewonnen'); g.players.forEach((p, i) => { if (i !== g.result.winner) grant(g, i, 10, 'Schnauz mitgespielt'); }); }
+    else if (g.result.draw) g.players.forEach((p, i) => grant(g, i, 10, 'Schnauz mitgespielt'));
     g.phase = 'roundEnd';
   }
   function szEv(g, pi, type, extra) { g.ev = Object.assign({ seq: ++g.evSeq, pi, type }, extra || {}); }
@@ -123,7 +128,7 @@
       p.sheet[cat] = kScore(cat, g.dice, p);
       g.held = [false, false, false, false, false]; g.rolls = 0;
       g.current = (g.current + 1) % g.players.length;
-      if (g.current === 0) { g.turn++; if (g.turn > 13) g.phase = 'over'; }
+      if (g.current === 0) { g.turn++; if (g.turn > 13) { g.phase = 'over'; const best = Math.max(...g.players.map(knTotal)); g.players.forEach((p, i) => grant(g, i, knTotal(p) === best ? 50 : 10, knTotal(p) === best ? 'Kniffel gewonnen' : 'Kniffel mitgespielt')); } }
     }
   }
   function knView(g, pi) {
@@ -169,6 +174,8 @@
     const pts = g.players.reduce((a, p, i) => a + (i === winner ? 0 : unoPoints(p.hand)), 0);
     g.players[winner].score += pts; g.uno = null;
     g.result = { winner, points: pts, gameOver: g.players[winner].score >= 500, hands: g.players.map(p => unoPoints(p.hand)) };
+    grant(g, winner, 15, 'Runde gewonnen');
+    if (g.result.gameOver) { grant(g, winner, 50, 'Vier Farben gewonnen'); g.players.forEach((p, i) => { if (i !== winner) grant(g, i, 10, 'Vier Farben mitgespielt'); }); }
     g.phase = 'roundEnd'; g.last = '';
   }
   function unoAction(g, pi, a, d) {
@@ -284,6 +291,7 @@
       else if (pv > dv) { p.result = 'win'; p.chips += p.bet; }
       else if (pv < dv) { p.result = 'lose'; p.chips -= p.bet; }
       else { p.result = 'push'; }
+      if (p.result === 'bj') grant(g, i, 20, 'Black Jack!'); else if (p.result === 'win') grant(g, i, 10, 'Bank geschlagen');
     }
     g.phase = 'result';
     bjEv(g, 'settle');
@@ -335,10 +343,10 @@
   }
 
   /* ---- Räume ---- */
-  function newGame(room) { const nm = room.players.map(x => x.name); return room.game === 'schnauz' ? szNew(nm) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); }
+  function newGame(room) { const nm = room.players.map(x => x.name); const st = room.game === 'schnauz' ? szNew(nm) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); st.gid = room.code + '-' + Math.random().toString(36).slice(2, 8); st.awards = []; st.awardSeq = 0; return st; }
   function roomView(room, pid) {
     const pi = room.players.findIndex(p => p.id === pid);
-    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', online: !!room.online };
+    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', online: !!room.online, awards: (room.state && room.state.awards) || [] };
     if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : room.game === 'uno' ? unoView(room.state, pi) : room.game === 'bj' ? bjView(room.state, pi) : knView(room.state, pi);
     return base;
   }
