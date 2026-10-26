@@ -15,3 +15,10 @@ Wenn das WLAN die Geräte voneinander trennt (typisch im Hotel), auf der Startse
 Dann läuft alles über einen öffentlichen MQTT-Relay (EMQX, Ersatz: HiveMQ, Mosquitto), die Engine bleibt beim Gastgeber.
 Die Mitspieler öffnen https://kampfteddy07.github.io/stempel-radar/spiele und geben den 6-stelligen Code ein.
 Der Gastgeber kann auch im Browser hosten (gleiche Seite, „Spiel eröffnen"), muss die Seite aber offen lassen.
+
+## Ein-Gerät-Modus (Flugzeug, kein Netz)
+
+Auf der Startseite **Ein Gerät** wählen: alle spielen auf diesem Handy, es wandert reihum. Vor jedem Zug mit
+verdeckten Karten (Schnauz, Vier Farben) kommt ein Weitergeben-Schirm; Kniffel und Black Jack wechseln direkt.
+Tipp: Im Flugzeug lässt sich WLAN nach dem Flugmodus meist wieder einschalten – dann geht oft auch der Hotspot und
+damit der normale WLAN-Modus mit mehreren Handys.

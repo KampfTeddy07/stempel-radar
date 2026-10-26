@@ -218,6 +218,9 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .stylebtn .card.back{flex:0 0 auto;width:44px;cursor:default;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .felt-sw{width:44px;height:62px;border-radius:7px;border:2px solid var(--cream-2)}
 .felt-gruen{background:radial-gradient(circle at 50% 30%,#1f4d3c,#153527)} .felt-bordeaux{background:radial-gradient(circle at 50% 30%,#5a1f2a,#36111a)} .felt-mitternacht{background:radial-gradient(circle at 50% 30%,#1b2a4a,#0d1526)} .felt-wueste{background:radial-gradient(circle at 50% 30%,#7a5a2e,#4a3419)}
+.addrow{display:flex;gap:8px} .addrow .field{flex:1}
+.handoff{display:flex;flex-direction:column;align-items:center;gap:16px;padding-block:28px;text-align:center;flex:1;justify-content:center}
+.handoff h2{font-size:2.2rem}
 .offline{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 16px;border-radius:999px;background:var(--rouge);color:#fff;text-align:center;font-size:.85rem;line-height:1.3;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 
 .ucard{flex:0 0 auto;width:clamp(50px,15vw,66px);aspect-ratio:5/7;border-radius:10px;border:3px solid var(--cream);background:var(--uc,#333);color:var(--cream);position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 4px 12px rgba(0,0,0,.35);outline:3px solid transparent;transition:transform .15s,outline-color .15s}
@@ -370,12 +373,13 @@ OL.hostLoop();
 async function post(path,data){
   C.busy=true;render();
   try{
-    if(C.mode==='online'){const r=await OL.send(path,data);if(r.status!==200)throw new Error(r.body&&r.body.error||'Fehler');C.err='';return r.body;}
+    if(C.mode==='online'||C.mode==='local'){const r=await OL.send(path,data);if(r.status!==200)throw new Error(r.body&&r.body.error||'Fehler');C.err='';return r.body;}
     const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Fehler');C.err='';return j;}
   catch(e){C.err=e.message==='Failed to fetch'?'Server nicht erreichbar. Gleiches WLAN?':e.message;return null;}
   finally{C.busy=false;render();}
 }
 function connect(){
+  if(C.mode==='local'){Engine.subscribe('local',C.code,LOCAL.seats[0].pid,LOCAL.seats[0].token,data=>{if(data===null)leave();else localSync();});localSync();return;}
   if(C.mode==='online'){
     if(C.isHost){Engine.subscribe('local',C.code,C.pid,C.token,data=>{if(data===null)leave();else applyRoom(JSON.parse(data));});OL.wake();}
     if(!OL.clients.length)(C.isHost?OL.connectAny():OL.connect()).catch(e=>{C.err=e.message;render();});
@@ -395,7 +399,8 @@ function saveW(){try{localStorage.setItem(WK,JSON.stringify(W));}catch(e){}}
 const toasts=[];
 function toast(text,cls){const id=Date.now()+Math.random();toasts.push({id,text,cls:cls||''});render();setTimeout(()=>{const i=toasts.findIndex(t=>t.id===id);if(i>=0){toasts.splice(i,1);render();}},3200);}
 function creditAwards(room){if(!room||!Array.isArray(room.awards))return;let got=0;const lines=[];
-  for(const a of room.awards){if(a.pi!==room.me||W.seen[a.id])continue;W.seen[a.id]=1;W.coins+=a.coins;got+=a.coins;lines.push('+'+a.coins+' · '+a.reason);}
+  const meIdx=C.mode==='local'?0:room.me;
+  for(const a of room.awards){if(a.pi!==meIdx||W.seen[a.id])continue;W.seen[a.id]=1;W.coins+=a.coins;got+=a.coins;lines.push('+'+a.coins+' · '+a.reason);}
   if(got){const keys=Object.keys(W.seen);if(keys.length>400)for(const k of keys.slice(0,keys.length-400))delete W.seen[k];saveW();toast('🪙 '+lines.join(' · '),'coin');}}
 /* ---- Greifautomat ---- */
 const PRIZES=[
@@ -448,6 +453,41 @@ function claw(){
   h+=`<section class="panel"><h3>So verdienst du Coins</h3><div class="earn"><span>Schnauz, Kniffel, Vier Farben gewinnen</span><b>+50</b><span>Mitgespielt</span><b>+10</b><span>Runde bei Vier Farben gewonnen</span><b>+15</b><span>Black Jack: Bank geschlagen / Black Jack</span><b>+10 / +20</b></div><p class="hint">Spielgeld, nur zum Spaß. Liegt auf diesem Handy.</p></section>`;
   return h;
 }
+/* ---- Ein Gerät, reihum: alle Sitze in der lokalen Engine; der Bildschirm wandert zum Spieler, der dran ist. ---- */
+const LOCAL={seats:[],active:0,handoff:null,nameIn:''};
+function localStateFor(seat){return new Promise(res=>{Engine.request('ls'+(++OL.n),'/api/state',{code:C.code,pid:seat.pid,token:seat.token},(st,body)=>res(st===200?body:null));});}
+function localNeedsHandoff(game){return game==='schnauz'||game==='uno';}
+async function localSync(){
+  if(C.mode!=='local'||!C.code||!LOCAL.seats.length)return;
+  const host=await localStateFor(LOCAL.seats[0]);if(!host)return;
+  let want=LOCAL.active;const v=host.view;
+  if(host.phase==='lobby')want=0;
+  else if(v){
+    if(v.game==='bj'){ if(v.phase==='bet'){const i=v.players.findIndex(p=>p.chips>0&&p.bet===0);want=i<0?0:i;} else if(v.phase==='play')want=v.current; else want=0; }
+    else if(v.game==='kniffel'){want=v.phase==='over'?0:v.current;}
+    else if(v.game==='schnauz'){want=v.phase==='roundEnd'?0:v.current;}
+    else if(v.game==='uno'){
+      if(v.uno&&!v.uno.said){const sp=LOCAL.seats[v.uno.player];if(sp)await new Promise(r=>Engine.request('lu'+(++OL.n),'/api/action',{code:C.code,pid:sp.pid,token:sp.token,action:'uno',data:{}},()=>r()));}
+      want=v.phase==='roundEnd'?0:v.current;
+    }
+  }
+  if(want<0||want>=LOCAL.seats.length)want=0;
+  const switching=want!==LOCAL.active;
+  const needs=!!v&&localNeedsHandoff(v.game)&&host.phase!=='lobby'&&v.phase!=='roundEnd';
+  if(!needs){LOCAL.handoff=null;C.handoffRoom=null;}
+  if(switching&&needs){LOCAL.handoff=want;LOCAL.active=want;const seat=LOCAL.seats[want];C.pid=seat.pid;C.token=seat.token;C.handoffRoom=await localStateFor(seat);render();return;}
+  if(!switching&&LOCAL.handoff!==null){const seat=LOCAL.seats[want];C.handoffRoom=await localStateFor(seat);render();return;}
+  LOCAL.active=want;const seat=LOCAL.seats[want];C.pid=seat.pid;C.token=seat.token;
+  const mine=want===0?host:await localStateFor(seat);if(!mine)return;
+  mine.isHost=true;applyRoom(mine);
+}
+function handoffView(){
+  const seat=LOCAL.seats[LOCAL.handoff];const r=C.handoffRoom;const g=r&&r.view;
+  const gname={schnauz:'Schnauz',kniffel:'Kniffel',uno:'Vier Farben',bj:'Black Jack'}[g&&g.game]||'';
+  return`<div class="handoff">${g&&g.game==='uno'?`<div class="ucard wild" style="width:96px"><span class="us">✦</span></div>`:`<div class="card back" style="flex-basis:110px;width:110px"></div>`}<p class="eyebrow">${gname} · Weitergeben an</p><h2>${esc(seat.name)}</h2>
+  ${g&&g.game==='schnauz'&&g.knocker!==null?`<p class="notice">${esc(g.players[g.knocker].name)} hat geklopft – letzter Zug.</p>`:''}
+  <button class="btn btn-primary btn-big" data-a="handoffOk">Ich bin ${esc(seat.name)} – zeigen</button></div>`;
+}
 function applyRoom(room){setOnline(true);creditAwards(room);const key=JSON.stringify(room);if(key===C.roomKey){return;}C.roomKey=key;
     if(room.view&&room.view.game==='kniffel'&&room.view.seq!==C.lastSeq&&C.lastSeq>=0){C.anim=true;setTimeout(()=>{C.anim=false;render();},480);}
     if(room.view&&room.view.game==='kniffel')C.lastSeq=room.view.seq;
@@ -458,16 +498,18 @@ function applyRoom(room){setOnline(true);creditAwards(room);const key=JSON.strin
     const wasLobby=C.room&&C.room.phase==='lobby';C.room=room;
     if(C.page==='claw'){const v=room.view;const my=v&&v.current===v.me&&(v.phase==='turn'||v.phase==='dealer'||v.phase==='play');if(room.phase!=='lobby'&&wasLobby)toast('Das Spiel geht los – zurück zum Tisch!','');else if(my&&!C.turnToasted){toast('Du bist dran – zurück zum Tisch!','');}C.turnToasted=!!my;}else C.page=room.phase==='lobby'?'lobby':'game';render();}
 // Sicherheitsnetz: regelmässig den Stand abholen (im Internet-Modus zugleich das Lebenszeichen an den Gastgeber)
-setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;
+setInterval(async()=>{if(!C.code||!C.pid||C.busy||C.mode==='local')return;
   try{
     if(C.mode==='online'){if(C.isHost||!OL.ready)return;const r=await OL.send('/api/state',{code:C.code,pid:C.pid,token:C.token});if(r.status===403){leave();return;}if(r.status===200)applyRoom(r.body);return;}
     const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());
   }catch(e){setOnline(false);}},C.mode==='online'?5000:3000);
 // Host im Internet-Modus: eigenen Stand direkt aus der Engine lesen (rein lokal, unabhängig vom Relay) – so ist die Lobby-Spielerliste beim Gastgeber immer aktuell
 setInterval(()=>{const v=C.room&&C.room.view;if(v&&v.game==='schnauz'&&v.blitz&&(v.phase==='turn'||v.phase==='dealer')&&C.page==='game')render();},1000);
+setInterval(()=>{if(C.mode==='local'&&C.code&&LOCAL.handoff===null&&C.page!=='claw')localSync();},1000);
 setInterval(()=>{if(C.mode!=='online'||!C.isHost||!C.code||!C.pid)return;try{Engine.request('h'+(++OL.n),'/api/state',{code:C.code,pid:C.pid,token:C.token},(st,body)=>{if(st===200)applyRoom(body);});}catch(e){}},1000);
-function act(action,data){post('/api/action',{code:C.code,pid:C.pid,token:C.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();});}
-function leave(){if(es)es.close();es=null;OL.closeAll();C.code=C.pid=C.token=null;C.isHost=false;C.room=null;C.roomKey=null;C.page='home';C.confirm=false;persist();render();}
+const HOST_ACTIONS={backToLobby:1,nextRound:1,rematch:1,setGame:1,setVariant:1,start:1,kick:1};
+function act(action,data){const cred=(C.mode==='local'&&HOST_ACTIONS[action]&&LOCAL.seats[0])?LOCAL.seats[0]:{pid:C.pid,token:C.token};post('/api/action',{code:C.code,pid:cred.pid,token:cred.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();if(C.mode==='local')localSync();});}
+function leave(){if(es)es.close();es=null;OL.closeAll();LOCAL.seats=[];LOCAL.active=0;LOCAL.handoff=null;C.handoffRoom=null;C.code=C.pid=C.token=null;C.isHost=false;C.room=null;C.roomKey=null;C.page='home';C.confirm=false;persist();render();}
 const newCid=()=>Array.from({length:16},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random()*31)]).join('');
 
 /* ---- Darstellung ---- */
@@ -484,21 +526,30 @@ function handValue(h){if(!Array.isArray(h)||h.length<3)return 0;if(h[0].r===h[1]
 function livesHtml(p){if(p.out)return'<span class="tag">raus</span>';let s='';for(let i=0;i<3;i++)s+=i<p.lives?'●':'○';return`<span class="lives">${s}</span>${p.swim?'<span class="tag swim"><span class="fish" aria-hidden="true">🐟</span>schwimmt</span>':''}`;}
 
 function home(){
-  const online=C.mode==='online';const len=online?6:4;
+  const online=C.mode==='online';const local=C.mode==='local';const len=online?6:4;
   return`<header class="hero"><p class="eyebrow">Stubenspiele</p><h1>Schnauz, Kniffel &amp; Vier Farben</h1><p class="lede">Jeder spielt auf dem eigenen Handy. Einer eröffnet, die anderen treten mit dem Code bei.</p></header>
-  ${LAN_OK?`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!online?'is-on':''}" data-a="setMode" data-m="lan">WLAN / Hotspot</button><button class="seg-btn ${online?'is-on':''}" data-a="setMode" data-m="online">Internet</button></div>
-  <p class="hint">${online?'Für Hotel-WLAN oder Mobilfunk: Läuft über einen öffentlichen Relay im Internet, alle brauchen nur Internet. Die anderen öffnen die Seite unter '+WEB_URL+'.':'Alle im gleichen WLAN oder am Hotspot dieses Handys; die anderen öffnen die unten gezeigte Adresse im Browser.'}</p>
+  ${LAN_OK?`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!online?'is-on':''}" data-a="setMode" data-m="lan">WLAN / Hotspot</button><button class="seg-btn ${online?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div>
+  <p class="hint">${local?'Kein Netz nötig – ideal im Flugzeug. Alle spielen auf diesem Handy, es wandert reihum; vor jedem Zug kommt ein Weitergeben-Schirm, damit niemand fremde Karten sieht.':online?'Für Hotel-WLAN oder Mobilfunk: Läuft über einen öffentlichen Relay im Internet, alle brauchen nur Internet. Die anderen öffnen die Seite unter '+WEB_URL+'.':'Alle im gleichen WLAN oder am Hotspot dieses Handys; die anderen öffnen die unten gezeigte Adresse im Browser.'}</p>
   ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy ist der Server.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
-  :`<p class="notice soft">Internet-Modus: Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.</p>`}
+  :`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!local?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div><p class="hint">${local?'Kein Netz nötig: alle spielen auf diesem Handy, es wandert reihum.':'Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.'}</p></section>`}
   <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><button class="btn btn-outline" data-a="clawOpen">Greifautomat</button></div><p class="hint">Coins gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
   <section class="panel"><h2>Dein Name</h2><input class="field" id="name" data-f="name" value="${esc(C.name)}" placeholder="z. B. Jim" maxlength="14" autocomplete="off">
   ${C.err?`<p class="error">${esc(C.err)}</p>`:''}
-  <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':'Spiel eröffnen'}</button></section>
-  <section class="panel"><h2>Beitreten</h2><input class="field code" id="code" data-f="codeIn" value="${esc(C.codeIn)}" placeholder="${'·'.repeat(len)}" maxlength="${len}" autocomplete="off" autocapitalize="characters">
-  <button class="btn btn-outline btn-big" data-a="join" ${C.busy||C.codeIn.length<len?'disabled':''}>${C.busy?'Verbinde …':'Mitspielen'}</button></section>`;
+  <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':local?'Tisch auf diesem Handy aufbauen':'Spiel eröffnen'}</button></section>
+  ${local?'':`<section class="panel"><h2>Beitreten</h2><input class="field code" id="code" data-f="codeIn" value="${esc(C.codeIn)}" placeholder="${'·'.repeat(len)}" maxlength="${len}" autocomplete="off" autocapitalize="characters">
+  <button class="btn btn-outline btn-big" data-a="join" ${C.busy||C.codeIn.length<len?'disabled':''}>${C.busy?'Verbinde …':'Mitspielen'}</button></section>`}`;
 }
 function lobby(){
   const r=C.room;const n=r.players.length;const min=r.game==='kniffel'?1:2;
+  if(C.mode==='local')return`<header class="hero"><p class="eyebrow">Ein Gerät · reihum</p><h1>Wer spielt mit?</h1><p class="lede">Bis zu vier Leute an diesem Handy. Vor jedem Zug wird weitergegeben.</p></header>
+  <section class="panel"><h2>Am Tisch (${n} von 4)</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="who">${i+1}. ${esc(p.name)}</span>${n>1?`<button class="btn btn-ghost sm" data-a="localRemove" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div>
+  ${n<4?`<div class="addrow"><input class="field" id="lname" data-f="lname" value="${esc(LOCAL.nameIn)}" placeholder="Name von Spieler ${n+1}" maxlength="14" autocomplete="off"><button class="btn btn-outline" data-a="localAdd" ${LOCAL.nameIn.trim()?'':'disabled'}>Hinzufügen</button></div>`:''}</section>
+  <section class="panel"><h2>Spiel</h2>
+  <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz">Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel">Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno">Vier Farben</button><button class="seg-btn ${r.game==='bj'?'is-on':''}" data-a="setGame" data-g="bj">Black Jack</button></div>
+  ${r.game==='schnauz'?`<div class="seg"><button class="seg-btn ${r.variant!=='blitz'?'is-on':''}" data-a="setVariant" data-v="classic">Klassisch</button><button class="seg-btn ${r.variant==='blitz'?'is-on':''}" data-a="setVariant" data-v="blitz">Blitz</button></div>`:r.game==='uno'?`<div class="seg"><button class="seg-btn ${r.variant!=='extreme'?'is-on':''}" data-a="setVariant" data-v="classic">Klassisch</button><button class="seg-btn ${r.variant==='extreme'?'is-on':''}" data-a="setVariant" data-v="extreme">Extrem</button></div>`:''}
+  <button class="btn btn-primary btn-big" data-a="start" ${n<min||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>
+  <div class="walletline"><span>🪙 ${W.coins} Coins (dieses Handy)</span><button class="btn btn-ghost" data-a="clawOpen">Greifautomat</button></div>
+  <button class="btn btn-ghost" data-a="leaveLobby">Tisch auflösen</button></section>`;
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
   <p class="hint" style="text-align:center">Die anderen öffnen im Browser:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}</header>
   <div class="walletline"><span>🪙 ${W.coins} Coins</span><button class="btn btn-ghost" data-a="clawOpen">Greifautomat · Zeit überbrücken</button></div>
@@ -722,14 +773,14 @@ function render(){
   if(C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine')){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
   let h=C.online||C.page==='home'||C.page==='claw'?'':'<div class="offline">Verbindung wird neu aufgebaut …</div>';
   h+=toastHtml();
-  if(C.page==='claw')h+=claw();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
+  if(C.page==='claw')h+=claw();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
   $app.innerHTML=h;
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   const kAge=Date.now()-C.knockAt;if(kAge<1500&&!$app.classList.contains('tableshake')){$app.classList.add('tableshake');setTimeout(()=>$app.classList.remove('tableshake'),1500-kAge);}
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
 }
 
-$app.addEventListener('input',e=>{const t=e.target;if(!t.dataset.f)return;C[t.dataset.f]=t.dataset.f==='codeIn'?t.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,C.mode==='online'?6:4):t.value;if(t.dataset.f==='name')persist();
+$app.addEventListener('input',e=>{const t=e.target;if(!t.dataset.f)return;if(t.dataset.f==='lname'){LOCAL.nameIn=t.value;const b=$app.querySelector('[data-a="localAdd"]');if(b)b.disabled=!t.value.trim();return;}C[t.dataset.f]=t.dataset.f==='codeIn'?t.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,C.mode==='online'?6:4):t.value;if(t.dataset.f==='name')persist();
   if(t.dataset.f==='codeIn'){const b=$app.querySelector('[data-a="join"]');if(b)b.disabled=C.codeIn.length<(C.mode==='online'?6:4)||C.busy;}});
 $app.addEventListener('click',async e=>{
   const t=e.target.closest('[data-a]');if(!t||t.disabled)return;const a=t.dataset.a,d=t.dataset;
@@ -740,6 +791,7 @@ $app.addEventListener('click',async e=>{
     case 'clawPlay':clawPlay();break;
     case 'setStyle':W.style[d.t]=d.v;saveW();applyStyle();render();break;
     case 'create':{
+      if(C.mode==='local'){C.isHost=true;C.cid=tabCid();const r=await post('/api/create',{name:C.name||'Spieler 1'});if(!r)break;LOCAL.seats=[{pid:r.pid,token:r.token,name:C.name||'Spieler 1'}];LOCAL.active=0;LOCAL.handoff=null;Object.assign(C,{code:r.code,pid:r.pid,token:r.token});connect();break;}
       if(C.mode==='online'){C.cid=tabCid();C.isHost=true;C.code=null;C.busy=true;C.err='';render();
         let idx;try{idx=await OL.connectAny();}catch(e){C.err=e.message+' Versuche es gleich nochmal.';C.busy=false;C.isHost=false;render();break;}C.busy=false;
         const r=await post('/api/create',{name:C.name,codeLen:6,code:makeOnlineCode(idx)});if(!r){leave();break;}Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();OL.subscribeTopics();connect();break;}
@@ -757,6 +809,9 @@ $app.addEventListener('click',async e=>{
         Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();OL.pub(OL.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});break;}
       const r=await post('/api/join',{code:C.codeIn,name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
     case 'reload':location.reload();break;
+    case 'localAdd':{const nm=LOCAL.nameIn.trim();if(!nm)break;const r=await post('/api/join',{code:C.code,name:nm});if(r){LOCAL.seats.push({pid:r.pid,token:r.token,name:nm});LOCAL.nameIn='';localSync();}break;}
+    case 'localRemove':{const i=+d.i;const seat=LOCAL.seats[i];if(!seat||i===0&&LOCAL.seats.length===1)break;await post('/api/action',{code:C.code,pid:seat.pid,token:seat.token,action:'leave',data:{}});LOCAL.seats.splice(i,1);if(i===0){const s0=LOCAL.seats[0];C.pid=s0.pid;C.token=s0.token;}LOCAL.active=0;localSync();break;}
+    case 'handoffOk':{LOCAL.handoff=null;const seat=LOCAL.seats[LOCAL.active];C.pid=seat.pid;C.token=seat.token;const mine=await localStateFor(seat);C.handoffRoom=null;if(mine){mine.isHost=true;C.roomKey=null;applyRoom(mine);}break;}
     case 'leaveLobby':await post('/api/action',{code:C.code,pid:C.pid,token:C.token,action:'leave',data:{}});leave();break;
     case 'leaveGame':leave();break;
     case 'kick':act('kick',{i:+d.i});break;
@@ -788,7 +843,7 @@ $app.addEventListener('click',async e=>{
     default:act(a,{});
   }
 });
-if(C.code&&C.pid&&C.token&&C.mode==='online'&&C.isHost){C.code=C.pid=C.token=null;C.isHost=false;persist();}
+if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local')){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
 })();
 </script>
