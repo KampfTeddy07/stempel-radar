@@ -15,7 +15,7 @@
   const SUITS = [{ s: '♠', red: false }, { s: '♥', red: true }, { s: '♦', red: true }, { s: '♣', red: false }];
   const RANKS = [['7', 7], ['8', 8], ['9', 9], ['10', 10], ['B', 10], ['D', 10], ['K', 10], ['A', 11]];
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1);[a[i], a[j]] = [a[j], a[i]]; } return a; }
-  function makeDeck() { const d = []; for (const su of SUITS) for (const [r, v] of RANKS) d.push({ s: su.s, red: su.red, r, v }); return shuffle(d); }
+  function makeDeck(minVal) { const d = []; for (const su of SUITS) for (const [r, v] of RANKS) if (!minVal || v >= minVal) d.push({ s: su.s, red: su.red, r, v }); return shuffle(d); }
   /* Coins: Spielgeld-Belohnungen pro Spiel, werden an die Clients gemeldet und dort im Geldbeutel gutgeschrieben. */
   function grant(g, pi, coins, reason) { if (!g.awards) { g.awards = []; g.awardSeq = 0; } g.awards.push({ id: (g.gid || 'g') + '-' + (++g.awardSeq), pi, coins, reason }); if (g.awards.length > 60) g.awards.shift(); }
   function knTotal(p) { const up = ['n1','n2','n3','n4','n5','n6'].reduce((a, k) => a + (p.sheet[k] || 0), 0); const low = Object.keys(p.sheet).filter(k => k[0] !== 'n').reduce((a, k) => a + (p.sheet[k] || 0), 0); return up + (up >= 63 ? 35 : 0) + low + (p.bonus || 0); }
@@ -25,18 +25,19 @@
     const by = {}; for (const c of h) by[c.s] = (by[c.s] || 0) + c.v;
     return Math.max(...Object.values(by));
   }
-  function szNew(names) {
-    const g = { players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false, passed: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
+  function szNew(names, blitz) {
+    const g = { blitz: !!blitz, turnMs: 30000, deadline: 0, players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false, passed: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
     szStartRound(g, 0); return g;
   }
+  function szArm(g) { g.deadline = g.blitz ? Date.now() + g.turnMs : 0; }
   const szActive = g => g.players.map((p, i) => i).filter(i => !g.players[i].out);
   function szNext(g, i) { let j = i; for (let k = 0; k < g.players.length; k++) { j = (j + 1) % g.players.length; if (!g.players[j].out) return j; } return i; }
   function szStartRound(g, dealer) {
-    g.deck = makeDeck(); g.dealer = dealer; g.knocker = null; g.passes = 0; g.result = null; g.table = []; g.ev = null;
+    g.deck = makeDeck(g.blitz ? 9 : 0); g.dealer = dealer; g.knocker = null; g.passes = 0; g.result = null; g.table = []; g.ev = null;
     for (const p of g.players) { p.hand = []; p.val = 0; p.lost = false; p.passed = false; }
     for (const i of szActive(g)) g.players[i].hand = g.deck.splice(0, 3);
     g.alt = g.deck.splice(0, 3);
-    g.current = dealer; g.phase = 'dealer';
+    g.current = dealer; g.phase = 'dealer'; szArm(g);
     szCheckHands(g);
   }
   /* Handschnauz/Feuer direkt nach dem Geben (und nach der Entscheidung des Gebers) erkennen. */
@@ -49,7 +50,7 @@
   function szAdvance(g) {
     const next = szNext(g, g.current);
     if (g.knocker !== null && next === g.knocker) { szShowdown(g, 'klopf'); return; }
-    g.current = next; g.phase = 'turn';
+    g.current = next; g.phase = 'turn'; szArm(g);
   }
   const szClearPasses = g => { g.passes = 0; for (const p of g.players) p.passed = false; };
   function szAfterMove(g) {
@@ -78,11 +79,24 @@
     g.phase = 'roundEnd';
   }
   function szEv(g, pi, type, extra) { g.ev = Object.assign({ seq: ++g.evSeq, pi, type }, extra || {}); }
+  /* Blitz: Zeit abgelaufen -> Geber behält automatisch, Spieler schiebt automatisch. */
+  function szTimeout(g) {
+    if (!g.blitz || !g.deadline || Date.now() < g.deadline) return false;
+    const pi = g.current;
+    if (g.phase === 'dealer') { g.table = g.alt; g.alt = []; szEv(g, pi, 'timeoutDealer'); g.current = szNext(g, g.dealer); g.phase = 'turn'; szArm(g); szCheckHands(g); return true; }
+    if (g.phase === 'turn') {
+      g.passes++;
+      if (g.passes >= szActive(g).length) { if (g.deck.length >= 3) { g.table = g.deck.splice(0, 3); g.passes = 0; szEv(g, pi, 'timeoutNewTable'); szAdvance(g); } else szShowdown(g, 'deck'); }
+      else { szEv(g, pi, 'timeout'); szAdvance(g); }
+      return true;
+    }
+    return false;
+  }
   function szAction(g, pi, a, d) {
     const mine = g.current === pi;
     if (g.phase === 'dealer' && mine) {
-      if (a === 'dealerKeep') { g.table = g.alt; g.alt = []; szEv(g, pi, 'dealerKeep'); g.current = szNext(g, g.dealer); g.phase = 'turn'; return; }
-      if (a === 'dealerSwap') { const p = g.players[g.dealer]; g.table = p.hand; p.hand = g.alt; g.alt = []; szEv(g, pi, 'dealerSwap'); g.current = szNext(g, g.dealer); g.phase = 'turn'; szCheckHands(g); return; }
+      if (a === 'dealerKeep') { g.table = g.alt; g.alt = []; szEv(g, pi, 'dealerKeep'); g.current = szNext(g, g.dealer); g.phase = 'turn'; szArm(g); return; }
+      if (a === 'dealerSwap') { const p = g.players[g.dealer]; g.table = p.hand; p.hand = g.alt; g.alt = []; szEv(g, pi, 'dealerSwap'); g.current = szNext(g, g.dealer); g.phase = 'turn'; szArm(g); szCheckHands(g); return; }
     }
     if (g.phase === 'turn' && mine) {
       const p = g.players[pi];
@@ -101,7 +115,7 @@
   function szView(g, pi) {
     const open = g.phase === 'roundEnd';
     return {
-      game: 'schnauz', round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
+      game: 'schnauz', blitz: g.blitz, deadline: g.deadline, now: Date.now(), round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
       table: g.phase === 'dealer' ? null : g.table,
       players: g.players.map((p, i) => ({ name: p.name, lives: p.lives, swim: p.swim, out: p.out, lost: p.lost, passed: p.passed, val: open ? p.val : null, hand: (open || i === pi) ? p.hand : p.hand.length })),
     };
@@ -352,7 +366,7 @@
   }
 
   /* ---- Räume ---- */
-  function newGame(room) { const nm = room.players.map(x => x.name); const st = room.game === 'schnauz' ? szNew(nm) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); st.gid = room.code + '-' + Math.random().toString(36).slice(2, 8); st.awards = []; st.awardSeq = 0; return st; }
+  function newGame(room) { const nm = room.players.map(x => x.name); const st = room.game === 'schnauz' ? szNew(nm, room.variant === 'blitz') : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); st.gid = room.code + '-' + Math.random().toString(36).slice(2, 8); st.awards = []; st.awardSeq = 0; return st; }
   function roomView(room, pid) {
     const pi = room.players.findIndex(p => p.id === pid);
     const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', online: !!room.online, awards: (room.state && room.state.awards) || [] };
@@ -368,7 +382,7 @@
     const pi = room.players.indexOf(p);
     if (room.phase === 'lobby') {
       if (a === 'setGame' && room.host === p.id && (d.g === 'schnauz' || d.g === 'kniffel' || d.g === 'uno' || d.g === 'bj')) room.game = d.g;
-      if (a === 'setVariant' && room.host === p.id && (d.v === 'classic' || d.v === 'extreme')) room.variant = d.v;
+      if (a === 'setVariant' && room.host === p.id && (d.v === 'classic' || d.v === 'extreme' || d.v === 'blitz')) room.variant = d.v;
       if (a === 'start' && room.host === p.id) {
         const n = room.players.length; const min = (room.game === 'kniffel' || room.game === 'bj') ? 1 : 2;
         if (n >= min && n <= 4) { room.state = newGame(room); room.phase = 'playing'; }
@@ -439,6 +453,7 @@
     streams.delete(id); s.p.streams = s.p.streams.filter(x => x !== id);
     if (rooms.has(s.room.code)) broadcast(s.room);
   }
+  setInterval(() => { for (const r of rooms.values()) { if (r.phase === 'playing' && r.game === 'schnauz' && r.state && r.state.blitz) { try { if (szTimeout(r.state)) broadcast(r); } catch (e) {} } } }, 500);
   setInterval(() => { const now = Date.now(); for (const [code, r] of rooms) if (r.players.every(p => p.streams.length === 0) && now - r.created > 2 * 3600e3) rooms.delete(code); }, 60e3);
   window.Engine = { request, subscribe, unsubscribe };
 })();
