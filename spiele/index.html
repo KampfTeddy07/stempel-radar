@@ -172,6 +172,30 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .vit .vc{position:absolute;top:4px;right:6px;font-size:.7rem;font-weight:700;color:var(--rc)}
 .earn{display:grid;grid-template-columns:1fr auto;gap:6px 14px;font-size:.92rem;color:var(--muted)} .earn b{color:var(--brass);font-variant-numeric:tabular-nums;text-align:right}
 @media (prefers-reduced-motion:reduce){.claw,.claw .rope,.claw .arm{transition-duration:.01s}}
+.knockfx{position:fixed;inset:0;z-index:7;pointer-events:none;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(0,0,0,.0),rgba(0,0,0,.45));animation:kf-fade 2.2s ease-out both;animation-delay:var(--d,0ms)}
+@keyframes kf-fade{0%{opacity:0}6%{opacity:1}80%{opacity:1}100%{opacity:0}}
+.kf-hand{font-size:clamp(6rem,30vw,9rem);line-height:1;filter:drop-shadow(0 18px 18px rgba(0,0,0,.6));transform-origin:50% 90%;animation:kf-knock 2.2s cubic-bezier(.3,0,.2,1) both;animation-delay:var(--d,0ms);position:relative;z-index:2}
+@keyframes kf-knock{
+  0%{transform:translateY(-140px) rotate(-25deg) scale(.9);opacity:0}
+  10%{opacity:1}
+  22%{transform:translateY(-90px) rotate(-18deg) scale(1)}
+  30%{transform:translateY(0) rotate(0) scale(1.06,.92)}
+  36%{transform:translateY(-6px) rotate(-2deg) scale(1)}
+  44%{transform:translateY(-70px) rotate(-14deg) scale(1)}
+  52%{transform:translateY(0) rotate(0) scale(1.08,.9)}
+  58%{transform:translateY(-4px) rotate(0) scale(1)}
+  80%{transform:translateY(0) rotate(0) scale(1)}
+  100%{transform:translateY(-30px) rotate(-8deg) scale(.95);opacity:0}}
+.kf-ring{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:30px 0 0 -20px;border-radius:50%;border:4px solid var(--brass);opacity:0;animation:kf-ring 2.2s ease-out both;animation-delay:var(--d,0ms)}
+.kf-ring.r2{animation-name:kf-ring2}
+@keyframes kf-ring{0%,29%{transform:scale(.3);opacity:0}30%{opacity:.9}45%{transform:scale(5);opacity:0}100%{opacity:0}}
+@keyframes kf-ring2{0%,51%{transform:scale(.3);opacity:0}52%{opacity:.9}70%{transform:scale(6);opacity:0}100%{opacity:0}}
+.kf-text{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);text-align:center;display:flex;flex-direction:column;gap:4px;align-items:center;animation:kf-text 2.2s ease-out both;animation-delay:var(--d,0ms)}
+.kf-text b{font-family:var(--font-display);font-size:clamp(1.8rem,8vw,2.6rem);color:var(--cream);text-shadow:0 4px 14px rgba(0,0,0,.6)}
+@keyframes kf-text{0%,28%{opacity:0;transform:translate(-50%,16px)}38%{opacity:1;transform:translate(-50%,0)}82%{opacity:1}100%{opacity:0}}
+#app.tableshake{animation:tableshake .9s cubic-bezier(.36,.07,.19,.97) both;animation-delay:.6s}
+@keyframes tableshake{0%,100%{transform:translate(0,0)}8%{transform:translate(-5px,3px) rotate(-.3deg)}16%{transform:translate(6px,-3px) rotate(.3deg)}24%{transform:translate(-4px,2px)}32%{transform:translate(3px,-2px)}40%{transform:translate(0,0)}56%{transform:translate(-5px,3px) rotate(-.3deg)}64%{transform:translate(6px,-3px) rotate(.3deg)}72%{transform:translate(-3px,2px)}80%{transform:translate(2px,-1px)}}
+@media (prefers-reduced-motion:reduce){.knockfx,.kf-hand,.kf-ring,.kf-text{animation-duration:.6s}#app.tableshake{animation:none}}
 .offline{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 16px;border-radius:999px;background:var(--rouge);color:#fff;text-align:center;font-size:.85rem;line-height:1.3;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 
 .ucard{flex:0 0 auto;width:clamp(50px,15vw,66px);aspect-ratio:5/7;border-radius:10px;border:3px solid var(--cream);background:var(--uc,#333);color:var(--cream);position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 4px 12px rgba(0,0,0,.35);outline:3px solid transparent;transition:transform .15s,outline-color .15s}
@@ -237,7 +261,7 @@ const LS='stubenspiele-lan';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LAN_OK=location.protocol==='http:'&&!/github\.io$/.test(location.hostname);
 const WEB_URL='kampfteddy07.github.io/stempel-radar/spiele';
-let C={bjBet:0,szSeq:0,mode:LAN_OK?'lan':'online',wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
+let C={knockAt:0,knockName:'',bjBet:0,szSeq:0,mode:LAN_OK?'lan':'online',wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
 let es=null;
 try{const r=localStorage.getItem(LS);if(r)Object.assign(C,JSON.parse(r));}catch(e){}
 if(!LAN_OK)C.mode='online';
@@ -466,9 +490,12 @@ function schnauz(){
   const cn=c=>`<b class="${c.red?'rc':''}">${c.r}${c.s}</b>`;
   const evText=!ev?'':ev.type==='swap'?`${esc(g.players[ev.pi].name)} legt ${cn(ev.gave)} in die Mitte und nimmt ${cn(ev.took)}.`:ev.type==='swapAll'?`${esc(g.players[ev.pi].name)} tauscht alle drei Karten.`:ev.type==='pass'?`${esc(g.players[ev.pi].name)} schiebt.`:ev.type==='knock'?`${esc(g.players[ev.pi].name)} klopft! Jeder hat noch genau einen Zug.`:ev.type==='newTable'?'Alle haben geschoben: drei neue Karten in der Mitte.':ev.type==='dealerKeep'?`${esc(g.players[ev.pi].name)} behält die Karten, der zweite Stapel liegt offen.`:ev.type==='dealerSwap'?`${esc(g.players[ev.pi].name)} tauscht blind gegen den zweiten Stapel.`:'';
   const seatAnim=i=>fresh&&ev.pi===i?(ev.type==='knock'?' knock':' bump'):'';
+  if(fresh&&ev.type==='knock'){C.knockAt=Date.now();C.knockName=g.players[ev.pi].name;setTimeout(render,2400);}
+  const kEl=Date.now()-C.knockAt;const knockFx=kEl<2300?`<div class="knockfx" style="--d:-${kEl}ms"><div class="kf-hand">✊</div><div class="kf-ring"></div><div class="kf-ring r2"></div><div class="kf-text"><span class="eyebrow">Klopf, klopf</span><b>${esc(C.knockName)} klopft!</b></div></div>`:'';
   const flip=i=>fresh&&ev&&((ev.type==='swap'&&ev.t===i)||ev.type==='swapAll'||ev.type==='newTable'||ev.type==='dealerKeep'||ev.type==='dealerSwap');
   h+=`<div class="seats">${tb.pre}${g.players.map((p,i)=>`<span class="seat ${i===g.current&&g.phase!=='roundEnd'?'cur':''} ${p.out?'out':''} ${i===me?'me':''}${seatAnim(i)}"><span class="nm">${esc(p.name)}</span>${livesHtml(p)}${i===g.dealer&&!p.out?'<span class="tag">gibt</span>':''}${i===g.knocker?'<span class="tag">klopft</span>':''}${p.passed&&g.phase==='turn'?'<span class="tag soft">schiebt</span>':''}</span>`).join('')}</div>`;
   if(evText&&g.phase!=='roundEnd')h+=`<p class="lastline ${fresh?'fresh':''}">${evText}</p>`;
+  h+=knockFx;
   const mine=g.players[me];const myHand=Array.isArray(mine.hand)?mine.hand:[];
   const handZone=(sel)=>`<div class="zone"><div class="zone-head"><span class="eyebrow">Deine Karten</span><span class="value">${myHand.length?fmtVal(handValue(myHand)):'–'}</span></div><div class="cards">${myHand.length?myHand.map((c,i)=>cardHtml(c,sel?{a:'selH',i,sel:C.sel.h===i}:{flat:true})).join(''):'<p class="hint">Du setzt diese Runde aus.</p>'}</div></div>`;
   if(g.phase==='dealer'){
@@ -658,6 +685,7 @@ function render(){
   if(C.page==='claw')h+=claw();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
   $app.innerHTML=h;
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
+  const kAge=Date.now()-C.knockAt;if(kAge<1500&&!$app.classList.contains('tableshake')){$app.classList.add('tableshake');setTimeout(()=>$app.classList.remove('tableshake'),1500-kAge);}
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
 }
 
