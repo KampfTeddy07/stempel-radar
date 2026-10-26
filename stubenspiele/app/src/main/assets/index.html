@@ -520,8 +520,8 @@ function schnauz(){
   if(g.phase==='roundEnd'){
     const res=g.result;
     if(res.reason==='schnauz'&&C.szWhoosh!==g.round){C.szWhoosh=g.round;setTimeout(schnauzWhoosh,0);}
-    const why={klopf:'Nach dem Klopfen wird abgerechnet.',schnauz:'31 auf der Hand – die Runde ist sofort vorbei.',feuer:'Feuer! Drei Asse – alle anderen verlieren ein Leben.',deck:'Der Stapel ist leer – Abrechnung.'}[res.reason];
-    h+=`<div class="result"><p class="notice">${why}</p>${res.players.map(i=>{const p=g.players[i];const lost=res.losers.includes(i);const best=!lost&&(res.reason==='schnauz'||res.reason==='feuer')&&p.val>=31;
+    const why={klopf:'Nach dem Klopfen wird abgerechnet.',schnauz:'31 auf der Hand – die Runde ist sofort vorbei.',hand:'Handschnauz! 31 direkt vom Geber – alle anderen verlieren ein Leben.',feuer:'Feuer! Drei Asse – alle anderen verlieren ein Leben.',deck:'Der Stapel ist leer – Abrechnung.'}[res.reason];
+    h+=`<div class="result"><p class="notice">${why}</p>${res.players.map(i=>{const p=g.players[i];const lost=res.losers.includes(i);const best=!lost&&(res.reason==='schnauz'||res.reason==='feuer'||res.reason==='hand')&&p.val>=31;
       return`<div class="row ${lost?'lost':''} ${best?'win':''}"><span class="who">${esc(p.name)}${i===me?' <span class="hint">(du)</span>':''}</span><div class="cards">${p.hand.map(c=>cardHtml(c,{flat:true,sm:true})).join('')}</div><span class="val">${fmtVal(p.val)}</span>${lost?`<span class="note">${esc(res.notes[i])}</span>`:''}</div>`;}).join('')}`;
     if(res.winner!==null||res.draw){
       h+=res.winner!==null?`<div class="winner"><p class="eyebrow">Gewinnt das Spiel</p><h2>${esc(g.players[res.winner].name)}</h2></div>`:`<div class="winner"><h2>Alle ertrunken – unentschieden</h2></div>`;

@@ -37,6 +37,14 @@
     for (const i of szActive(g)) g.players[i].hand = g.deck.splice(0, 3);
     g.alt = g.deck.splice(0, 3);
     g.current = dealer; g.phase = 'dealer';
+    szCheckHands(g);
+  }
+  /* Handschnauz/Feuer direkt nach dem Geben (und nach der Entscheidung des Gebers) erkennen. */
+  function szCheckHands(g) {
+    const act = szActive(g);
+    if (act.some(i => handValue(g.players[i].hand) === 33)) { szShowdown(g, 'feuer'); return true; }
+    if (act.some(i => handValue(g.players[i].hand) === 31)) { szShowdown(g, 'hand'); return true; }
+    return false;
   }
   function szAdvance(g) {
     const next = szNext(g, g.current);
@@ -55,6 +63,7 @@
     for (const i of act) g.players[i].val = handValue(g.players[i].hand);
     let losers = [];
     if (reason === 'feuer') { const star = act.find(i => g.players[i].val === 33); losers = act.filter(i => i !== star); }
+    else if (reason === 'hand') { losers = act.filter(i => g.players[i].val !== 31); }
     else { const min = Math.min(...act.map(i => g.players[i].val)); losers = act.filter(i => g.players[i].val === min); }
     const notes = {};
     for (const i of losers) {
@@ -73,7 +82,7 @@
     const mine = g.current === pi;
     if (g.phase === 'dealer' && mine) {
       if (a === 'dealerKeep') { g.table = g.alt; g.alt = []; szEv(g, pi, 'dealerKeep'); g.current = szNext(g, g.dealer); g.phase = 'turn'; return; }
-      if (a === 'dealerSwap') { const p = g.players[g.dealer]; g.table = p.hand; p.hand = g.alt; g.alt = []; szEv(g, pi, 'dealerSwap'); g.current = szNext(g, g.dealer); g.phase = 'turn'; return; }
+      if (a === 'dealerSwap') { const p = g.players[g.dealer]; g.table = p.hand; p.hand = g.alt; g.alt = []; szEv(g, pi, 'dealerSwap'); g.current = szNext(g, g.dealer); g.phase = 'turn'; szCheckHands(g); return; }
     }
     if (g.phase === 'turn' && mine) {
       const p = g.players[pi];
