@@ -203,6 +203,21 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 @keyframes tpulse{0%,100%{box-shadow:0 0 0 0 rgba(181,54,60,0)}50%{box-shadow:0 0 0 4px rgba(181,54,60,.45)}}
 .ttimer .tsec{position:relative;display:block;text-align:center;line-height:30px;font-weight:700;font-size:.85rem;font-variant-numeric:tabular-nums;color:var(--cream);text-shadow:0 1px 2px rgba(0,0,0,.6)}
 @media (prefers-reduced-motion:reduce){.ttimer.urgent{animation:none}}
+/* Kartenrücken-Designs */
+:root[data-back="tartan"] .card.back,.card.back.skin-tartan{background:#7a1f1f;background-image:repeating-linear-gradient(0deg,transparent 0 10px,rgba(20,60,40,.55) 10px 16px),repeating-linear-gradient(90deg,transparent 0 10px,rgba(20,60,40,.55) 10px 16px),repeating-linear-gradient(45deg,transparent 0 3px,rgba(244,235,217,.18) 3px 4px)}
+:root[data-back="nacht"] .card.back,.card.back.skin-nacht{background:#0b1a3a;background-image:radial-gradient(circle at 20% 30%,#fff 0 1px,transparent 2px),radial-gradient(circle at 70% 20%,#fff 0 1px,transparent 2px),radial-gradient(circle at 40% 70%,#ffd76a 0 1px,transparent 2px),radial-gradient(circle at 80% 80%,#fff 0 1px,transparent 2px),radial-gradient(circle at 55% 45%,#9fc2ff 0 1.5px,transparent 3px),linear-gradient(#152a5c,#0b1a3a)}
+:root[data-back="gold"] .card.back,.card.back.skin-gold{background:#2a1f0b;border-color:#f0dca0;background-image:repeating-radial-gradient(circle at 50% 50%,transparent 0 6px,rgba(210,171,82,.55) 6px 7px),repeating-linear-gradient(45deg,transparent 0 8px,rgba(210,171,82,.35) 8px 9px),repeating-linear-gradient(-45deg,transparent 0 8px,rgba(210,171,82,.35) 8px 9px)}
+.card.back.skin-klassisch{}
+/* Tischfilz */
+:root[data-felt="bordeaux"]{--felt:#5a1f2a;--felt-deep:#36111a}
+:root[data-felt="mitternacht"]{--felt:#1b2a4a;--felt-deep:#0d1526}
+:root[data-felt="wueste"]{--felt:#7a5a2e;--felt-deep:#4a3419}
+.stylegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+.stylebtn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:12px;border:2px solid var(--felt-line);background:rgba(0,0,0,.18);color:var(--cream);font:700 .78rem var(--font-body);cursor:pointer}
+.stylebtn.on{border-color:var(--brass);background:var(--brass-tint)} .stylebtn:disabled{opacity:.45;cursor:default}
+.stylebtn .card.back{flex:0 0 auto;width:44px;cursor:default;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.felt-sw{width:44px;height:62px;border-radius:7px;border:2px solid var(--cream-2)}
+.felt-gruen{background:radial-gradient(circle at 50% 30%,#1f4d3c,#153527)} .felt-bordeaux{background:radial-gradient(circle at 50% 30%,#5a1f2a,#36111a)} .felt-mitternacht{background:radial-gradient(circle at 50% 30%,#1b2a4a,#0d1526)} .felt-wueste{background:radial-gradient(circle at 50% 30%,#7a5a2e,#4a3419)}
 .offline{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 16px;border-radius:999px;background:var(--rouge);color:#fff;text-align:center;font-size:.85rem;line-height:1.3;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 
 .ucard{flex:0 0 auto;width:clamp(50px,15vw,66px);aspect-ratio:5/7;border-radius:10px;border:3px solid var(--cream);background:var(--uc,#333);color:var(--cream);position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 4px 12px rgba(0,0,0,.35);outline:3px solid transparent;transition:transform .15s,outline-color .15s}
@@ -387,10 +402,16 @@ const PRIZES=[
   {k:'teddy',e:'🧸',n:'Teddy',r:1},{k:'ente',e:'🦆',n:'Quietsche-Ente',r:1},{k:'bonbon',e:'🍬',n:'Bonbon',r:1},{k:'ballon',e:'🎈',n:'Ballon',r:1},{k:'frosch',e:'🐸',n:'Frosch',r:1},
   {k:'fuchs',e:'🦊',n:'Fuchs',r:2},{k:'krake',e:'🐙',n:'Krake',r:2},{k:'wuerfel',e:'🎲',n:'Glückswürfel',r:2},{k:'pinguin',e:'🐧',n:'Pinguin',r:2},{k:'kaktus',e:'🌵',n:'Kaktus',r:2},
   {k:'einhorn',e:'🦄',n:'Einhorn',r:3},{k:'drache',e:'🐉',n:'Drache',r:3},{k:'krone',e:'👑',n:'Krone',r:3},{k:'rakete',e:'🚀',n:'Rakete',r:3},
-  {k:'diamant',e:'💎',n:'Diamant',r:4},{k:'pokal',e:'🏆',n:'Pokal',r:4}];
+  {k:'diamant',e:'💎',n:'Diamant',r:4},{k:'pokal',e:'🏆',n:'Pokal',r:4},
+  {k:'back_tartan',e:'🂠',n:'Rücken: Tartan',r:2,skin:['back','tartan']},{k:'felt_bordeaux',e:'🟥',n:'Tisch: Bordeaux',r:2,skin:['felt','bordeaux']},
+  {k:'back_nacht',e:'🌌',n:'Rücken: Sternennacht',r:3,skin:['back','nacht']},{k:'felt_mitternacht',e:'🟦',n:'Tisch: Mitternacht',r:3,skin:['felt','mitternacht']},{k:'felt_wueste',e:'🟫',n:'Tisch: Wüste',r:2,skin:['felt','wueste']},
+  {k:'back_gold',e:'✨',n:'Rücken: Goldfiligran',r:4,skin:['back','gold']}];
+if(!W.style)W.style={back:'klassisch',felt:'gruen'};
+function applyStyle(){try{const r=document.documentElement;r.dataset.back=W.style.back||'klassisch';r.dataset.felt=W.style.felt||'gruen';}catch(e){}}
+applyStyle();
 const RAR={1:['Gewöhnlich','#9fb8a8'],2:['Selten','#8fc9e8'],3:['Episch','#c89cf0'],4:['Legendär','#ffd76a']};
 const CLAW_COST=20;
-function rollPrize(){const r=Math.random();let tier=r<.40?0:r<.72?1:r<.91?2:r<.985?3:4;if(!tier)return null;const pool=PRIZES.filter(p=>p.r===tier);return pool[Math.floor(Math.random()*pool.length)];}
+function rollPrize(){const r=Math.random();let tier=r<.40?0:r<.72?1:r<.91?2:r<.985?3:4;if(!tier)return null;const pool=PRIZES.filter(p=>p.r===tier&&!(p.skin&&W.prizes[p.k]));return pool[Math.floor(Math.random()*pool.length)];}
 function clawPlay(){
   if(!C.claw)C.claw={};if(C.claw.busy||W.coins<CLAW_COST)return;
   W.coins-=CLAW_COST;W.plays++;saveW();
@@ -407,6 +428,7 @@ function claw(){
   const st=C.claw||{};const res=st.res;
   const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
   let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack">‹ ${back}</button><span class="bar-title">Greifautomat</span><span class="bar-meta">🪙 ${W.coins}</span></div>`;
+  const rv=C.room&&C.room.view;if(rv){const gname={schnauz:'Schnauz',kniffel:'Kniffel',uno:'Vier Farben',bj:'Black Jack'}[rv.game];const who=rv.players&&rv.players[rv.current]?rv.players[rv.current].name:'';const myTurn=rv.current===rv.me&&(rv.phase==='turn'||rv.phase==='dealer'||rv.phase==='play');h+=`<p class="notice ${myTurn?'':'soft'}">${myTurn?'Du bist am Tisch dran!':`Am Tisch läuft ${gname}${rv.round?' · Runde '+rv.round:''}${who?' · '+esc(who)+' am Zug':''}.`}</p>`;}
   h+=`<div class="machine"><div class="rail"></div><div class="claw" style="--x:50%"><div class="rope"></div><div class="grip"><span class="arm l"></span><span class="arm m"></span><span class="arm r"></span><span class="held"></span></div></div>
     <div class="pit">${['🧸','🦆','🐸','🦊','🎈','🐙','🧸','🍬'].map((e,i)=>`<span style="transform:rotate(${(i%2?1:-1)*(8+i*3)}deg)">${e}</span>`).join('')}</div><div class="chute">AUSGABE</div><div class="glass"></div></div>`;
   if(st.phase==='result'){
@@ -415,7 +437,12 @@ function claw(){
   }else if(st.busy)h+=`<p class="notice soft" style="text-align:center">${st.phase==='moving'?'Der Greifer fährt …':'…'}</p>`;
   else h+=`<p class="hint" style="text-align:center">Ein Versuch kostet ${CLAW_COST} Coins. Nicht jeder Griff sitzt – und manchmal rutscht die Beute kurz vor der Ausgabe weg.</p>`;
   h+=`<button class="btn btn-primary btn-big" data-a="clawPlay" ${st.busy||W.coins<CLAW_COST?'disabled':''}>${st.busy?'Greift …':W.coins<CLAW_COST?'Zu wenig Coins ('+W.coins+')':'Greifen · '+CLAW_COST+' Coins'}</button>`;
-  const owned=PRIZES.filter(p=>W.prizes[p.k]).sort((a,b)=>b.r-a.r);
+  const skins=PRIZES.filter(p=>p.skin);const haveSkins=skins.filter(p=>W.prizes[p.k]);
+  h+=`<section class="panel"><div class="zone-head"><h3>Dein Stil</h3><span class="hint">${haveSkins.length} von ${skins.length} Designs</span></div>
+    <div class="stylegrid"><button class="stylebtn ${W.style.back==='klassisch'?'on':''}" data-a="setStyle" data-t="back" data-v="klassisch"><span class="card back sm skin-klassisch"></span><span>Klassisch</span></button>${skins.filter(p=>p.skin[0]==='back').map(p=>`<button class="stylebtn ${W.style.back===p.skin[1]?'on':''}" data-a="setStyle" data-t="back" data-v="${p.skin[1]}" ${W.prizes[p.k]?'':'disabled'}><span class="card back sm skin-${p.skin[1]}"></span><span>${p.n.replace('Rücken: ','')}${W.prizes[p.k]?'':' 🔒'}</span></button>`).join('')}</div>
+    <div class="stylegrid"><button class="stylebtn ${W.style.felt==='gruen'?'on':''}" data-a="setStyle" data-t="felt" data-v="gruen"><span class="felt-sw felt-gruen"></span><span>Grün</span></button>${skins.filter(p=>p.skin[0]==='felt').map(p=>`<button class="stylebtn ${W.style.felt===p.skin[1]?'on':''}" data-a="setStyle" data-t="felt" data-v="${p.skin[1]}" ${W.prizes[p.k]?'':'disabled'}><span class="felt-sw felt-${p.skin[1]}"></span><span>${p.n.replace('Tisch: ','')}${W.prizes[p.k]?'':' 🔒'}</span></button>`).join('')}</div>
+    <p class="hint">Designs gewinnst du am Automaten. Sie gelten auf diesem Handy.</p></section>`;
+  const owned=PRIZES.filter(p=>W.prizes[p.k]&&!p.skin).sort((a,b)=>b.r-a.r);
   h+=`<section class="panel"><div class="zone-head"><h3>Vitrine</h3><span class="hint">${owned.length} von ${PRIZES.length} Sorten · ${st.busy?'':W.wins+' Treffer bei '+W.plays+' Versuchen'}</span></div>
     ${owned.length?`<div class="vitrine">${owned.map(p=>`<div class="vit" style="--rc:${RAR[p.r][1]}"><span class="ve">${p.e}</span><span class="vn">${p.n}</span>${W.prizes[p.k]>1?`<span class="vc">×${W.prizes[p.k]}</span>`:''}</div>`).join('')}</div>`:'<p class="hint">Noch leer. Der erste Teddy wartet.</p>'}</section>`;
   h+=`<section class="panel"><h3>So verdienst du Coins</h3><div class="earn"><span>Schnauz, Kniffel, Vier Farben gewinnen</span><b>+50</b><span>Mitgespielt</span><b>+10</b><span>Runde bei Vier Farben gewonnen</span><b>+15</b><span>Black Jack: Bank geschlagen / Black Jack</span><b>+10 / +20</b></div><p class="hint">Spielgeld, nur zum Spaß. Liegt auf diesem Handy.</p></section>`;
@@ -429,7 +456,7 @@ function applyRoom(room){setOnline(true);creditAwards(room);const key=JSON.strin
     if(room.view&&room.view.game==='bj'&&room.view.phase!=='bet')C.bjBet=0;
     if(room.view&&room.view.game==='schnauz'&&room.view.blitz&&room.view.deadline)C.szDeadline=Date.now()+(room.view.deadline-room.view.now);
     const wasLobby=C.room&&C.room.phase==='lobby';C.room=room;
-    if(C.page==='claw'){if(room.phase!=='lobby'&&wasLobby)toast('Das Spiel geht los – zurück zum Tisch!','');}else C.page=room.phase==='lobby'?'lobby':'game';render();}
+    if(C.page==='claw'){const v=room.view;const my=v&&v.current===v.me&&(v.phase==='turn'||v.phase==='dealer'||v.phase==='play');if(room.phase!=='lobby'&&wasLobby)toast('Das Spiel geht los – zurück zum Tisch!','');else if(my&&!C.turnToasted){toast('Du bist dran – zurück zum Tisch!','');}C.turnToasted=!!my;}else C.page=room.phase==='lobby'?'lobby':'game';render();}
 // Sicherheitsnetz: regelmässig den Stand abholen (im Internet-Modus zugleich das Lebenszeichen an den Gastgeber)
 setInterval(async()=>{if(!C.code||!C.pid||C.busy)return;
   try{
@@ -509,6 +536,7 @@ function schnauz(){
   if(g.blitz&&(g.phase==='turn'||g.phase==='dealer')){const rem=Math.max(0,(C.szDeadline||0)-Date.now());const sec=Math.ceil(rem/1000);const pct=Math.min(100,rem/300);h+=`<div class="ttimer ${sec<=10?'urgent':''}"><div class="tbar" style="width:${pct}%"></div><span class="tsec">${g.current===me?'Deine Zeit':esc(g.players[g.current].name)} · ${sec} s</span></div>`;}
   h+=knockFx;
   const mine=g.players[me];const myHand=Array.isArray(mine.hand)?mine.hand:[];
+  if(mine.out&&g.phase!=='roundEnd')h+=`<div class="panel"><h3>Du bist raus</h3><p class="hint">Die anderen spielen weiter. Überbrück die Zeit am Automaten – du kommst hierher zurück.</p><button class="btn btn-outline btn-big" data-a="clawOpen">Greifautomat · 🪙 ${W.coins}</button></div>`;
   const handZone=(sel)=>`<div class="zone"><div class="zone-head"><span class="eyebrow">Deine Karten</span><span class="value">${myHand.length?fmtVal(handValue(myHand)):'–'}</span></div><div class="cards">${myHand.length?myHand.map((c,i)=>cardHtml(c,sel?{a:'selH',i,sel:C.sel.h===i}:{flat:true})).join(''):'<p class="hint">Du setzt diese Runde aus.</p>'}</div></div>`;
   if(g.phase==='dealer'){
     h+=`<div class="zone"><div class="zone-head"><span class="eyebrow">Zweiter Stapel · verdeckt</span><span class="hint">${meta}</span></div><div class="cards">${backHtml()}${backHtml()}${backHtml()}</div></div>`+handZone(false);
@@ -659,7 +687,7 @@ function bj(){
   }).join('')}</div>`;
   // Steuerung
   if(g.phase==='bet'){
-    if(mine.chips<=0)h+=`<p class="notice soft">Du bist pleite. Warte, bis der Gastgeber eine neue Partie startet.</p>`;
+    if(mine.chips<=0)h+=`<p class="notice soft">Du bist pleite. Warte, bis der Gastgeber eine neue Partie startet.</p><button class="btn btn-outline btn-big" data-a="clawOpen">Greifautomat · 🪙 ${W.coins}</button>`;
     else if(mine.bet>0)h+=`<p class="notice">Einsatz ${mine.bet} gesetzt. Warten auf die anderen …</p><button class="btn btn-ghost" data-a="bjUnbet">Einsatz ändern</button>`;
     else{
       const bet=C.bjBet||0;const step=(v)=>`<button class="btn btn-outline bjchip" data-a="bjAdd" data-v="${v}" ${bet+v>mine.chips?'disabled':''}>+${v}</button>`;
@@ -710,6 +738,7 @@ $app.addEventListener('click',async e=>{
     case 'clawOpen':C.claw={busy:false,phase:'idle'};C.page='claw';render();break;
     case 'clawBack':if(C.claw&&C.claw.busy)break;C.page=C.room?(C.room.phase==='lobby'?'lobby':'game'):'home';render();break;
     case 'clawPlay':clawPlay();break;
+    case 'setStyle':W.style[d.t]=d.v;saveW();applyStyle();render();break;
     case 'create':{
       if(C.mode==='online'){C.cid=tabCid();C.isHost=true;C.code=null;C.busy=true;C.err='';render();
         let idx;try{idx=await OL.connectAny();}catch(e){C.err=e.message+' Versuche es gleich nochmal.';C.busy=false;C.isHost=false;render();break;}C.busy=false;
