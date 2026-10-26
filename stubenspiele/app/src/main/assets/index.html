@@ -170,6 +170,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .vit{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;border:1px solid var(--rc);background:rgba(0,0,0,.18)}
 .vit .ve{font-size:2rem;line-height:1} .vit .vn{font-size:.72rem;color:var(--muted);text-align:center}
 .vit .vc{position:absolute;top:4px;right:6px;font-size:.7rem;font-weight:700;color:var(--rc)}
+.vit .sell{margin-top:4px;min-height:34px;padding:0 8px;border-radius:8px;border:1px solid var(--brass);background:var(--brass-tint);color:var(--brass);font:700 .7rem var(--font-body);cursor:pointer;white-space:nowrap}
 .earn{display:grid;grid-template-columns:1fr auto;gap:6px 14px;font-size:.92rem;color:var(--muted)} .earn b{color:var(--brass);font-variant-numeric:tabular-nums;text-align:right}
 @media (prefers-reduced-motion:reduce){.claw,.claw .rope,.claw .arm{transition-duration:.01s}}
 .knockfx{position:fixed;inset:0;z-index:7;pointer-events:none;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(0,0,0,.0),rgba(0,0,0,.45));animation:kf-fade 2.2s ease-out both;animation-delay:var(--d,0ms)}
@@ -433,6 +434,9 @@ function applyStyle(){try{const r=document.documentElement;r.dataset.back=W.styl
 applyStyle();
 const RAR={1:['Gewöhnlich','#9fb8a8'],2:['Selten','#8fc9e8'],3:['Episch','#c89cf0'],4:['Legendär','#ffd76a']};
 const CLAW_COST=20;
+const SELL={1:5,2:12,3:30,4:80};
+function dupeValue(){let v=0;for(const p of PRIZES){if(p.skin)continue;const c=W.prizes[p.k]||0;if(c>1)v+=(c-1)*SELL[p.r];}return v;}
+function sellDupes(k){let got=0;for(const p of PRIZES){if(p.skin||(k&&p.k!==k))continue;const c=W.prizes[p.k]||0;if(c>1){got+=(c-1)*SELL[p.r];W.prizes[p.k]=1;}}if(got){W.coins+=got;saveW();toast('🪙 +'+got+' · Doppelte verkauft','coin');}}
 function rollPrize(){const r=Math.random();let tier=r<.40?0:r<.72?1:r<.91?2:r<.985?3:4;if(!tier)return null;const pool=PRIZES.filter(p=>p.r===tier&&!(p.skin&&W.prizes[p.k]));return pool[Math.floor(Math.random()*pool.length)];}
 function clawPlay(){
   if(!C.claw)C.claw={};if(C.claw.busy||W.coins<CLAW_COST)return;
@@ -466,7 +470,8 @@ function claw(){
     <p class="hint">Designs gewinnst du am Automaten. Sie gelten auf diesem Handy.</p></section>`;
   const owned=PRIZES.filter(p=>W.prizes[p.k]&&!p.skin).sort((a,b)=>b.r-a.r);
   h+=`<section class="panel"><div class="zone-head"><h3>Vitrine</h3><span class="hint">${owned.length} von ${PRIZES.length} Sorten · ${st.busy?'':W.wins+' Treffer bei '+W.plays+' Versuchen'}</span></div>
-    ${owned.length?`<div class="vitrine">${owned.map(p=>`<div class="vit" style="--rc:${RAR[p.r][1]}"><span class="ve">${p.e}</span><span class="vn">${p.n}</span>${W.prizes[p.k]>1?`<span class="vc">×${W.prizes[p.k]}</span>`:''}</div>`).join('')}</div>`:'<p class="hint">Noch leer. Der erste Teddy wartet.</p>'}</section>`;
+    ${owned.length?`<div class="vitrine">${owned.map(p=>`<div class="vit" style="--rc:${RAR[p.r][1]}"><span class="ve">${p.e}</span><span class="vn">${p.n}</span>${W.prizes[p.k]>1?`<span class="vc">×${W.prizes[p.k]}</span><button class="sell" data-a="sellDupes" data-k="${p.k}">${W.prizes[p.k]-1} verkaufen · ${(W.prizes[p.k]-1)*SELL[p.r]} 🪙</button>`:''}</div>`).join('')}</div>
+    ${dupeValue()>0?`<button class="btn btn-outline btn-big" data-a="sellAll">Alle Doppelten verkaufen · +${dupeValue()} 🪙</button>`:'<p class="hint">Doppelte Trophäen kannst du hier gegen Coins eintauschen (5 / 12 / 30 / 80 je Seltenheit).</p>'}`:'<p class="hint">Noch leer. Der erste Teddy wartet.</p>'}</section>`;
   h+=`<section class="panel"><h3>So verdienst du Coins</h3><div class="earn"><span>Schnauz, Kniffel, Vier Farben gewinnen</span><b>+50</b><span>Mitgespielt</span><b>+10</b><span>Runde bei Vier Farben gewonnen</span><b>+15</b><span>Black Jack: Bank geschlagen / Black Jack</span><b>+10 / +20</b></div><p class="hint">Spielgeld, nur zum Spaß. Liegt auf diesem Handy.</p></section>`;
   return h;
 }
@@ -808,6 +813,8 @@ $app.addEventListener('click',async e=>{
     case 'clawOpen':C.claw={busy:false,phase:'idle'};C.page='claw';render();break;
     case 'clawBack':if(C.claw&&C.claw.busy)break;C.page=C.room?(C.room.phase==='lobby'?'lobby':'game'):'home';render();break;
     case 'clawPlay':clawPlay();break;
+    case 'sellDupes':sellDupes(d.k);render();break;
+    case 'sellAll':sellDupes(null);render();break;
     case 'copyInvite':{const link=d.link||'';try{await navigator.clipboard.writeText(link);C.copied=true;render();setTimeout(()=>{C.copied=false;render();},2000);}catch(e){toast('Kopieren nicht erlaubt – Link: '+link,'');}break;}
     case 'setStyle':W.style[d.t]=d.v;saveW();applyStyle();render();break;
     case 'create':{
