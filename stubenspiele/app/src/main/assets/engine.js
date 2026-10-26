@@ -222,12 +222,124 @@
       players: g.players.map((p, i) => ({ name: p.name, score: p.score, count: p.hand.length, hand: (i === pi || open) ? p.hand : undefined, said: p.said })) };
   }
 
+  /* ---- Black Jack (17 und 4) mit Spielgeld ---- */
+  const BJSUITS = [{ s: '♠', red: false }, { s: '♥', red: true }, { s: '♦', red: true }, { s: '♣', red: false }];
+  const BJRANKS = [['A', 11], ['2', 2], ['3', 3], ['4', 4], ['5', 5], ['6', 6], ['7', 7], ['8', 8], ['9', 9], ['10', 10], ['B', 10], ['D', 10], ['K', 10]];
+  function bjDeck() { const d = []; for (let n = 0; n < 4; n++) for (const su of BJSUITS) for (const [r, v] of BJRANKS) d.push({ s: su.s, r, v, red: su.red }); return shuffle(d); }
+  function bjValue(hand) {
+    let sum = 0, aces = 0;
+    for (const c of hand) { sum += c.v; if (c.r === 'A') aces++; }
+    while (sum > 21 && aces > 0) { sum -= 10; aces--; }
+    return sum;
+  }
+  function bjIsBlackjack(hand) { return hand.length === 2 && bjValue(hand) === 21; }
+  function bjNew(names) {
+    const g = { players: names.map(n => ({ name: n, chips: 1000, bet: 0, hand: [], done: false, result: null, bj: false })), dealer: { hand: [] }, deck: [], phase: 'bet', current: 0, round: 1, ev: null, evSeq: 0, msg: '' };
+    return g;
+  }
+  function bjEv(g, type, extra) { g.ev = Object.assign({ seq: ++g.evSeq, type }, extra || {}); }
+  function bjCanPlay(p) { return p.chips > 0 || p.bet > 0; }
+  // Reihenfolge: nur Spieler, die mitspielen (Einsatz gesetzt)
+  function bjDraw(g) { if (!g.deck.length) g.deck = bjDeck(); return g.deck.shift(); }
+  function bjStartRound(g) {
+    for (const p of g.players) { p.hand = []; p.done = false; p.result = null; p.bj = false; p.bet = 0; }
+    g.dealer = { hand: [] }; g.deck = bjDeck(); g.phase = 'bet'; g.ev = null; g.msg = '';
+    // Spieler ohne Chips sind raus
+  }
+  function bjActivePlayers(g) { return g.players.map((p, i) => i).filter(i => g.players[i].bet > 0); }
+  function bjDeal(g) {
+    const act = bjActivePlayers(g);
+    for (const i of act) g.players[i].hand.push(bjDraw(g));
+    g.dealer.hand.push(bjDraw(g));
+    for (const i of act) g.players[i].hand.push(bjDraw(g));
+    g.dealer.hand.push(bjDraw(g));
+    for (const i of act) { const p = g.players[i]; if (bjIsBlackjack(p.hand)) { p.bj = true; p.done = true; } }
+    g.phase = 'play';
+    g.current = bjNextActive(g, -1);
+    bjEv(g, 'deal');
+    if (g.current === -1) bjDealerPlay(g);
+  }
+  function bjNextActive(g, from) {
+    for (let i = from + 1; i < g.players.length; i++) if (g.players[i].bet > 0 && !g.players[i].done) return i;
+    return -1;
+  }
+  function bjDealerPlay(g) {
+    g.phase = 'dealer';
+    // Nur ziehen, wenn mindestens ein Spieler noch im Rennen (nicht überkauft)
+    const anyLive = bjActivePlayers(g).some(i => bjValue(g.players[i].hand) <= 21 && !g.players[i].bj);
+    const anyBj = bjActivePlayers(g).some(i => g.players[i].bj);
+    if (anyLive) { while (bjValue(g.dealer.hand) < 17) g.dealer.hand.push(bjDraw(g)); }
+    else if (anyBj) { /* Bank deckt auf, prüft eigenen BJ */ }
+    bjSettle(g);
+  }
+  function bjSettle(g) {
+    const dv = bjValue(g.dealer.hand), dbj = bjIsBlackjack(g.dealer.hand);
+    for (const i of bjActivePlayers(g)) {
+      const p = g.players[i]; const pv = bjValue(p.hand);
+      if (p.bj && !dbj) { p.result = 'bj'; p.chips += Math.floor(p.bet * 3 / 2); }
+      else if (p.bj && dbj) { p.result = 'push'; }
+      else if (pv > 21) { p.result = 'bust'; p.chips -= p.bet; }
+      else if (dbj) { p.result = 'lose'; p.chips -= p.bet; }
+      else if (dv > 21) { p.result = 'win'; p.chips += p.bet; }
+      else if (pv > dv) { p.result = 'win'; p.chips += p.bet; }
+      else if (pv < dv) { p.result = 'lose'; p.chips -= p.bet; }
+      else { p.result = 'push'; }
+    }
+    g.phase = 'result';
+    bjEv(g, 'settle');
+  }
+  function bjAction(g, pi, a, d) {
+    const p = g.players[pi];
+    if (g.phase === 'bet') {
+      if (a === 'bet') {
+        let amt = Math.floor(+d.amount || 0);
+        if (amt < 1 || amt > p.chips) return;
+        p.bet = amt; bjEv(g, 'bet', { pi });
+        // alle mit Chips haben gesetzt?
+        const waiting = g.players.filter(x => x.chips > 0 && x.bet === 0);
+        if (waiting.length === 0 && g.players.some(x => x.bet > 0)) bjDeal(g);
+        return;
+      }
+      if (a === 'unbet') { p.bet = 0; return; }
+      return;
+    }
+    if (g.phase === 'play' && g.current === pi && !p.done) {
+      if (a === 'hit') {
+        p.hand.push(bjDraw(g)); bjEv(g, 'hit', { pi });
+        if (bjValue(p.hand) >= 21) { p.done = true; const nx = bjNextActive(g, pi); g.current = nx; if (nx === -1) bjDealerPlay(g); }
+        return;
+      }
+      if (a === 'stand') {
+        p.done = true; bjEv(g, 'stand', { pi });
+        const nx = bjNextActive(g, pi); g.current = nx; if (nx === -1) bjDealerPlay(g);
+        return;
+      }
+      if (a === 'double' && p.hand.length === 2 && p.chips >= p.bet * 2) {
+        p.bet *= 2; p.hand.push(bjDraw(g)); p.done = true; bjEv(g, 'double', { pi });
+        const nx = bjNextActive(g, pi); g.current = nx; if (nx === -1) bjDealerPlay(g);
+        return;
+      }
+    }
+    if (g.phase === 'result' && a === 'nextRound') {
+      const withChips = g.players.filter(x => x.chips > 0).length;
+      if (withChips >= 1) bjStartRound(g);
+    }
+  }
+  function bjView(g, pi) {
+    const reveal = g.phase === 'dealer' || g.phase === 'result';
+    return {
+      game: 'bj', me: pi, phase: g.phase, current: g.current, round: g.round, ev: g.ev,
+      dealer: { hand: reveal ? g.dealer.hand : (g.dealer.hand.length ? [g.dealer.hand[0], { r: '?', s: '', hidden: true }] : []), val: reveal ? bjValue(g.dealer.hand) : null, bj: reveal && bjIsBlackjack(g.dealer.hand) },
+      players: g.players.map((p, i) => ({ name: p.name, chips: p.chips, bet: p.bet, hand: p.hand, val: p.hand.length ? bjValue(p.hand) : 0, done: p.done, result: p.result, bj: p.bj, bust: bjValue(p.hand) > 21 })),
+    };
+  }
+
   /* ---- Räume ---- */
-  function newGame(room) { const nm = room.players.map(x => x.name); return room.game === 'schnauz' ? szNew(nm) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : knNew(nm); }
+  function newGame(room) { const nm = room.players.map(x => x.name); return room.game === 'schnauz' ? szNew(nm) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); }
   function roomView(room, pid) {
     const pi = room.players.findIndex(p => p.id === pid);
     const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', online: !!room.online };
-    if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : room.game === 'uno' ? unoView(room.state, pi) : knView(room.state, pi);
+    if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : room.game === 'uno' ? unoView(room.state, pi) : room.game === 'bj' ? bjView(room.state, pi) : knView(room.state, pi);
     return base;
   }
   function broadcast(room) {
@@ -238,10 +350,10 @@
   function handleAction(room, p, a, d) {
     const pi = room.players.indexOf(p);
     if (room.phase === 'lobby') {
-      if (a === 'setGame' && room.host === p.id && (d.g === 'schnauz' || d.g === 'kniffel' || d.g === 'uno')) room.game = d.g;
+      if (a === 'setGame' && room.host === p.id && (d.g === 'schnauz' || d.g === 'kniffel' || d.g === 'uno' || d.g === 'bj')) room.game = d.g;
       if (a === 'setVariant' && room.host === p.id && (d.v === 'classic' || d.v === 'extreme')) room.variant = d.v;
       if (a === 'start' && room.host === p.id) {
-        const n = room.players.length; const min = room.game === 'kniffel' ? 1 : 2;
+        const n = room.players.length; const min = (room.game === 'kniffel' || room.game === 'bj') ? 1 : 2;
         if (n >= min && n <= 4) { room.state = newGame(room); room.phase = 'playing'; }
       }
       if (a === 'leave') { room.players.splice(pi, 1); if (room.host === p.id && room.players[0]) room.host = room.players[0].id; }
@@ -253,6 +365,7 @@
     if (a === 'nextRound' && room.host !== p.id) return;
     if (room.game === 'schnauz') szAction(room.state, pi, a, d);
     else if (room.game === 'uno') unoAction(room.state, pi, a, d);
+  else if (room.game === 'bj') bjAction(room.state, pi, a, d);
     else knAction(room.state, pi, a, d);
   }
   function route(path, b) {
