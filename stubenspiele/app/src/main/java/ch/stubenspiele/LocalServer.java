@@ -109,6 +109,7 @@ public class LocalServer {
             if (method.equals("GET") && path.equals("/engine.js")) { serveAsset(sock, "engine.js", "application/javascript; charset=utf-8"); return; }
             if (method.equals("GET") && path.equals("/mqtt.min.js")) { serveAsset(sock, "mqtt.min.js", "application/javascript; charset=utf-8"); return; }
             if (method.equals("GET") && path.equals("/qrcode.js")) { serveAsset(sock, "qrcode.js", "application/javascript; charset=utf-8"); return; }
+            if (method.equals("GET") && path.equals("/version.js")) { serveAsset(sock, "version.js", "application/javascript; charset=utf-8"); return; }
             if (method.equals("GET") && path.equals("/api/events")) {
                 String code = param(query, "code"), pid = param(query, "pid"), token = param(query, "token");
                 final String id = "s" + ids.getAndIncrement();
