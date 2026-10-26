@@ -255,6 +255,9 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .offline.wide b{font-weight:700} .offline.wide .btn{align-self:flex-start;min-height:44px}
 .invite .tip{font-size:.8rem;text-align:center;max-width:36ch;color:#6a6150} .invite .tip b{color:var(--ink)}
 .verline{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(244,235,217,.45);text-align:center;font-variant-numeric:tabular-nums}
+.autonext{position:relative;height:34px;border-radius:999px;border:1px solid var(--brass);background:rgba(0,0,0,.25);overflow:hidden;margin-bottom:2px}
+.autonext .abar{position:absolute;left:0;top:0;bottom:0;background:var(--brass-tint);transition:width 1s linear}
+.autonext span{position:relative;display:block;text-align:center;line-height:34px;font-weight:700;font-size:.9rem;color:var(--brass);font-variant-numeric:tabular-nums}
 .offline{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 16px;border-radius:999px;background:var(--rouge);color:#fff;text-align:center;font-size:.85rem;line-height:1.3;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 
 .ucard{flex:0 0 auto;width:clamp(50px,15vw,66px);aspect-ratio:5/7;border-radius:10px;border:3px solid var(--cream);background:var(--uc,#333);color:var(--cream);position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 4px 12px rgba(0,0,0,.35);outline:3px solid transparent;transition:transform .15s,outline-color .15s}
@@ -547,6 +550,7 @@ function applyRoom(room){setOnline(true);creditAwards(room);const key=JSON.strin
     if(!room.view||room.view.game!=='uno'||room.view.current!==room.view.me){C.wildIdx=null;C.pick=null;}
     if(room.view&&room.view.game==='bj'&&room.view.phase!=='bet')C.bjBet=0;
     if(room.view&&room.view.game==='schnauz'&&room.view.blitz&&room.view.deadline)C.szDeadline=Date.now()+(room.view.deadline-room.view.now);
+    C.autoDeadline=(room.view&&room.view.autoNext)?Date.now()+(room.view.autoNext-room.view.now):0;
     const wasLobby=C.room&&C.room.phase==='lobby';C.room=room;
     if(C.page==='claw'){const v=room.view;const my=v&&v.current===v.me&&(v.phase==='turn'||v.phase==='dealer'||v.phase==='play');if(room.phase!=='lobby'&&wasLobby)toast('Das Spiel geht los – zurück zum Tisch!','');else if(my&&!C.turnToasted){toast('Du bist dran – zurück zum Tisch!','');}C.turnToasted=!!my;}else C.page=room.phase==='lobby'?'lobby':'game';render();}
 // Sicherheitsnetz: regelmässig den Stand abholen (im Internet-Modus zugleich das Lebenszeichen an den Gastgeber)
@@ -556,7 +560,9 @@ setInterval(async()=>{if(!C.code||!C.pid||C.busy||C.mode==='local')return;
     const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());
   }catch(e){setOnline(false);}},C.mode==='online'?5000:3000);
 // Host im Internet-Modus: eigenen Stand direkt aus der Engine lesen (rein lokal, unabhängig vom Relay) – so ist die Lobby-Spielerliste beim Gastgeber immer aktuell
-setInterval(()=>{const v=C.room&&C.room.view;if(v&&v.game==='schnauz'&&v.blitz&&(v.phase==='turn'||v.phase==='dealer')&&C.page==='game')render();},1000);
+setInterval(()=>{const v=C.room&&C.room.view;if(!v||C.page!=='game')return;if((v.game==='schnauz'&&v.blitz&&(v.phase==='turn'||v.phase==='dealer'))||(v.autoNext&&C.autoDeadline))render();},1000);
+function autoLeft(){return C.autoDeadline?Math.max(0,Math.ceil((C.autoDeadline-Date.now())/1000)):0;}
+function autoNote(){const s=autoLeft();return s?`<div class="autonext"><div class="abar" style="width:${Math.min(100,s/15*100)}%"></div><span>Nächste Runde startet in ${s} s</span></div>`:'';}
 setInterval(()=>{if(C.mode==='local'&&C.code&&LOCAL.handoff===null&&C.page!=='claw')localSync();},1000);
 setInterval(()=>{if(C.mode!=='online'||!C.isHost||!C.code||!C.pid)return;try{Engine.request('h'+(++OL.n),'/api/state',{code:C.code,pid:C.pid,token:C.token},(st,body)=>{if(st===200)applyRoom(body);});}catch(e){}},1000);
 const HOST_ACTIONS={backToLobby:1,nextRound:1,rematch:1,setGame:1,setVariant:1,start:1,kick:1};
@@ -672,7 +678,7 @@ function schnauz(){
     if(res.winner!==null||res.draw){
       h+=res.winner!==null?`<div class="winner"><p class="eyebrow">Gewinnt das Spiel</p><h2>${esc(g.players[res.winner].name)}</h2></div>`:`<div class="winner"><h2>Alle ertrunken – unentschieden</h2></div>`;
       h+=r.isHost?`<div class="actions"><button class="btn btn-primary" data-a="rematch">Revanche</button><button class="btn btn-outline" data-a="backToLobby">Zur Lobby</button></div>`:`<p class="notice soft">Der Gastgeber kann eine Revanche starten.</p>`;
-    }else h+=r.isHost?`<button class="btn btn-primary btn-big" data-a="nextRound" ${C.busy?'disabled':''}>Nächste Runde</button>`:`<p class="notice soft">Der Gastgeber startet die nächste Runde.</p>`;
+    }else h+=autoNote()+(r.isHost?`<button class="btn btn-primary btn-big" data-a="nextRound" ${C.busy?'disabled':''}>Nächste Runde${autoLeft()?' jetzt':''}</button>`:`<p class="notice soft">${autoLeft()?'Geht gleich automatisch weiter.':'Der Gastgeber startet die nächste Runde.'}</p>`);
     h+='</div>';
   }
   return h;
@@ -726,7 +732,7 @@ function uno(){
     h+=`<div class="result"><div class="winner"><p class="eyebrow">${res.gameOver?'Gewinnt das Spiel':'Gewinnt die Runde'}</p><h2>${esc(g.players[res.winner].name)}</h2><p class="hint">+${res.points} Punkte aus den Händen der anderen</p></div>
     ${g.players.map((p,i)=>`<div class="row ${i===res.winner?'win':''}"><span class="who">${esc(p.name)}${i===me?' <span class="hint">(du)</span>':''}</span><span class="hint">${i===res.winner?'':res.hands[i]+' auf der Hand'}</span><span class="val">${p.score}</span></div>`).join('')}
     ${res.gameOver?(r.isHost?`<div class="actions"><button class="btn btn-primary" data-a="rematch">Revanche</button><button class="btn btn-outline" data-a="backToLobby">Zur Lobby</button></div>`:`<p class="notice soft">Der Gastgeber kann eine Revanche starten.</p>`)
-      :(r.isHost?`<button class="btn btn-primary btn-big" data-a="nextRound" ${C.busy?'disabled':''}>Nächste Runde</button>`:`<p class="notice soft">Der Gastgeber startet die nächste Runde.</p>`)}</div>`;
+      :autoNote()+(r.isHost?`<button class="btn btn-primary btn-big" data-a="nextRound" ${C.busy?'disabled':''}>Nächste Runde${autoLeft()?' jetzt':''}</button>`:`<p class="notice soft">${autoLeft()?'Geht gleich automatisch weiter.':'Der Gastgeber startet die nächste Runde.'}</p>`)}</div>`;
     return h;
   }
   const cur=g.players[g.current];
@@ -824,7 +830,7 @@ function bj(){
     const myRes={bj:'Black Jack! 3:2 ausgezahlt.',win:'Du gewinnst!',lose:'Verloren.',bust:'Überkauft – verloren.',push:'Unentschieden, Einsatz zurück.'}[mine.result];
     h+=`<div class="result"><p class="notice">${mine.bet>0?myRes||'':'Du hast ausgesetzt.'} Bank: ${g.dealer.val}${g.dealer.bj?' (Black Jack)':g.dealer.val>21?' (überkauft)':''}.</p>`;
     const alive=g.players.filter(p=>p.chips>0).length;
-    h+=r.isHost?`<button class="btn btn-primary btn-big" data-a="bjNext" ${C.busy?'disabled':''}>${alive>=1?'Nächste Runde':'Spiel vorbei'}</button>`:`<p class="notice soft">Der Gastgeber startet die nächste Runde.</p>`;
+    h+=autoNote()+(r.isHost?`<button class="btn btn-primary btn-big" data-a="bjNext" ${C.busy?'disabled':''}>${alive>=1?(autoLeft()?'Nächste Runde jetzt':'Nächste Runde'):'Spiel vorbei'}</button>`:`<p class="notice soft">${autoLeft()?'Geht gleich automatisch weiter.':'Der Gastgeber startet die nächste Runde.'}</p>`);
     h+='</div>';
   }
   return h;

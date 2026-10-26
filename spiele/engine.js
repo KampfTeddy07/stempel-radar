@@ -25,6 +25,7 @@
     const by = {}; for (const c of h) by[c.s] = (by[c.s] || 0) + c.v;
     return Math.max(...Object.values(by));
   }
+  const AUTO_NEXT_MS = 15000;
   function szNew(names, blitz) {
     const g = { blitz: !!blitz, turnMs: 30000, deadline: 0, players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false, passed: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
     szStartRound(g, 0); return g;
@@ -33,7 +34,7 @@
   const szActive = g => g.players.map((p, i) => i).filter(i => !g.players[i].out);
   function szNext(g, i) { let j = i; for (let k = 0; k < g.players.length; k++) { j = (j + 1) % g.players.length; if (!g.players[j].out) return j; } return i; }
   function szStartRound(g, dealer) {
-    g.deck = makeDeck(g.blitz ? 9 : 0); g.dealer = dealer; g.knocker = null; g.passes = 0; g.result = null; g.table = []; g.ev = null;
+    g.deck = makeDeck(g.blitz ? 9 : 0); g.dealer = dealer; g.knocker = null; g.passes = 0; g.result = null; g.table = []; g.autoNext = 0; g.ev = null;
     for (const p of g.players) { p.hand = []; p.val = 0; p.lost = false; p.passed = false; }
     for (const i of szActive(g)) g.players[i].hand = g.deck.splice(0, 3);
     g.alt = g.deck.splice(0, 3);
@@ -77,6 +78,7 @@
     if (g.result.winner !== null) { grant(g, g.result.winner, 50, 'Schnauz gewonnen'); g.players.forEach((p, i) => { if (i !== g.result.winner) grant(g, i, 10, 'Schnauz mitgespielt'); }); }
     else if (g.result.draw) g.players.forEach((p, i) => grant(g, i, 10, 'Schnauz mitgespielt'));
     g.phase = 'roundEnd';
+    g.autoNext = (g.result.winner === null && !g.result.draw) ? Date.now() + AUTO_NEXT_MS : 0;
   }
   function szEv(g, pi, type, extra) { g.ev = Object.assign({ seq: ++g.evSeq, pi, type }, extra || {}); }
   /* Blitz: Zeit abgelaufen -> Geber behält automatisch, Spieler schiebt automatisch. */
@@ -115,7 +117,7 @@
   function szView(g, pi) {
     const open = g.phase === 'roundEnd';
     return {
-      game: 'schnauz', blitz: g.blitz, deadline: g.deadline, now: Date.now(), round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
+      game: 'schnauz', blitz: g.blitz, deadline: g.deadline, now: Date.now(), autoNext: g.autoNext || 0, round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
       table: g.phase === 'dealer' ? null : g.table,
       players: g.players.map((p, i) => ({ name: p.name, lives: p.lives, swim: p.swim, out: p.out, lost: p.lost, passed: p.passed, val: open ? p.val : null, hand: (open || i === pi) ? p.hand : p.hand.length })),
     };
@@ -173,7 +175,7 @@
     unoStartRound(g, 0); return g;
   }
   function unoStartRound(g, starter) {
-    g.pile = unoDeck(); g.discard = []; g.drew = null; g.uno = null; g.result = null; g.dir = 1;
+    g.pile = unoDeck(); g.discard = []; g.drew = null; g.uno = null; g.result = null; g.dir = 1; g.autoNext = 0;
     for (const p of g.players) { p.hand = g.pile.splice(0, 7); p.said = false; }
     let top = g.pile.shift();
     while (top.c === 'w' || isNaN(+top.v)) { g.pile.push(top); top = g.pile.shift(); }
@@ -199,7 +201,7 @@
     g.result = { winner, points: pts, gameOver: g.players[winner].score >= 500, hands: g.players.map(p => unoPoints(p.hand)) };
     grant(g, winner, 15, 'Runde gewonnen');
     if (g.result.gameOver) { grant(g, winner, 50, 'Vier Farben gewonnen'); g.players.forEach((p, i) => { if (i !== winner) grant(g, i, 10, 'Vier Farben mitgespielt'); }); }
-    g.phase = 'roundEnd'; g.last = '';
+    g.phase = 'roundEnd'; g.last = ''; g.autoNext = g.result.gameOver ? 0 : Date.now() + AUTO_NEXT_MS;
   }
   function unoAction(g, pi, a, d) {
     if (g.phase === 'roundEnd') { if (a === 'nextRound' && g.result && !g.result.gameOver) { g.round++; unoStartRound(g, unoNext(g, g.starter, 1)); } return; }
@@ -248,7 +250,7 @@
   }
   function unoView(g, pi) {
     const open = g.phase === 'roundEnd';
-    return { game: 'uno', me: pi, round: g.round, extreme: g.extreme, shot: g.shot, current: g.current, dir: g.dir, color: g.color, top: g.discard[g.discard.length - 1], pile: g.pile.length, phase: g.phase, drew: g.drew, uno: g.uno, last: g.last, result: g.result,
+    return { game: 'uno', me: pi, round: g.round, autoNext: g.autoNext || 0, now: Date.now(), extreme: g.extreme, shot: g.shot, current: g.current, dir: g.dir, color: g.color, top: g.discard[g.discard.length - 1], pile: g.pile.length, phase: g.phase, drew: g.drew, uno: g.uno, last: g.last, result: g.result,
       players: g.players.map((p, i) => ({ name: p.name, score: p.score, count: p.hand.length, hand: (i === pi || open) ? p.hand : undefined, said: p.said })) };
   }
 
@@ -272,7 +274,7 @@
   // Reihenfolge: nur Spieler, die mitspielen (Einsatz gesetzt)
   function bjDraw(g) { if (!g.deck.length) g.deck = bjDeck(); return g.deck.shift(); }
   function bjStartRound(g) {
-    for (const p of g.players) { p.hand = []; p.done = false; p.result = null; p.bj = false; p.bet = 0; }
+    for (const p of g.players) { p.hand = []; p.done = false; p.result = null; p.bj = false; p.bet = 0; } g.autoNext = 0;
     g.dealer = { hand: [] }; g.deck = bjDeck(); g.phase = 'bet'; g.ev = null; g.msg = '';
     // Spieler ohne Chips sind raus
   }
@@ -318,6 +320,7 @@
     }
     g.phase = 'result';
     bjEv(g, 'settle');
+    g.autoNext = g.players.some(x => x.chips > 0) ? Date.now() + AUTO_NEXT_MS : 0;
   }
   function bjAction(g, pi, a, d) {
     const p = g.players[pi];
@@ -353,13 +356,13 @@
     }
     if (g.phase === 'result' && a === 'nextRound') {
       const withChips = g.players.filter(x => x.chips > 0).length;
-      if (withChips >= 1) bjStartRound(g);
+      if (withChips >= 1) { bjStartRound(g); g.round++; }
     }
   }
   function bjView(g, pi) {
     const reveal = g.phase === 'dealer' || g.phase === 'result';
     return {
-      game: 'bj', me: pi, phase: g.phase, current: g.current, round: g.round, ev: g.ev,
+      game: 'bj', me: pi, phase: g.phase, current: g.current, round: g.round, ev: g.ev, autoNext: g.autoNext || 0, now: Date.now(),
       dealer: { hand: reveal ? g.dealer.hand : (g.dealer.hand.length ? [g.dealer.hand[0], { r: '?', s: '', hidden: true }] : []), val: reveal ? bjValue(g.dealer.hand) : null, bj: reveal && bjIsBlackjack(g.dealer.hand) },
       players: g.players.map((p, i) => ({ name: p.name, chips: p.chips, bet: p.bet, hand: p.hand, val: p.hand.length ? bjValue(p.hand) : 0, done: p.done, result: p.result, bj: p.bj, bust: bjValue(p.hand) > 21 })),
     };
@@ -453,7 +456,10 @@
     streams.delete(id); s.p.streams = s.p.streams.filter(x => x !== id);
     if (rooms.has(s.room.code)) broadcast(s.room);
   }
-  setInterval(() => { for (const r of rooms.values()) { if (r.phase === 'playing' && r.game === 'schnauz' && r.state && r.state.blitz) { try { if (szTimeout(r.state)) broadcast(r); } catch (e) {} } } }, 500);
+  setInterval(() => { for (const r of rooms.values()) { if (r.phase !== 'playing' || !r.state) continue; const st = r.state;
+    if (r.game === 'schnauz' && st.blitz) { try { if (szTimeout(st)) broadcast(r); } catch (e) {} }
+    if (st.autoNext && Date.now() >= st.autoNext) { st.autoNext = 0; try { if (r.game === 'schnauz') szAction(st, 0, 'nextRound', {}); else if (r.game === 'uno') unoAction(st, 0, 'nextRound', {}); else if (r.game === 'bj') bjAction(st, 0, 'nextRound', {}); broadcast(r); } catch (e) {} }
+  } }, 500);
   setInterval(() => { const now = Date.now(); for (const [code, r] of rooms) if (r.players.every(p => p.streams.length === 0) && now - r.created > 2 * 3600e3) rooms.delete(code); }, 60e3);
   window.Engine = { request, subscribe, unsubscribe };
 })();
