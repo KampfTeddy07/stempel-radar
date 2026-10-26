@@ -55,5 +55,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -- stubenspiele/app/src/main/assets/version.js
           git add spiele/version.js
-          git diff --cached --quiet || (git commit -m "Stubenspiele Web: Version ${{ github.run_number }} [skip ci]" && git pull --rebase origin main && git push)
+          git diff --cached --quiet || (git commit -m "Stubenspiele Web: Version ${{ github.run_number }} [skip ci]" && git pull --rebase --autostash origin main && git push)
