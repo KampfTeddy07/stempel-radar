@@ -26,11 +26,11 @@
     return Math.max(...Object.values(by));
   }
   const AUTO_NEXT_MS = 15000;
-  function szNew(names, blitz) {
-    const g = { blitz: !!blitz, turnMs: 30000, deadline: 0, players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false, passed: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
+  function szNew(names, blitz, turnMs) {
+    const g = { blitz: !!blitz, turnMs: (turnMs === undefined || turnMs === null) ? 30000 : Math.max(0, +turnMs || 0), deadline: 0, players: names.map(n => ({ name: n, lives: 3, swim: false, out: false, hand: [], val: 0, lost: false, passed: false })), dealer: 0, current: 0, deck: [], table: [], alt: [], knocker: null, passes: 0, phase: '', round: 1, result: null, ev: null, evSeq: 0 };
     szStartRound(g, 0); return g;
   }
-  function szArm(g) { g.deadline = g.blitz ? Date.now() + g.turnMs : 0; }
+  function szArm(g) { g.deadline = (g.blitz && g.turnMs > 0) ? Date.now() + g.turnMs : 0; }
   const szActive = g => g.players.map((p, i) => i).filter(i => !g.players[i].out);
   function szNext(g, i) { let j = i; for (let k = 0; k < g.players.length; k++) { j = (j + 1) % g.players.length; if (!g.players[j].out) return j; } return i; }
   function szStartRound(g, dealer) {
@@ -117,7 +117,7 @@
   function szView(g, pi) {
     const open = g.phase === 'roundEnd';
     return {
-      game: 'schnauz', blitz: g.blitz, deadline: g.deadline, now: Date.now(), autoNext: g.autoNext || 0, round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
+      game: 'schnauz', blitz: g.blitz, turnMs: g.turnMs, deadline: g.deadline, now: Date.now(), autoNext: g.autoNext || 0, round: g.round, deck: g.deck.length, dealer: g.dealer, current: g.current, knocker: g.knocker, phase: g.phase, me: pi, result: g.result, ev: g.ev,
       table: g.phase === 'dealer' ? null : g.table,
       players: g.players.map((p, i) => ({ name: p.name, lives: p.lives, swim: p.swim, out: p.out, lost: p.lost, passed: p.passed, val: open ? p.val : null, hand: (open || i === pi) ? p.hand : p.hand.length })),
     };
@@ -369,10 +369,10 @@
   }
 
   /* ---- Räume ---- */
-  function newGame(room) { const nm = room.players.map(x => x.name); const st = room.game === 'schnauz' ? szNew(nm, room.variant === 'blitz') : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); st.gid = room.code + '-' + Math.random().toString(36).slice(2, 8); st.awards = []; st.awardSeq = 0; return st; }
+  function newGame(room) { const nm = room.players.map(x => x.name); const st = room.game === 'schnauz' ? szNew(nm, room.variant === 'blitz', room.turnMs) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); st.gid = room.code + '-' + Math.random().toString(36).slice(2, 8); st.awards = []; st.awardSeq = 0; return st; }
   function roomView(room, pid) {
     const pi = room.players.findIndex(p => p.id === pid);
-    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', online: !!room.online, awards: (room.state && room.state.awards) || [] };
+    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', turnMs: (room.turnMs === undefined ? 30000 : room.turnMs), online: !!room.online, awards: (room.state && room.state.awards) || [] };
     if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : room.game === 'uno' ? unoView(room.state, pi) : room.game === 'bj' ? bjView(room.state, pi) : knView(room.state, pi);
     return base;
   }
@@ -386,6 +386,7 @@
     if (room.phase === 'lobby') {
       if (a === 'setGame' && room.host === p.id && (d.g === 'schnauz' || d.g === 'kniffel' || d.g === 'uno' || d.g === 'bj')) room.game = d.g;
       if (a === 'setVariant' && room.host === p.id && (d.v === 'classic' || d.v === 'extreme' || d.v === 'blitz')) room.variant = d.v;
+      if (a === 'setTurn' && room.host === p.id && [0, 15000, 30000, 60000].includes(+d.ms)) room.turnMs = +d.ms;
       if (a === 'start' && room.host === p.id) {
         const n = room.players.length; const min = (room.game === 'kniffel' || room.game === 'bj') ? 1 : 2;
         if (n >= min && n <= 4) { room.state = newGame(room); room.phase = 'playing'; }
