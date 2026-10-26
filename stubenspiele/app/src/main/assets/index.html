@@ -267,12 +267,26 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .reels{position:relative;display:flex;gap:8px;justify-content:center;--ih:72px}
 .reel{width:30%;max-width:88px;height:var(--ih);overflow:hidden;border-radius:10px;background:linear-gradient(#f4ebd9,#fff 50%,#e2d4b7);box-shadow:inset 0 8px 14px rgba(0,0,0,.25),inset 0 -8px 14px rgba(0,0,0,.25)}
 .reel .strip{display:flex;flex-direction:column;will-change:transform}
-.reel .sym{height:var(--ih);display:grid;place-items:center;font-size:2.3rem;line-height:1}
+.reel .sym{height:var(--ih);display:grid;place-items:center;font-size:2.3rem;line-height:1;color:var(--ink)}
+.reel .sym.seven,.payrow .seven{font-family:var(--font-display);font-weight:700;font-size:2.6rem;color:#c8372a;-webkit-text-stroke:1.5px #ffd76a;text-shadow:0 2px 0 #7a1f1f,0 0 10px rgba(255,120,20,.5)}
+.payrow{display:inline-flex;gap:6px;align-items:center} .payrow .sym{font-size:1.3rem;color:var(--cream);line-height:1} .payrow .seven{font-size:1.4rem;-webkit-text-stroke:.8px #ffd76a}
+.reel.spinning .strip{filter:blur(2.5px) brightness(1.05)}
+.reel.stop{animation:reelstop .45s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes reelstop{0%{transform:translateY(-10px)}50%{transform:translateY(5px)}100%{transform:none}}
+.slotbox.won .reel .sym{animation:symwin .6s ease-in-out 3}
+@keyframes symwin{0%,100%{transform:scale(1)}50%{transform:scale(1.25) rotate(-6deg)}}
+.payline.hit{animation:payflash .35s ease-in-out 6;background:#ffd76a;box-shadow:0 0 12px #ffd76a}
+@keyframes payflash{0%,100%{opacity:1}50%{opacity:.15}}
+.coinrain{position:fixed;inset:0;z-index:60;pointer-events:none;overflow:hidden}
+.coinrain b{position:absolute;left:var(--x);top:-40px;font-size:calc(1.6rem * var(--s));animation:coinfall 2.2s cubic-bezier(.3,0,.7,1) both;animation-delay:var(--d);filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
+@keyframes coinfall{0%{transform:translateY(0) rotate(0);opacity:0}8%{opacity:1}100%{transform:translateY(110vh) rotate(var(--r));opacity:1}}
+@media (prefers-reduced-motion:reduce){.reel.spinning .strip{filter:none}.reel.stop,.slotbox.won .reel .sym,.payline.hit{animation:none}.coinrain{display:none}}
 .payline{position:absolute;left:-6px;right:-6px;top:50%;height:2px;background:rgba(181,54,60,.75);box-shadow:0 0 6px rgba(255,80,80,.8);pointer-events:none}
 .lever{position:absolute;right:14px;top:50%;transform:translateY(-62%);width:40px;height:120px;cursor:pointer;touch-action:manipulation}
 .lever .stick{position:absolute;left:16px;top:22px;width:8px;height:80px;border-radius:4px;background:linear-gradient(90deg,#9c7a2d,#f0dca0,#9c7a2d);transform-origin:50% 100%;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .lever .knob{position:absolute;left:4px;top:0;width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ff8a8a,#b5363c 60%,#6e1c22);box-shadow:0 4px 10px rgba(0,0,0,.5);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .lever.pulled .stick{transform:rotateX(150deg) scaleY(.4)} .lever.pulled .knob{transform:translateY(78px) scale(.9)}
+.lever:active .knob{transform:translateY(20px)}
 .slotfoot{text-align:center;margin-top:10px;color:var(--cream);font-weight:700;font-variant-numeric:tabular-nums}
 .offline{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 16px;border-radius:999px;background:var(--rouge);color:#fff;text-align:center;font-size:.85rem;line-height:1.3;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 
@@ -507,14 +521,17 @@ const PAY3={'🍒':5,'🍋':6,'🔔':10,'⭐':15,'💎':40,'7️⃣':100};
 const SLOT_BETS=[5,10,25,50];
 function slotPick(){const tot=SYM.reduce((a,x)=>a+x.w,0);let r=Math.random()*tot;for(const x of SYM){r-=x.w;if(r<0)return x.e;}return SYM[0].e;}
 function slotPayout(r,bet){if(r[0]===r[1]&&r[1]===r[2])return bet*PAY3[r[0]];if(r[0]===r[1]||r[1]===r[2]||r[0]===r[2])return bet;return 0;}
+const symHtml=e=>e==='7️⃣'?'<span class="sym seven">7</span>':`<span class="sym">${e}</span>`;
 function slotStrip(target){const items=[];for(let i=0;i<18;i++)items.push(SYM[Math.floor(Math.random()*SYM.length)].e);items.push(target);return items;}
 function slotsSpin(){
   if(!C.slots)C.slots={bet:10};const st=C.slots;if(st.busy)return;const bet=st.bet||10;if(W.coins<bet)return;
   W.coins-=bet;saveW();
   const reels=[slotPick(),slotPick(),slotPick()];const win=slotPayout(reels,bet);
   st.busy=true;st.result=null;st.reels=reels;st.strips=reels.map(slotStrip);st.lastWin=0;render();
-  setTimeout(()=>{const els=$app.querySelectorAll('.reel .strip');els.forEach((el,i)=>{el.style.transition=`transform ${1.1+i*0.45}s cubic-bezier(.15,.85,.25,1)`;el.style.transform=`translateY(calc(-18 * var(--ih)))`;});const lv=$app.querySelector('.lever');if(lv)lv.classList.add('pulled');},40);
-  setTimeout(()=>{st.busy=false;st.result={reels,win,bet};st.lastWin=win;if(win){W.coins+=win;W.slotWins=(W.slotWins||0)+1;}W.slotPlays=(W.slotPlays||0)+1;W.slotBest=Math.max(W.slotBest||0,win);saveW();if(win>=bet*10)toast('🎰 Jackpot! +'+win+' 🪙','coin');else if(win)toast('🎰 +'+win+' 🪙','coin');render();},2400);
+  setTimeout(()=>{const els=$app.querySelectorAll('.reel .strip');els.forEach((el,i)=>{const reel=el.parentElement;reel.classList.add('spinning');el.style.transition=`transform ${1.1+i*0.45}s cubic-bezier(.15,.85,.25,1)`;el.style.transform=`translateY(calc(-18 * var(--ih)))`;setTimeout(()=>{reel.classList.remove('spinning');reel.classList.add('stop');},(1.1+i*0.45)*1000-120);});const lv=$app.querySelector('.lever');if(lv)lv.classList.add('pulled');},40);
+  setTimeout(()=>{st.busy=false;st.result={reels,win,bet};st.lastWin=win;if(win){W.coins+=win;W.slotWins=(W.slotWins||0)+1;}W.slotPlays=(W.slotPlays||0)+1;W.slotBest=Math.max(W.slotBest||0,win);saveW();render();if(win)coinRain(win>=bet*10?60:win>bet?24:10);if(win>=bet*10)toast('🎰 Jackpot! +'+win+' 🪙','coin');else if(win>bet)toast('🎰 +'+win+' 🪙','coin');},2400);
+}
+function coinRain(n){try{const old=document.querySelector('.coinrain');if(old)old.remove();const el=document.createElement('div');el.className='coinrain';el.setAttribute('aria-hidden','true');el.innerHTML=Array.from({length:n},(_,i)=>`<b style="--x:${(Math.random()*100).toFixed(1)}%;--d:${(Math.random()*0.9).toFixed(2)}s;--r:${Math.round(Math.random()*720-360)}deg;--s:${(0.7+Math.random()*0.8).toFixed(2)}">🪙</b>`).join('');document.body.appendChild(el);setTimeout(()=>el.remove(),2600);}catch(e){}
 }
 function slots(){
   if(!C.slots)C.slots={bet:10};const st=C.slots;const bet=st.bet||10;
@@ -524,13 +541,13 @@ function slots(){
   const show=st.busy&&st.strips?st.strips:(st.result?st.result.reels.map(e=>[e]):[['🍒'],['🔔'],['7️⃣']]);
   const win=st.result&&!st.busy?st.result.win:0;const jack=win>=bet*10;
   h+=`<div class="slotbox ${win?'won':''} ${jack?'jack':''}"><div class="slothead">${jack?'JACKPOT':win?'GEWINN':'STUBEN · BANDIT'}</div>
-    <div class="reels">${show.map((strip,i)=>`<div class="reel"><div class="strip" style="${st.busy?'':'transform:none'}">${strip.map(e=>`<span class="sym">${e}</span>`).join('')}</div></div>`).join('')}<div class="payline"></div></div>
+    <div class="reels">${show.map((strip,i)=>`<div class="reel"><div class="strip" style="${st.busy?'':'transform:none'}">${strip.map(symHtml).join('')}</div></div>`).join('')}<div class="payline ${win?'hit':''}"></div></div>
     <div class="lever ${st.busy?'pulled':''}" data-a="slotsSpin" role="button" aria-label="Hebel ziehen"><div class="knob"></div><div class="stick"></div></div>
     <div class="slotfoot">${st.busy?'Walzen drehen …':win?`+${win} 🪙 bei Einsatz ${st.result.bet}`:'Hebel ziehen oder Drehen antippen'}</div></div>`;
   h+=`<div class="panel"><div class="zone-head"><h3>Einsatz</h3><span class="hint">${W.coins} Coins</span></div><div class="seg">${SLOT_BETS.map(b=>`<button class="seg-btn ${bet===b?'is-on':''}" data-a="slotsBet" data-b="${b}" ${st.busy?'disabled':''}>${b}</button>`).join('')}</div>
     <button class="btn btn-primary btn-big" data-a="slotsSpin" ${st.busy||W.coins<bet?'disabled':''}>${st.busy?'Dreht …':W.coins<bet?'Zu wenig Coins ('+W.coins+')':'Drehen · '+bet+' 🪙'}</button>
     <p class="hint">${W.slotPlays?`${W.slotPlays} Drehungen · ${W.slotWins||0} Treffer · bester Gewinn ${W.slotBest||0} 🪙`:'Spielgeld, nur zum Spaß.'}</p></div>`;
-  h+=`<section class="panel"><h3>Gewinntabelle</h3><div class="earn">${Object.entries(PAY3).reverse().map(([e,m])=>`<span>${e} ${e} ${e}</span><b>${m}× Einsatz</b>`).join('')}<span>Zwei gleiche</span><b>Einsatz zurück</b></div></section>`;
+  h+=`<section class="panel"><h3>Gewinntabelle</h3><div class="earn">${Object.entries(PAY3).reverse().map(([e,m])=>`<span class="payrow">${symHtml(e)}${symHtml(e)}${symHtml(e)}</span><b>${m}× Einsatz</b>`).join('')}<span>Zwei gleiche</span><b>Einsatz zurück</b></div></section>`;
   return h;
 }
 function claw(){
