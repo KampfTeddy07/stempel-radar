@@ -103,7 +103,7 @@
     if (g.phase === 'turn' && mine) {
       const p = g.players[pi];
       if (a === 'swap') { const h = +d.h, t = +d.t; if (!(h >= 0 && h < 3 && t >= 0 && t < 3)) return; const tmp = p.hand[h]; p.hand[h] = g.table[t]; g.table[t] = tmp; szEv(g, pi, 'swap', { t, gave: tmp, took: p.hand[h] }); szAfterMove(g); return; }
-      if (a === 'swapAll') { const tmp = p.hand; p.hand = g.table; g.table = tmp; szEv(g, pi, 'swapAll'); szAfterMove(g); return; }
+      if (a === 'swapAll') { const tmp = p.hand; p.hand = g.table; g.table = tmp; szEv(g, pi, 'swapAll', { gave: g.table.slice(), took: p.hand.slice() }); szAfterMove(g); return; }
       if (a === 'pass') {
         g.passes++; p.passed = true;
         if (g.passes >= szActive(g).length) { if (g.deck.length >= 3) { g.table = g.deck.splice(0, 3); szClearPasses(g); szEv(g, pi, 'newTable'); szAdvance(g); } else szShowdown(g, 'deck'); }

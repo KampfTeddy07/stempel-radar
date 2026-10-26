@@ -88,6 +88,29 @@ input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
 .fire-text b{font-family:var(--font-display);font-size:clamp(2.6rem,12vw,4rem);color:#ffd76a;text-shadow:0 0 18px rgba(255,120,20,.9),0 4px 14px rgba(0,0,0,.6);letter-spacing:.06em}
 .fire-text .who{font-size:1.2rem;color:var(--cream);text-shadow:0 2px 8px rgba(0,0,0,.6)}
 @media (prefers-reduced-motion:reduce){.fire,.fcard,.fcard .char,.fcard .flames,.fcard .flames i,.ember,.fire-text,.fire-glow{animation-duration:.01s!important}}
+.handoff.compact{justify-content:flex-start;padding-block:10px;gap:12px}
+.handoff.compact .zone{width:100%} .handoff.compact .lastline{width:100%;text-align:left}
+.passfx{position:fixed;inset:0;z-index:50;pointer-events:none;overflow:hidden;animation:kf-fade 1.7s ease-out both}
+.pf-hand{position:absolute;top:34%;left:-20vw;font-size:clamp(4.5rem,22vw,7rem);line-height:1;filter:drop-shadow(0 14px 16px rgba(0,0,0,.55));animation:pfslide 1.7s cubic-bezier(.3,.7,.2,1) both}
+@keyframes pfslide{0%{left:-30vw;transform:rotate(-10deg)}55%{left:52vw;transform:rotate(4deg)}75%{left:56vw;transform:rotate(0)}100%{left:120vw;transform:rotate(8deg);opacity:0}}
+.pf-trail{position:absolute;top:calc(34% + 2.2rem);left:0;right:0;height:3rem;pointer-events:none}
+.pf-trail i{position:absolute;left:-30vw;height:4px;border-radius:2px;background:linear-gradient(90deg,transparent,rgba(244,235,217,.7));width:32vw;animation:pftrail 1.7s cubic-bezier(.3,.7,.2,1) both}
+.pf-trail i:nth-child(1){top:0;animation-delay:.05s} .pf-trail i:nth-child(2){top:1.2rem;width:26vw;animation-delay:.12s} .pf-trail i:nth-child(3){top:2.4rem;width:20vw;animation-delay:.18s}
+@keyframes pftrail{0%{left:-40vw;opacity:0}30%{opacity:.9}55%{left:22vw}100%{left:110vw;opacity:0}}
+.pf-text{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);text-align:center;display:flex;flex-direction:column;gap:2px;align-items:center;animation:kf-text 1.7s ease-out both}
+.pf-text b{font-family:var(--font-display);font-size:clamp(1.6rem,7vw,2.4rem);color:var(--cream);text-shadow:0 4px 14px rgba(0,0,0,.6)}
+.swapfx{position:fixed;inset:0;z-index:50;pointer-events:none;overflow:hidden;display:grid;place-items:center;background:radial-gradient(ellipse at center,rgba(0,0,0,0),rgba(0,0,0,.5));animation:kf-fade 2.3s ease-out both}
+.sw-stage{display:flex;flex-direction:column;align-items:center;gap:6px;transform:translateY(-8%)}
+.sw-row{display:flex;gap:10px}
+.sw-row .card{flex:0 0 auto;width:clamp(64px,19vw,92px);cursor:default;animation-duration:1.5s;animation-timing-function:cubic-bezier(.3,0,.2,1);animation-fill-mode:both;animation-delay:calc(var(--i) * 110ms)}
+.sw-row.down .card{animation-name:swdown} .sw-row.up .card{animation-name:swup}
+@keyframes swdown{0%{transform:translateY(-70px) rotate(-6deg);opacity:0}25%{opacity:1}60%{transform:translateY(110px) rotate(0)}100%{transform:translateY(118px) scale(.98)}}
+@keyframes swup{0%{transform:translateY(70px) rotate(6deg);opacity:0}25%{opacity:1}60%{transform:translateY(-110px) rotate(0)}100%{transform:translateY(-118px) scale(.98)}}
+.sw-arrows{font-size:2.4rem;color:var(--brass);text-shadow:0 0 14px rgba(210,171,82,.8);animation:swspin 1.5s ease-in-out both}
+@keyframes swspin{0%{transform:scale(.6) rotate(0);opacity:0}30%{opacity:1}100%{transform:scale(1.1) rotate(180deg)}}
+.sw-text{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);text-align:center;display:flex;flex-direction:column;gap:2px;align-items:center;animation:kf-text 2.3s ease-out both}
+.sw-text b{font-family:var(--font-display);font-size:clamp(1.5rem,6.5vw,2.2rem);color:var(--cream);text-shadow:0 4px 14px rgba(0,0,0,.6)}
+@media (prefers-reduced-motion:reduce){.passfx,.pf-hand,.pf-trail i,.pf-text,.swapfx,.sw-row .card,.sw-arrows,.sw-text{animation-duration:.01s!important}}
 .whoosh{position:fixed;inset:0;z-index:50;pointer-events:none;overflow:hidden;display:grid;place-items:center}
 .whoosh-fly{position:absolute;top:38%;left:-30vw;animation:whooshfly 2.4s cubic-bezier(.2,.7,.3,1) forwards;filter:drop-shadow(0 10px 18px rgba(0,0,0,.5))}
 .whoosh-stache{display:block;animation:whooshspin 2.4s cubic-bezier(.3,.1,.3,1) forwards}
@@ -622,9 +645,21 @@ async function localSync(){
 function handoffView(){
   const seat=LOCAL.seats[LOCAL.handoff];const r=C.handoffRoom;const g=r&&r.view;
   const gname={schnauz:'Schnauz',kniffel:'Kniffel',uno:'Vier Farben',bj:'17 und 4'}[g&&g.game]||'';
-  return`<div class="handoff">${g&&g.game==='uno'?`<div class="ucard wild" style="width:96px"><span class="us">✦</span></div>`:`<div class="card back" style="flex-basis:110px;width:110px"></div>`}<p class="eyebrow">${gname} · Weitergeben an</p><h2>${esc(seat.name)}</h2>
+  let table='';
+  if(g&&g.game==='schnauz'){
+    const cn=c=>`<b class="${c.red?'rc':''}">${c.r}${c.s}</b>`;const ev=g.ev;
+    const evText=!ev?'':ev.type==='swap'?`${esc(g.players[ev.pi].name)} legt ${cn(ev.gave)} in die Mitte und nimmt ${cn(ev.took)}.`:ev.type==='swapAll'?`${esc(g.players[ev.pi].name)} tauscht alle drei Karten.`:ev.type==='pass'||ev.type==='timeout'?`${esc(g.players[ev.pi].name)} schiebt.`:ev.type==='knock'?`${esc(g.players[ev.pi].name)} klopft!`:ev.type==='newTable'||ev.type==='timeoutNewTable'?'Drei neue Karten in der Mitte.':'';
+    table=`<div class="seats" style="justify-content:center">${g.players.map((p,i)=>`<span class="seat ${i===g.current?'cur':''} ${p.out?'out':''}"><span class="nm">${esc(p.name)}</span>${livesHtml(p)}${i===g.dealer&&!p.out?'<span class="tag">gibt</span>':''}${i===g.knocker?'<span class="tag">klopft</span>':''}</span>`).join('')}</div>
+    ${evText?`<p class="lastline">${evText}</p>`:''}
+    <div class="zone"><div class="zone-head"><span class="eyebrow">In der Mitte</span><span class="hint">${g.phase==='dealer'?'Geber entscheidet noch':''}</span></div><div class="cards">${Array.isArray(g.table)?g.table.map(c=>cardHtml(c,{flat:true})).join(''):backHtml()+backHtml()+backHtml()}</div></div>
+    <div class="zone"><div class="zone-head"><span class="eyebrow">Karten von ${esc(seat.name)}</span><span class="hint">verdeckt</span></div><div class="cards">${backHtml()}${backHtml()}${backHtml()}</div></div>`;
+  }else if(g&&g.game==='uno'){
+    table=`<div class="utable"><div class="upile"><p class="eyebrow">Ablage</p>${ucard(g.top,{flat:true,big:true})}</div><div class="uinfo"><p class="eyebrow">Farbe</p><p class="ucol"><span class="udot" style="background:${UC[g.color]}"></span>${UCN[g.color]}</p>${g.last?`<p class="hint">${esc(g.last)}</p>`:''}</div></div>
+    <div class="seats" style="justify-content:center">${g.players.map((p,i)=>`<span class="seat ${i===g.current?'cur':''}"><span class="nm">${esc(p.name)}</span><span class="lives">${p.count} ${p.count===1?'Karte':'Karten'}</span></span>`).join('')}</div>`;
+  }
+  return`<div class="handoff compact"><p class="eyebrow">${gname} · Weitergeben an</p><h2>${esc(seat.name)}</h2>${table}
   ${g&&g.game==='schnauz'&&g.knocker!==null?`<p class="notice">${esc(g.players[g.knocker].name)} hat geklopft – letzter Zug.</p>`:''}
-  <button class="btn btn-primary btn-big" data-a="handoffOk">Ich bin ${esc(seat.name)} – zeigen</button></div>`;
+  <button class="btn btn-primary btn-big" data-a="handoffOk">Ich bin ${esc(seat.name)} – Karten zeigen</button></div>`;
 }
 function syncHosting(room){try{if(!window.Bridge||!Bridge.hosting)return;const want=(room&&C.code)?(C.mode==='lan'?'lan':(C.mode==='online'&&room.isHost)?'online':'none'):'none';if(want!==C.hostingState){C.hostingState=want;Bridge.hosting(want);}}catch(e){}}
 function applyRoom(room){setOnline(true);creditAwards(room);syncHosting(room);const key=JSON.stringify(room);if(key===C.roomKey){return;}C.roomKey=key;
@@ -724,6 +759,8 @@ function schnauz(){
   const cn=c=>`<b class="${c.red?'rc':''}">${c.r}${c.s}</b>`;
   const evText=!ev?'':ev.type==='timeout'?`Zeit um – ${esc(g.players[ev.pi].name)} schiebt automatisch.`:ev.type==='timeoutDealer'?`Zeit um – ${esc(g.players[ev.pi].name)} behält die Karten.`:ev.type==='timeoutNewTable'?'Zeit um, alle haben geschoben: drei neue Karten in der Mitte.':ev.type==='swap'?`${esc(g.players[ev.pi].name)} legt ${cn(ev.gave)} in die Mitte und nimmt ${cn(ev.took)}.`:ev.type==='swapAll'?`${esc(g.players[ev.pi].name)} tauscht alle drei Karten.`:ev.type==='pass'?`${esc(g.players[ev.pi].name)} schiebt.`:ev.type==='knock'?`${esc(g.players[ev.pi].name)} klopft! Jeder hat noch genau einen Zug.`:ev.type==='newTable'?'Alle haben geschoben: drei neue Karten in der Mitte.':ev.type==='dealerKeep'?`${esc(g.players[ev.pi].name)} behält die Karten, der zweite Stapel liegt offen.`:ev.type==='dealerSwap'?`${esc(g.players[ev.pi].name)} tauscht blind gegen den zweiten Stapel.`:'';
   const seatAnim=i=>fresh&&ev.pi===i?(ev.type==='knock'?' knock':' bump'):'';
+  if(fresh&&(ev.type==='pass'||ev.type==='timeout'))setTimeout(()=>schnauzPass(g.players[ev.pi].name,ev.type==='timeout'),0);
+  if(fresh&&ev.type==='swapAll')setTimeout(()=>schnauzSwapAll(g.players[ev.pi].name,ev.gave||[],ev.took||[]),0);
   if(fresh&&ev.type==='knock'){C.knockAt=Date.now();C.knockName=g.players[ev.pi].name;setTimeout(render,2400);}
   const kEl=Date.now()-C.knockAt;const knockFx=kEl<2300?`<div class="knockfx" style="--d:-${kEl}ms"><div class="kf-hand">✊</div><div class="kf-ring"></div><div class="kf-ring r2"></div><div class="kf-text"><span class="eyebrow">Klopf, klopf</span><b>${esc(C.knockName)} klopft!</b></div></div>`:'';
   const flip=i=>fresh&&ev&&((ev.type==='swap'&&ev.t===i)||ev.type==='swapAll'||ev.type==='newTable'||ev.type==='dealerKeep'||ev.type==='dealerSwap');
@@ -865,6 +902,19 @@ function schnauzFire(name,hand){
   const embers=Array.from({length:26},(_,i)=>`<b class="ember" style="--x:${(Math.random()*100).toFixed(1)}%;--d:${(Math.random()*1.6).toFixed(2)}s;--s:${(0.6+Math.random()*0.9).toFixed(2)}"></b>`).join('');
   el.innerHTML=`<div class="fire-glow"></div>${embers}<div class="fire-cards">${cards}</div><div class="fire-text"><span class="eyebrow">Drei Asse</span><b>FEUER!</b><span class="who">${esc(name)}</span></div>`;
   document.body.appendChild(el);setTimeout(()=>el.remove(),4200);
+}
+function schnauzPass(name,timedOut){
+  const old=document.querySelector('.passfx');if(old)old.remove();
+  const el=document.createElement('div');el.className='passfx';el.setAttribute('aria-hidden','true');
+  el.innerHTML=`<div class="pf-hand">🫳</div><div class="pf-trail"><i></i><i></i><i></i></div><div class="pf-text"><span class="eyebrow">${timedOut?'Zeit um':'Schieben'}</span><b>${esc(name)} schiebt</b></div>`;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),1700);
+}
+function schnauzSwapAll(name,gave,took){
+  const old=document.querySelector('.swapfx');if(old)old.remove();
+  const el=document.createElement('div');el.className='swapfx';el.setAttribute('aria-hidden','true');
+  const row=(cards,cls)=>`<div class="sw-row ${cls}">${(cards.length===3?cards:[0,1,2]).map((c,i)=>c&&c.r?`<div class="card flat ${c.red?'red':''}" style="--i:${i}"><span class="rk">${c.r}</span><span class="su">${c.s}</span><span class="rk2">${c.r}</span></div>`:`<div class="card back" style="--i:${i}"></div>`).join('')}</div>`;
+  el.innerHTML=`<div class="sw-stage">${row(took,'down')}<div class="sw-arrows">⇅</div>${row(gave,'up')}</div><div class="sw-text"><span class="eyebrow">Alle drei</span><b>${esc(name)} tauscht die ganze Hand</b></div>`;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),2300);
 }
 function schnauzWhoosh(){
   const old=document.querySelector('.whoosh');if(old)old.remove();
