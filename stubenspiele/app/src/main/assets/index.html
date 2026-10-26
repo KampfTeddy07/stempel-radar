@@ -258,6 +258,22 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .autonext{position:relative;height:34px;border-radius:999px;border:1px solid var(--brass);background:rgba(0,0,0,.25);overflow:hidden;margin-bottom:2px}
 .autonext .abar{position:absolute;left:0;top:0;bottom:0;background:var(--brass-tint);transition:width 1s linear}
 .autonext span{position:relative;display:block;text-align:center;line-height:34px;font-weight:700;font-size:.9rem;color:var(--brass);font-variant-numeric:tabular-nums}
+.arcnav{margin-top:-4px}
+.slotbox{position:relative;border-radius:20px;border:4px solid var(--brass);background:linear-gradient(#3a1016,#5a1f2a 40%,#2a0b10);padding:14px 70px 14px 14px;box-shadow:inset 0 0 40px rgba(0,0,0,.5),0 10px 30px rgba(0,0,0,.4);overflow:hidden}
+.slothead{font-family:var(--font-display);text-align:center;letter-spacing:.3em;color:var(--brass);font-size:.9rem;margin-bottom:10px;text-shadow:0 0 10px rgba(210,171,82,.5)}
+.slotbox.won .slothead{color:#ffd76a;animation:glowpulse .5s ease-in-out infinite alternate}
+.slotbox.jack{animation:jackflash .6s ease-in-out 6}
+@keyframes jackflash{0%,100%{box-shadow:inset 0 0 40px rgba(0,0,0,.5),0 10px 30px rgba(0,0,0,.4)}50%{box-shadow:inset 0 0 60px rgba(255,215,106,.6),0 0 40px rgba(255,180,32,.8)}}
+.reels{position:relative;display:flex;gap:8px;justify-content:center;--ih:72px}
+.reel{width:30%;max-width:88px;height:var(--ih);overflow:hidden;border-radius:10px;background:linear-gradient(#f4ebd9,#fff 50%,#e2d4b7);box-shadow:inset 0 8px 14px rgba(0,0,0,.25),inset 0 -8px 14px rgba(0,0,0,.25)}
+.reel .strip{display:flex;flex-direction:column;will-change:transform}
+.reel .sym{height:var(--ih);display:grid;place-items:center;font-size:2.3rem;line-height:1}
+.payline{position:absolute;left:-6px;right:-6px;top:50%;height:2px;background:rgba(181,54,60,.75);box-shadow:0 0 6px rgba(255,80,80,.8);pointer-events:none}
+.lever{position:absolute;right:14px;top:50%;transform:translateY(-62%);width:40px;height:120px;cursor:pointer;touch-action:manipulation}
+.lever .stick{position:absolute;left:16px;top:22px;width:8px;height:80px;border-radius:4px;background:linear-gradient(90deg,#9c7a2d,#f0dca0,#9c7a2d);transform-origin:50% 100%;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.lever .knob{position:absolute;left:4px;top:0;width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ff8a8a,#b5363c 60%,#6e1c22);box-shadow:0 4px 10px rgba(0,0,0,.5);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.lever.pulled .stick{transform:rotateX(150deg) scaleY(.4)} .lever.pulled .knob{transform:translateY(78px) scale(.9)}
+.slotfoot{text-align:center;margin-top:10px;color:var(--cream);font-weight:700;font-variant-numeric:tabular-nums}
 .offline{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 16px;border-radius:999px;background:var(--rouge);color:#fff;text-align:center;font-size:.85rem;line-height:1.3;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 
 .ucard{flex:0 0 auto;width:clamp(50px,15vw,66px);aspect-ratio:5/7;border-radius:10px;border:3px solid var(--cream);background:var(--uc,#333);color:var(--cream);position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 4px 12px rgba(0,0,0,.35);outline:3px solid transparent;transition:transform .15s,outline-color .15s}
@@ -483,10 +499,44 @@ function clawPlay(){
   setTimeout(()=>{const c=el();if(C.claw.res&&Math.random()<.15){C.claw.slip=true;C.claw.res=null;if(c)c.classList.remove('holding');}else if(c&&C.claw.res)c.style.setProperty('--x','9%');},4100);
   setTimeout(()=>{if(C.claw.res){W.prizes[C.claw.res.k]=(W.prizes[C.claw.res.k]||0)+1;W.wins++;saveW();}C.claw.busy=false;C.claw.phase='result';render();},5600);
 }
+const isArcade=()=>C.page==='claw'||C.page==='slots';
+function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifautomat</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Bandit</button></div>`;}
+/* ---- Einarmiger Bandit ---- */
+const SYM=[{e:'🍒',w:6},{e:'🍋',w:5},{e:'🔔',w:4},{e:'⭐',w:3},{e:'💎',w:1},{e:'7️⃣',w:1}];
+const PAY3={'🍒':5,'🍋':6,'🔔':10,'⭐':15,'💎':40,'7️⃣':100};
+const SLOT_BETS=[5,10,25,50];
+function slotPick(){const tot=SYM.reduce((a,x)=>a+x.w,0);let r=Math.random()*tot;for(const x of SYM){r-=x.w;if(r<0)return x.e;}return SYM[0].e;}
+function slotPayout(r,bet){if(r[0]===r[1]&&r[1]===r[2])return bet*PAY3[r[0]];if(r[0]===r[1]||r[1]===r[2]||r[0]===r[2])return bet;return 0;}
+function slotStrip(target){const items=[];for(let i=0;i<18;i++)items.push(SYM[Math.floor(Math.random()*SYM.length)].e);items.push(target);return items;}
+function slotsSpin(){
+  if(!C.slots)C.slots={bet:10};const st=C.slots;if(st.busy)return;const bet=st.bet||10;if(W.coins<bet)return;
+  W.coins-=bet;saveW();
+  const reels=[slotPick(),slotPick(),slotPick()];const win=slotPayout(reels,bet);
+  st.busy=true;st.result=null;st.reels=reels;st.strips=reels.map(slotStrip);st.lastWin=0;render();
+  setTimeout(()=>{const els=$app.querySelectorAll('.reel .strip');els.forEach((el,i)=>{el.style.transition=`transform ${1.1+i*0.45}s cubic-bezier(.15,.85,.25,1)`;el.style.transform=`translateY(calc(-18 * var(--ih)))`;});const lv=$app.querySelector('.lever');if(lv)lv.classList.add('pulled');},40);
+  setTimeout(()=>{st.busy=false;st.result={reels,win,bet};st.lastWin=win;if(win){W.coins+=win;W.slotWins=(W.slotWins||0)+1;}W.slotPlays=(W.slotPlays||0)+1;W.slotBest=Math.max(W.slotBest||0,win);saveW();if(win>=bet*10)toast('🎰 Jackpot! +'+win+' 🪙','coin');else if(win)toast('🎰 +'+win+' 🪙','coin');render();},2400);
+}
+function slots(){
+  if(!C.slots)C.slots={bet:10};const st=C.slots;const bet=st.bet||10;
+  const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
+  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack">‹ ${back}</button><span class="bar-title">Einarmiger Bandit</span><span class="bar-meta">🪙 ${W.coins}</span></div>`+arcadeNav('slots');
+  const rv=C.room&&C.room.view;if(rv){const gname={schnauz:'Schnauz',kniffel:'Kniffel',uno:'Vier Farben',bj:'Black Jack'}[rv.game];const who=rv.players&&rv.players[rv.current]?rv.players[rv.current].name:'';const myTurn=rv.current===rv.me&&(rv.phase==='turn'||rv.phase==='dealer'||rv.phase==='play');h+=`<p class="notice ${myTurn?'':'soft'}">${myTurn?'Du bist am Tisch dran!':`Am Tisch läuft ${gname}${rv.round?' · Runde '+rv.round:''}${who?' · '+esc(who)+' am Zug':''}.`}</p>`;}
+  const show=st.busy&&st.strips?st.strips:(st.result?st.result.reels.map(e=>[e]):[['🍒'],['🔔'],['7️⃣']]);
+  const win=st.result&&!st.busy?st.result.win:0;const jack=win>=bet*10;
+  h+=`<div class="slotbox ${win?'won':''} ${jack?'jack':''}"><div class="slothead">${jack?'JACKPOT':win?'GEWINN':'STUBEN · BANDIT'}</div>
+    <div class="reels">${show.map((strip,i)=>`<div class="reel"><div class="strip" style="${st.busy?'':'transform:none'}">${strip.map(e=>`<span class="sym">${e}</span>`).join('')}</div></div>`).join('')}<div class="payline"></div></div>
+    <div class="lever ${st.busy?'pulled':''}" data-a="slotsSpin" role="button" aria-label="Hebel ziehen"><div class="knob"></div><div class="stick"></div></div>
+    <div class="slotfoot">${st.busy?'Walzen drehen …':win?`+${win} 🪙 bei Einsatz ${st.result.bet}`:'Hebel ziehen oder Drehen antippen'}</div></div>`;
+  h+=`<div class="panel"><div class="zone-head"><h3>Einsatz</h3><span class="hint">${W.coins} Coins</span></div><div class="seg">${SLOT_BETS.map(b=>`<button class="seg-btn ${bet===b?'is-on':''}" data-a="slotsBet" data-b="${b}" ${st.busy?'disabled':''}>${b}</button>`).join('')}</div>
+    <button class="btn btn-primary btn-big" data-a="slotsSpin" ${st.busy||W.coins<bet?'disabled':''}>${st.busy?'Dreht …':W.coins<bet?'Zu wenig Coins ('+W.coins+')':'Drehen · '+bet+' 🪙'}</button>
+    <p class="hint">${W.slotPlays?`${W.slotPlays} Drehungen · ${W.slotWins||0} Treffer · bester Gewinn ${W.slotBest||0} 🪙`:'Spielgeld, nur zum Spaß.'}</p></div>`;
+  h+=`<section class="panel"><h3>Gewinntabelle</h3><div class="earn">${Object.entries(PAY3).reverse().map(([e,m])=>`<span>${e} ${e} ${e}</span><b>${m}× Einsatz</b>`).join('')}<span>Zwei gleiche</span><b>Einsatz zurück</b></div></section>`;
+  return h;
+}
 function claw(){
   const st=C.claw||{};const res=st.res;
   const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
-  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack">‹ ${back}</button><span class="bar-title">Greifautomat</span><span class="bar-meta">🪙 ${W.coins}</span></div>`;
+  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack">‹ ${back}</button><span class="bar-title">Greifautomat</span><span class="bar-meta">🪙 ${W.coins}</span></div>`+arcadeNav('claw');
   const rv=C.room&&C.room.view;if(rv){const gname={schnauz:'Schnauz',kniffel:'Kniffel',uno:'Vier Farben',bj:'Black Jack'}[rv.game];const who=rv.players&&rv.players[rv.current]?rv.players[rv.current].name:'';const myTurn=rv.current===rv.me&&(rv.phase==='turn'||rv.phase==='dealer'||rv.phase==='play');h+=`<p class="notice ${myTurn?'':'soft'}">${myTurn?'Du bist am Tisch dran!':`Am Tisch läuft ${gname}${rv.round?' · Runde '+rv.round:''}${who?' · '+esc(who)+' am Zug':''}.`}</p>`;}
   h+=`<div class="machine"><div class="rail"></div><div class="claw" style="--x:50%"><div class="rope"></div><div class="grip"><span class="arm l"></span><span class="arm m"></span><span class="arm r"></span><span class="held"></span></div></div>
     <div class="pit">${['🧸','🦆','🐸','🦊','🎈','🐙','🧸','🍬'].map((e,i)=>`<span style="transform:rotate(${(i%2?1:-1)*(8+i*3)}deg)">${e}</span>`).join('')}</div><div class="chute">AUSGABE</div><div class="glass"></div></div>`;
@@ -552,7 +602,7 @@ function applyRoom(room){setOnline(true);creditAwards(room);const key=JSON.strin
     if(room.view&&room.view.game==='schnauz'&&room.view.blitz&&room.view.deadline)C.szDeadline=Date.now()+(room.view.deadline-room.view.now);
     C.autoDeadline=(room.view&&room.view.autoNext)?Date.now()+(room.view.autoNext-room.view.now):0;
     const wasLobby=C.room&&C.room.phase==='lobby';C.room=room;
-    if(C.page==='claw'){const v=room.view;const my=v&&v.current===v.me&&(v.phase==='turn'||v.phase==='dealer'||v.phase==='play');if(room.phase!=='lobby'&&wasLobby)toast('Das Spiel geht los – zurück zum Tisch!','');else if(my&&!C.turnToasted){toast('Du bist dran – zurück zum Tisch!','');}C.turnToasted=!!my;}else C.page=room.phase==='lobby'?'lobby':'game';render();}
+    if(isArcade()){const v=room.view;const my=v&&v.current===v.me&&(v.phase==='turn'||v.phase==='dealer'||v.phase==='play');if(room.phase!=='lobby'&&wasLobby)toast('Das Spiel geht los – zurück zum Tisch!','');else if(my&&!C.turnToasted){toast('Du bist dran – zurück zum Tisch!','');}C.turnToasted=!!my;}else C.page=room.phase==='lobby'?'lobby':'game';render();}
 // Sicherheitsnetz: regelmässig den Stand abholen (im Internet-Modus zugleich das Lebenszeichen an den Gastgeber)
 setInterval(async()=>{if(!C.code||!C.pid||C.busy||C.mode==='local')return;
   try{
@@ -563,7 +613,7 @@ setInterval(async()=>{if(!C.code||!C.pid||C.busy||C.mode==='local')return;
 setInterval(()=>{const v=C.room&&C.room.view;if(!v||C.page!=='game')return;if((v.game==='schnauz'&&v.blitz&&v.deadline&&(v.phase==='turn'||v.phase==='dealer'))||(v.autoNext&&C.autoDeadline))render();},1000);
 function autoLeft(){return C.autoDeadline?Math.max(0,Math.ceil((C.autoDeadline-Date.now())/1000)):0;}
 function autoNote(){const s=autoLeft();return s?`<div class="autonext"><div class="abar" style="width:${Math.min(100,s/15*100)}%"></div><span>Nächste Runde startet in ${s} s</span></div>`:'';}
-setInterval(()=>{if(C.mode==='local'&&C.code&&LOCAL.handoff===null&&C.page!=='claw')localSync();},1000);
+setInterval(()=>{if(C.mode==='local'&&C.code&&LOCAL.handoff===null&&!isArcade())localSync();},1000);
 setInterval(()=>{if(C.mode!=='online'||!C.isHost||!C.code||!C.pid)return;try{Engine.request('h'+(++OL.n),'/api/state',{code:C.code,pid:C.pid,token:C.token},(st,body)=>{if(st===200)applyRoom(body);});}catch(e){}},1000);
 const HOST_ACTIONS={backToLobby:1,nextRound:1,rematch:1,setGame:1,setVariant:1,setTurn:1,start:1,kick:1};
 function act(action,data){const cred=(C.mode==='local'&&HOST_ACTIONS[action]&&LOCAL.seats[0])?LOCAL.seats[0]:{pid:C.pid,token:C.token};post('/api/action',{code:C.code,pid:cred.pid,token:cred.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();if(C.mode==='local')localSync();});}
@@ -591,7 +641,7 @@ function home(){
   ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy ist der Server.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
   :`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!local?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div><p class="hint">${local?'Kein Netz nötig: alle spielen auf diesem Handy, es wandert reihum.':'Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.'}</p></section>`}
   ${INVITE&&!C.code&&C.codeIn?`<div class="notice"><b>Einladung zu Tisch ${esc(C.codeIn)}.</b> ${C.name?'Du bist gleich drin …':'Nur noch deinen Namen eintragen und auf Mitspielen tippen.'}</div>`:''}
-  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><button class="btn btn-outline" data-a="clawOpen">Greifautomat</button></div><p class="hint">Coins gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
+  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><div class="actions" style="gap:6px"><button class="btn btn-outline" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-outline" data-a="slotsOpen">🎰 Bandit</button></div></div><p class="hint">Coins gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
   <section class="panel"><h2>Dein Name</h2><input class="field" id="name" data-f="name" value="${esc(C.name)}" placeholder="z. B. Jim" maxlength="14" autocomplete="off">
   ${C.err?`<p class="error">${esc(C.err)}</p>`:''}
   <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':local?'Tisch auf diesem Handy aufbauen':'Spiel eröffnen'}</button></section>
@@ -612,7 +662,7 @@ function lobby(){
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
   ${(()=>{const link=inviteLink(r);return link?`<div class="invite"><div class="qrbox">${qrSvg(link)}</div><p class="hint">Einladung scannen – landet direkt am Tisch</p>${r.online?'':'<p class="hint tip">Hotspot ohne Internet? Dann bei den Mitspielern <b>mobile Daten aus</b> oder „Trotzdem verbunden bleiben“ bestätigen – sonst springt ihr Handy aufs Mobilfunknetz.</p>'}<button class="btn btn-outline" data-a="copyInvite" data-link="${esc(link)}">${C.copied?'Link kopiert ✓':'Einladungslink kopieren'}</button></div>`:''})()}
   <p class="hint" style="text-align:center">Oder im Browser öffnen:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
-  <div class="walletline"><span>🪙 ${W.coins} Coins</span><button class="btn btn-ghost" data-a="clawOpen">Greifautomat · Zeit überbrücken</button></div>
+  <div class="walletline"><span>🪙 ${W.coins} Coins</span><span><button class="btn btn-ghost" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-ghost" data-a="slotsOpen">🎰 Bandit</button></span></div>
   <section class="panel"><h2>Am Tisch (${n} von 4)</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}${r.isHost&&!p.host&&!p.connected?`<button class="btn btn-ghost sm" data-a="kick" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno" ${r.isHost?'':'disabled'}>Vier Farben</button><button class="seg-btn ${r.game==='bj'?'is-on':''}" data-a="setGame" data-g="bj" ${r.isHost?'':'disabled'}>Black Jack</button></div>
@@ -840,10 +890,10 @@ function bj(){
 function toastHtml(){return`<div class="toasts">${toasts.map(t=>`<div class="toast ${t.cls}">${t.text}</div>`).join('')}</div>`;}
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
-  if(C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine')){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
-  let h=C.online||C.page==='home'||C.page==='claw'?'':(C.mode==='lan'&&!C.isHost?`<div class="offline wide"><b>Keine Verbindung zum Gastgeber-Handy.</b><span>Dein Handy ist vermutlich auf mobile Daten gesprungen, weil der Hotspot kein Internet hat. Abhilfe: <b>mobile Daten kurz aus</b> – oder in der Meldung „WLAN ohne Internet“ auf <b>Trotzdem verbunden bleiben</b> tippen (iPhone: WLAN-Unterstützung aus).</span><button class="btn btn-primary" data-a="reload">Neu verbinden</button></div>`:'<div class="offline">Verbindung wird neu aufgebaut …</div>');
+  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
+  let h=C.online||C.page==='home'||isArcade()?'':(C.mode==='lan'&&!C.isHost?`<div class="offline wide"><b>Keine Verbindung zum Gastgeber-Handy.</b><span>Dein Handy ist vermutlich auf mobile Daten gesprungen, weil der Hotspot kein Internet hat. Abhilfe: <b>mobile Daten kurz aus</b> – oder in der Meldung „WLAN ohne Internet“ auf <b>Trotzdem verbunden bleiben</b> tippen (iPhone: WLAN-Unterstützung aus).</span><button class="btn btn-primary" data-a="reload">Neu verbinden</button></div>`:'<div class="offline">Verbindung wird neu aufgebaut …</div>');
   h+=toastHtml();
-  if(C.page==='claw')h+=claw();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
+  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
   $app.innerHTML=h;
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   const kAge=Date.now()-C.knockAt;if(kAge<1500&&!$app.classList.contains('tableshake')){$app.classList.add('tableshake');setTimeout(()=>$app.classList.remove('tableshake'),1500-kAge);}
@@ -856,8 +906,11 @@ $app.addEventListener('click',async e=>{
   const t=e.target.closest('[data-a]');if(!t||t.disabled)return;const a=t.dataset.a,d=t.dataset;
   switch(a){
     case 'setMode':C.mode=d.m;C.err='';C.codeIn='';persist();render();break;
-    case 'clawOpen':C.claw={busy:false,phase:'idle'};C.page='claw';render();break;
-    case 'clawBack':if(C.claw&&C.claw.busy)break;C.page=C.room?(C.room.phase==='lobby'?'lobby':'game'):'home';render();break;
+    case 'clawOpen':if(C.claw&&C.claw.busy)break;C.claw={busy:false,phase:'idle'};C.page='claw';render();break;
+    case 'slotsOpen':if(C.slots&&C.slots.busy)break;if(!C.slots)C.slots={bet:10};C.page='slots';render();break;
+    case 'slotsBet':if(C.slots&&C.slots.busy)break;C.slots=Object.assign(C.slots||{},{bet:+d.b});render();break;
+    case 'slotsSpin':slotsSpin();break;
+    case 'clawBack':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page=C.room?(C.room.phase==='lobby'?'lobby':'game'):'home';render();break;
     case 'clawPlay':clawPlay();break;
     case 'sellDupes':sellDupes(d.k);render();break;
     case 'sellAll':sellDupes(null);render();break;
