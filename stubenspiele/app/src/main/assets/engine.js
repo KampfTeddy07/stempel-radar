@@ -75,8 +75,8 @@
     }
     const left = szActive(g);
     g.result = { reason, losers, notes, players: act.slice(), winner: left.length === 1 ? left[0] : null, draw: left.length === 0 };
-    if (g.result.winner !== null) { grant(g, g.result.winner, 50, 'Schnauz gewonnen'); g.players.forEach((p, i) => { if (i !== g.result.winner) grant(g, i, 10, 'Schnauz mitgespielt'); }); }
-    else if (g.result.draw) g.players.forEach((p, i) => grant(g, i, 10, 'Schnauz mitgespielt'));
+    if (g.result.winner !== null) { grant(g, g.result.winner, 50, 'Schnauz gewonnen'); g.players.forEach((p, i) => { if (i !== g.result.winner) grant(g, i, 20, 'Schnauz mitgespielt'); }); }
+    else if (g.result.draw) g.players.forEach((p, i) => grant(g, i, 20, 'Schnauz mitgespielt'));
     g.phase = 'roundEnd';
     g.autoNext = (g.result.winner === null && !g.result.draw) ? Date.now() + AUTO_NEXT_MS : 0;
   }
