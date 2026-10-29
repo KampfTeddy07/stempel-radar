@@ -343,6 +343,14 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .updrow{font-size:.95rem;line-height:1.35}.updbtns{display:flex;gap:8px;flex-wrap:wrap}.updbtns .btn{min-height:44px;flex:1}
 .updbar{height:8px;border-radius:4px;background:rgba(0,0,0,.35);overflow:hidden}.updbar i{display:block;height:100%;background:var(--brass);transition:width .2s}
 .linkbtn{background:none;border:0;padding:0;color:var(--brass);font:inherit;text-decoration:underline;cursor:pointer}.linkbtn:disabled{opacity:.6}
+/* Zombie-Abwehr */
+.zbox{margin:10px auto 0;width:min(360px,calc(100vw - 32px));border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.zcv{display:block;width:100%;height:min(460px,calc(100vh - 230px));min-height:360px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:crosshair}
+.zshop{display:flex;flex-direction:column;gap:8px}
+.zrow{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.18);border:1px solid var(--felt-line)}
+.zrow.box{margin-top:10px;border-color:var(--brass);background:var(--brass-tint)}
+.zrow .ze{font-size:1.6rem;text-align:center}.zinfo{display:flex;flex-direction:column;gap:2px;min-width:0}.zinfo b{font-size:.95rem}.zinfo b small{font-weight:600;color:var(--muted);margin-left:4px}.zinfo span{font-size:.78rem;color:var(--muted)}.zlv{font-style:normal;font-size:.6rem;letter-spacing:2px;color:var(--brass)}
+.zrow .btn{min-height:42px;padding:0 12px;font-size:.9rem;white-space:nowrap}
 /* Maulwurf */
 .molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
 .molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -631,10 +639,84 @@ function clawPlay(){
   setTimeout(()=>{const c=el();if(C.claw.res&&Math.random()<.15){C.claw.slip=true;C.claw.res=null;if(c)c.classList.remove('holding');}else if(c&&C.claw.res)c.style.setProperty('--x','9%');},4100);
   setTimeout(()=>{if(C.claw.res){W.prizes[C.claw.res.k]=(W.prizes[C.claw.res.k]||0)+1;W.wins++;saveW();}C.claw.busy=false;C.claw.phase='result';render();},5600);
 }
-const ARCADE=[['clawOpen','🧸','Greifer','Einsatz','pay'],['slotsOpen','🎰','Walzen','Einsatz','pay'],['plkOpen','⚪','Kugelfall','Einsatz','pay'],['moleOpen','🐭','Maulwurf','+ Taler','earn'],['solOpen','🃏','Solitär','Gratis',''],['minesOpen','💣','Minen','Gratis',''],['t2048Open','🔢','2048','Gratis','']];
+const ARCADE=[['clawOpen','🧸','Greifer','Einsatz','pay'],['slotsOpen','🎰','Walzen','Einsatz','pay'],['plkOpen','⚪','Kugelfall','Einsatz','pay'],['moleOpen','🐭','Maulwurf','+ Taler','earn'],['zombOpen','🧟','Zombies','+ Taler','earn'],['solOpen','🃏','Solitär','Gratis',''],['minesOpen','💣','Minen','Gratis',''],['t2048Open','🔢','2048','Gratis','']];
 function arcadeTiles(compact){return`<div class="arcade${compact?' compact':''}">${ARCADE.map(([a,ico,n,sub,cls])=>`<button class="atile" data-a="${a}"><span class="aico">${ico}</span><span>${n}</span><small class="${cls}">${sub}</small></button>`).join('')}</div>`;}
-const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire'||C.page==='mines'||C.page==='t2048'||C.page==='plinko'||C.page==='mole';
-function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button><button class="seg-btn ${active==='mines'?'is-on':''}" data-a="minesOpen">💣 Minen</button><button class="seg-btn ${active==='t2048'?'is-on':''}" data-a="t2048Open">🔢 2048</button><button class="seg-btn ${active==='plinko'?'is-on':''}" data-a="plkOpen">⚪ Kugelfall</button><button class="seg-btn ${active==='mole'?'is-on':''}" data-a="moleOpen">🐭 Maulwurf</button></div>`;}
+const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire'||C.page==='mines'||C.page==='t2048'||C.page==='plinko'||C.page==='mole'||C.page==='zomb';
+function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button><button class="seg-btn ${active==='mines'?'is-on':''}" data-a="minesOpen">💣 Minen</button><button class="seg-btn ${active==='t2048'?'is-on':''}" data-a="t2048Open">🔢 2048</button><button class="seg-btn ${active==='plinko'?'is-on':''}" data-a="plkOpen">⚪ Kugelfall</button><button class="seg-btn ${active==='mole'?'is-on':''}" data-a="moleOpen">🐭 Maulwurf</button><button class="seg-btn ${active==='zomb'?'is-on':''}" data-a="zombOpen">🧟 Zombies</button></div>`;}
+/* ---- Zombie-Abwehr: Zombies kommen von oben, antippen = schießen. Wellen überstehen bringt Taler, Upgrades kosten Taler. ---- */
+const ZUP={dmg:{n:'Schaden',e:'💥',base:40,max:8,d:l=>'Schuss macht '+l+' Schaden'},rate:{n:'Feuerrate',e:'⚡',base:40,max:8,d:l=>'alle '+Math.round(zCooldown(l))+' ms ein Schuss'},hp:{n:'Barrikade',e:'🧱',base:30,max:8,d:l=>(2+l)+' Leben pro Lauf'},shot:{n:'Schrot',e:'🎯',base:60,max:6,d:l=>l>1?'trifft alles im Umkreis von '+(20+18*(l-1))+' px':'nur Einzeltreffer'},gold:{n:'Beute',e:'🪙',base:50,max:6,d:l=>'+'+Math.round((zGoldMul(l)-1)*100)+' % Taler pro Welle'}};
+const ZBOX_COST=35;
+function zUp(){if(!W.zomb)W.zomb={dmg:1,rate:1,hp:1,shot:1,gold:1,best:0,runs:0,kills:0,boxes:0};return W.zomb;}
+function zCooldown(l){return 520/(1+0.3*(l-1));}
+function zGoldMul(l){return 1+0.25*(l-1);}
+function zPrice(k){const l=zUp()[k];return Math.round(ZUP[k].base*Math.pow(1.6,l-1));}
+function zState(){if(!C.zomb)C.zomb={running:false,last:null};return C.zomb;}
+function zStart(){const Z=zState();const U=zUp();Object.assign(Z,{running:true,wave:1,hp:2+U.hp,maxHp:2+U.hp,kills:0,earned:0,zs:[],fx:[],toSpawn:0,spawnAt:0,lastShot:0,waveClear:0,t:performance.now(),lastTs:0,over:false,flash:null});zWave(Z);render();requestAnimationFrame(zLoop);}
+function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z.spawnAt=performance.now()+600;Z.waveMsg=performance.now();}
+function zSpawn(Z,cv){const g=zGeo(cv);const r=Math.random();const boss=Z.wave%5===0&&Z.toSpawn===1;const fat=!boss&&r<0.12+Z.wave*0.01;
+  const hp=boss?8+Z.wave*2:fat?3+Math.floor(Z.wave/2):1+Math.floor(Z.wave/3);const sp=(26+Z.wave*3)*(boss?0.55:fat?0.7:1)*(0.85+Math.random()*0.3);
+  Z.zs.push({x:24+Math.random()*(g.W-48),y:-34,hp,maxHp:hp,sp,boss,fat,r:boss?30:fat?24:19,wob:Math.random()*6});}
+function zGeo(cv){return{W:cv.clientWidth,H:cv.clientHeight,wall:cv.clientHeight-64};}
+function zHit(x,y){const Z=zState();if(!Z.running||Z.over)return;const now=performance.now();const U=zUp();if(now-Z.lastShot<zCooldown(U.rate))return;Z.lastShot=now;
+  const cv=$app.querySelector('.zcv');if(!cv)return;const g=zGeo(cv);Z.flash={x,y,at:now};
+  const aim=8;let target=null,best=1e9;for(const z of Z.zs){const d=Math.hypot(z.x-x,z.y-y);if(d<z.r+aim&&d<best){best=d;target=z;}}
+  if(!target){Z.fx.push({x,y,at:now,kind:'miss'});return;}
+  const dmg=U.dmg;const rad=U.shot>1?20+18*(U.shot-1):0;
+  for(const z of Z.zs){if(z===target||(rad&&Math.hypot(z.x-target.x,z.y-target.y)<=rad+z.r)){z.hp-=dmg;z.hitAt=now;if(z.hp<=0){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind:'splat',big:z.boss||z.fat});}}}
+  if(rad)Z.fx.push({x:target.x,y:target.y,at:now,kind:'ring',r:rad});
+  if(navigator.vibrate)try{navigator.vibrate(8);}catch(e){}}
+function zLoop(ts){const Z=zState();if(!Z.running)return;const cv=$app.querySelector('.zcv');if(!cv){Z.running=false;return;}const g=zGeo(cv);
+  if(!Z.lastTs)Z.lastTs=ts;const dt=Math.min(50,ts-Z.lastTs)/1000;Z.lastTs=ts;const now=performance.now();
+  if(Z.toSpawn>0&&now>=Z.spawnAt){zSpawn(Z,cv);Z.toSpawn--;Z.spawnAt=now+Z.spawnGap*(0.7+Math.random()*0.6);}
+  for(const z of Z.zs){if(z.dead)continue;z.y+=z.sp*dt;z.x+=Math.sin(now/400+z.wob)*8*dt;if(z.y>=g.wall-z.r*0.4){z.dead=true;Z.hp-=z.boss?3:z.fat?2:1;Z.fx.push({x:z.x,y:g.wall,at:now,kind:'crash'});if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}}}
+  Z.zs=Z.zs.filter(z=>!z.dead);Z.fx=Z.fx.filter(f=>now-f.at<700);
+  if(Z.hp<=0){zEnd(Z,false);return;}
+  if(Z.toSpawn===0&&!Z.zs.length){const U=zUp();const pay=Math.round((3+Z.wave)*zGoldMul(U.gold));W.coins+=pay;Z.earned+=pay;W.zomb.kills=(W.zomb.kills||0)+0;saveW();Z.fx.push({x:g.W/2,y:g.H/2,at:now,kind:'text',s:'Welle '+Z.wave+' geschafft · +'+pay+' 🪙'});Z.wave++;zWave(Z);}
+  zDraw(cv,Z,g,now);requestAnimationFrame(zLoop);}
+function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,quit};toast(quit?'Lauf beendet · +'+Z.earned+' Taler':'🧟 Überrannt in Welle '+Z.wave+' · +'+Z.earned+' Taler','');render();}
+function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);
+  const grd=x.createLinearGradient(0,0,0,g.H);grd.addColorStop(0,'#0b1a12');grd.addColorStop(1,'#1e3a2a');x.fillStyle=grd;x.fillRect(0,0,g.W,g.H);
+  x.strokeStyle='rgba(255,255,255,.05)';x.lineWidth=1;for(let yy=40;yy<g.wall;yy+=40){x.beginPath();x.moveTo(0,yy);x.lineTo(g.W,yy);x.stroke();}
+  // Barrikade
+  x.fillStyle='#5a3b1e';x.fillRect(0,g.wall,g.W,8);x.font='22px system-ui';x.textAlign='center';x.textBaseline='middle';for(let bx=16;bx<g.W;bx+=32)x.fillText('🧱',bx,g.wall+26);
+  x.font='30px system-ui';x.fillText('🧑‍🌾',g.W/2,g.H-22);
+  // Zombies
+  for(const z of Z.zs){const sz=z.boss?46:z.fat?36:28;x.font=sz+'px system-ui';const hit=z.hitAt&&now-z.hitAt<120;if(hit){x.save();x.filter='brightness(1.8)';}x.fillText(z.boss?'👹':z.fat?'🧟‍♂️':'🧟',z.x,z.y);if(hit)x.restore();
+    if(z.maxHp>1){const w=sz,hpw=w*Math.max(0,z.hp)/z.maxHp;x.fillStyle='rgba(0,0,0,.5)';x.fillRect(z.x-w/2,z.y-sz*0.75,w,4);x.fillStyle=z.boss?'#ff5b5b':'#7fd18f';x.fillRect(z.x-w/2,z.y-sz*0.75,hpw,4);}}
+  // Effekte
+  for(const f of Z.fx){const a=1-(now-f.at)/700;x.globalAlpha=Math.max(0,a);
+    if(f.kind==='splat'){x.fillStyle='#4caf50';for(let i=0;i<6;i++){const ang=i*1.05+f.x*0.01,rr=(1-a)*(f.big?34:22);x.beginPath();x.arc(f.x+Math.cos(ang)*rr,f.y+Math.sin(ang)*rr,f.big?6:4,0,Math.PI*2);x.fill();}}
+    else if(f.kind==='ring'){x.strokeStyle='#ffd76a';x.lineWidth=2;x.beginPath();x.arc(f.x,f.y,f.r*(1.2-a*0.2),0,Math.PI*2);x.stroke();}
+    else if(f.kind==='miss'){x.fillStyle='#ccc';x.beginPath();x.arc(f.x,f.y,3+(1-a)*6,0,Math.PI*2);x.fill();}
+    else if(f.kind==='crash'){x.fillStyle='#ff5b5b';x.font='800 18px system-ui';x.fillText('−1 ❤️',f.x,f.y-10-(1-a)*20);}
+    else if(f.kind==='text'){x.fillStyle='#ffd76a';x.font='800 17px system-ui';x.fillText(f.s,f.x,f.y-(1-a)*20);}
+    x.globalAlpha=1;}
+  // Mündungsblitz
+  if(Z.flash&&now-Z.flash.at<90){x.strokeStyle='rgba(255,230,150,'+(1-(now-Z.flash.at)/90)+')';x.lineWidth=3;x.beginPath();x.moveTo(g.W/2,g.H-34);x.lineTo(Z.flash.x,Z.flash.y);x.stroke();}
+  // HUD
+  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+'  ·  '+Z.kills+' erledigt',10,15);
+  x.textAlign='right';x.fillText('🪙 '+Z.earned+'   '+'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)),g.W-10,15);
+  if(Z.waveMsg&&now-Z.waveMsg<1200){x.globalAlpha=1-(now-Z.waveMsg)/1200;x.fillStyle='#fff';x.font='800 26px system-ui';x.textAlign='center';x.fillText('Welle '+Z.wave,g.W/2,g.H*0.4);x.globalAlpha=1;}
+  const cdLeft=zCooldown(zUp().rate)-(now-Z.lastShot);if(cdLeft>0){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(g.W/2-30,g.H-8,60,4);x.fillStyle='#ffd76a';x.fillRect(g.W/2-30,g.H-8,60*(1-cdLeft/zCooldown(zUp().rate)),4);}}
+function zBuy(k){const U=zUp();const p=zPrice(k);if(U[k]>=ZUP[k].max){toast('Schon auf Höchststufe.','');return;}if(W.coins<p){toast('Nicht genug Taler ('+p+' nötig).','');return;}W.coins-=p;U[k]++;saveW();toast(ZUP[k].e+' '+ZUP[k].n+' auf Stufe '+U[k],'coin');render();}
+function zBox(){const U=zUp();if(W.coins<ZBOX_COST){toast('Nicht genug Taler.','');return;}W.coins-=ZBOX_COST;U.boxes=(U.boxes||0)+1;const r=Math.random();const open=Object.keys(ZUP).filter(k=>U[k]<ZUP[k].max);let msg;
+  if(r<0.45&&open.length){const k=open[Math.floor(Math.random()*open.length)];U[k]++;msg='🎁 '+ZUP[k].e+' '+ZUP[k].n+' +1 (Stufe '+U[k]+')';}
+  else if(r<0.5&&open.length){const k=open[Math.floor(Math.random()*open.length)];U[k]=Math.min(ZUP[k].max,U[k]+2);msg='🎁✨ Doppelt! '+ZUP[k].e+' '+ZUP[k].n+' +2 (Stufe '+U[k]+')';}
+  else if(r<0.8){const back=[10,15,20,25,40,70][Math.floor(Math.random()*6)];W.coins+=back;msg='🪙 Kiste mit '+back+' Talern';}
+  else msg='📦 Leere Kiste … Pech.';
+  saveW();toast(msg,r<0.5?'coin':'');render();}
+function zombies(){const Z=zState();const U=zUp();
+  const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
+  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack" ${Z.running?'disabled':''}>‹ ${back}</button><span class="bar-title">Zombie-Abwehr</span><span class="bar-meta">🪙 ${W.coins}</span></div>`+(Z.running?'':arcadeNav('zomb'));
+  if(Z.running){h+=`<div class="zbox"><canvas class="zcv" data-a="zTap"></canvas></div><div class="actions"><button class="btn btn-outline wide" data-a="zQuit">Lauf beenden (Taler behalten)</button></div><p class="hint">Zombies antippen. Sie dürfen die Barrikade nicht erreichen.</p>`;return h;}
+  if(Z.last)h+=`<div class="winner"><p class="eyebrow">${Z.last.quit?'Lauf beendet':'Überrannt'}</p><h2>${Z.last.wave} Welle${Z.last.wave===1?'':'n'}</h2><p class="hint">${Z.last.kills} Zombies · +${Z.last.earned} Taler${U.best?' · Rekord '+U.best+' Wellen':''}</p></div>`;
+  h+=`<button class="btn btn-primary btn-big" data-a="zStart">${Z.last?'Neuer Lauf':'Lauf starten'}</button>
+  <section class="panel" style="margin-top:14px"><div class="zone-head"><h3 style="margin:0">Ausrüstung</h3><span class="hint">Kaufen oder würfeln</span></div>
+  <div class="zshop">${Object.keys(ZUP).map(k=>{const u=ZUP[k],l=U[k],max=l>=u.max,p=zPrice(k);return`<div class="zrow"><span class="ze">${u.e}</span><div class="zinfo"><b>${u.n} <small>Stufe ${l}${max?' (max)':''}</small></b><span>${u.d(l)}</span><i class="zlv">${'●'.repeat(l)}${'○'.repeat(u.max-l)}</i></div><button class="btn btn-outline" data-a="zBuy" data-k="${k}" ${max||W.coins<p?'disabled':''}>${max?'Max':p+' 🪙'}</button></div>`;}).join('')}</div>
+  <div class="zrow box"><span class="ze">🎁</span><div class="zinfo"><b>Überraschungskiste</b><span>45 % ein Upgrade, 5 % gleich zwei, 30 % Taler zurück (10–70), 20 % leer.</span></div><button class="btn btn-primary" data-a="zBox" ${W.coins<ZBOX_COST?'disabled':''}>${ZBOX_COST} 🪙</button></div></section>
+  <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede überstandene Welle zahlt sofort Taler (3 + Wellennummer, mit Beute-Bonus). Dicke Zombies brauchen mehr Treffer, alle fünf Wellen kommt ein Boss. Erreicht einer die Barrikade, kostet das Leben.${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies, Rekord ${U.best} Wellen.`:''}</p>`;
+  return h;}
+
 /* ---- Maulwurf-Klopfen: 30 Sekunden tippen, jeder Treffer gibt Taler. Kostet nichts. ---- */
 const MOLE_MS=30000,MOLE_CAP=40;
 function moleState(){if(!C.mole)C.mole={busy:false,score:0,hits:0,miss:0,left:MOLE_MS,holes:Array(9).fill(null),lastEnd:null};return C.mole;}
@@ -1297,10 +1379,10 @@ function bj(){
 function toastHtml(){return`<div class="toasts">${toasts.map(t=>`<div class="toast ${t.cls}">${t.text}</div>`).join('')}</div>`;}
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
-  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))||(C.page==='plinko'&&C.plk&&C.plk.busy&&$app.querySelector('.plkbox'))||(C.page==='mole'&&C.mole&&C.mole.busy&&$app.querySelector('.molegrid.live'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
+  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))||(C.page==='plinko'&&C.plk&&C.plk.busy&&$app.querySelector('.plkbox'))||(C.page==='mole'&&C.mole&&C.mole.busy&&$app.querySelector('.molegrid.live'))||(C.page==='zomb'&&C.zomb&&C.zomb.running&&$app.querySelector('.zbox'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
   let h=C.online||C.page==='home'||isArcade()?'':(C.mode==='lan'&&!C.isHost?`<div class="offline wide"><b>Keine Verbindung zum Gastgeber-Handy.</b><span>Dein Handy ist vermutlich auf mobile Daten gesprungen, weil der Hotspot kein Internet hat. Abhilfe: <b>mobile Daten kurz aus</b> – oder in der Meldung „WLAN ohne Internet“ auf <b>Trotzdem verbunden bleiben</b> tippen (iPhone: WLAN-Unterstützung aus).</span><button class="btn btn-primary" data-a="reload">Neu verbinden</button></div>`:'<div class="offline">Verbindung wird neu aufgebaut …</div>');
   h+=toastHtml();
-  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.page==='mines')h+=mines();else if(C.page==='t2048')h+=t2048();else if(C.page==='plinko')h+=plinko();else if(C.page==='mole')h+=mole();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
+  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.page==='mines')h+=mines();else if(C.page==='t2048')h+=t2048();else if(C.page==='plinko')h+=plinko();else if(C.page==='mole')h+=mole();else if(C.page==='zomb')h+=zombies();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
   $app.innerHTML=h;
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   if(C.page==='slots')slotsMount();
@@ -1318,6 +1400,7 @@ $app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="minTa
 $app.addEventListener('pointermove',e=>{if(minLP&&!e.target.closest('[data-a="minTap"]')){clearTimeout(minLP);minLP=null;}});
 $app.addEventListener('contextmenu',e=>{if(e.target.closest('.mingrid'))e.preventDefault();});
 $app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="moleHit"]');if(t){e.preventDefault();moleHit(+t.dataset.i);}});
+$app.addEventListener('pointerdown',e=>{const cv=e.target.closest('.zcv');if(!cv)return;e.preventDefault();const r=cv.getBoundingClientRect();zHit(e.clientX-r.left,e.clientY-r.top);});
 let tSw=null;
 $app.addEventListener('pointerdown',e=>{const b=e.target.closest('.tboard');tSw=b?{x:e.clientX,y:e.clientY,id:e.pointerId}:null;},{passive:true});
 $app.addEventListener('pointerup',e=>{if(!tSw||e.pointerId!==tSw.id)return;const dx=e.clientX-tSw.x,dy=e.clientY-tSw.y;tSw=null;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;tSwipe(Math.abs(dx)>Math.abs(dy)?(dx>0?2:0):(dy>0?3:1));});
@@ -1336,6 +1419,12 @@ $app.addEventListener('click',async e=>{
     case 'updCheck':checkUpdate(true);break;
     case 'updNow':startUpdate();break;
     case 'updLater':UPD.dismissed=UPD.avail;render();break;
+    case 'zombOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='zomb';render();break;
+    case 'zStart':zStart();break;
+    case 'zQuit':if(C.zomb&&C.zomb.running)zEnd(C.zomb,true);break;
+    case 'zBuy':zBuy(d.k);break;
+    case 'zBox':zBox();break;
+    case 'zTap':break;
     case 'moleOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='mole';render();break;
     case 'moleStart':moleStart();break;
     case 'moleHit':break;
@@ -1419,7 +1508,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local'||LAN_SELF())){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zBox,zPrice};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
