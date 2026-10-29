@@ -433,6 +433,10 @@ const $app=document.getElementById('app');
 const LS='stubenspiele-lan';
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LAN_OK=location.protocol==='http:'&&!/github\.io$/.test(location.hostname);
+const IN_APP=!!(window.Bridge&&Bridge.hosting);
+/* Im App-Modus kann ein Gast den Gastgeber im WLAN direkt über dessen Adresse ansprechen – dann bleibt der Geldbeutel in der eigenen App. */
+function normHost(v){v=(v||'').trim();if(!v)return'';const m=v.match(/[?&]join=([A-Z0-9]{4,6})/i);if(m)C.codeIn=m[1].toUpperCase();v=v.replace(/^https?:\/\//i,'').replace(/[/?#].*$/,'');if(!v)return'';if(!/:\d+$/.test(v))v+=':3000';return v;}
+function lanUrl(path){return(C.mode==='lan'&&!C.isHost&&IN_APP&&C.lanHost)?'http://'+C.lanHost+path:path;}
 const WEB_URL='kampfteddy07.github.io/stempel-radar/spiele';
 let C={knockAt:0,knockName:'',bjBet:0,szSeq:0,mode:LAN_OK?'lan':'online',wildIdx:null,pick:null,handKey:'',shotSeq:0,page:'home',name:'',codeIn:'',code:null,pid:null,token:null,room:null,sel:{h:-1,t:-1},err:'',busy:false,confirm:false,online:true,lastSeq:-1,anim:false};
 let es=null;
@@ -450,7 +454,7 @@ function qrSvg(text){try{if(typeof qrcode!=='function')return'';const q=qrcode(0
 // Einladung per Link/QR: ?join=CODE[&m=online]
 const INVITE=(()=>{try{const u=new URL(location.href);const j=(u.searchParams.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!j)return null;return{code:j,mode:u.searchParams.get('m')==='online'||!LAN_OK?'online':'lan'};}catch(e){return null;}})();
 if(INVITE){C.mode=INVITE.mode;C.codeIn=INVITE.code;C.code=null;C.pid=null;C.token=null;C.isHost=false;try{history.replaceState(null,'',location.pathname);}catch(e){}}
-function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:C.code,pid:C.pid,token:C.token,mode:C.mode,isHost:C.isHost}));}catch(e){}}
+function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:C.code,pid:C.pid,token:C.token,mode:C.mode,isHost:C.isHost,lanHost:C.lanHost||''}));}catch(e){}}
 function tabCid(){try{let c=sessionStorage.getItem('stuben-cid');if(!c){c=newCid();sessionStorage.setItem('stuben-cid',c);}return c;}catch(e){return newCid();}}
 
 /* ---- Netz: zwei Wege zum Gastgeber ----
@@ -534,7 +538,7 @@ async function post(path,data){
   C.busy=true;render();
   try{
     if(C.mode==='online'||C.mode==='local'){const r=await OL.send(path,data);if(r.status!==200)throw new Error(r.body&&r.body.error||'Fehler');C.err='';return r.body;}
-    const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Fehler');C.err='';return j;}
+    const r=await fetch(lanUrl(path),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Fehler');C.err='';return j;}
   catch(e){C.err=e.message==='Failed to fetch'?'Server nicht erreichbar. Gleiches WLAN?':e.message;return null;}
   finally{C.busy=false;render();}
 }
@@ -546,7 +550,7 @@ function connect(){
     return;
   }
   if(es)es.close();
-  es=new EventSource(`/api/events?code=${encodeURIComponent(C.code)}&pid=${encodeURIComponent(C.pid)}&token=${encodeURIComponent(C.token)}`);
+  es=new EventSource(lanUrl('/api/events')+`?code=${encodeURIComponent(C.code)}&pid=${encodeURIComponent(C.pid)}&token=${encodeURIComponent(C.token)}`);
   es.onmessage=e=>{applyRoom(JSON.parse(e.data));};
   es.onerror=()=>{setOnline(false);};
   es.onopen=()=>{setOnline(true);};
@@ -938,7 +942,7 @@ function handoffView(){
   ${g&&g.game==='schnauz'&&g.knocker!==null?`<p class="notice">${esc(g.players[g.knocker].name)} hat geklopft – letzter Zug.</p>`:''}
   <button class="btn btn-primary btn-big" data-a="handoffOk">Ich bin ${esc(seat.name)} – Karten zeigen</button></div>`;
 }
-function syncHosting(room){try{if(!window.Bridge||!Bridge.hosting)return;const want=(room&&C.code)?(C.mode==='lan'?'lan':(C.mode==='online'&&room.isHost)?'online':'none'):'none';if(want!==C.hostingState){C.hostingState=want;Bridge.hosting(want);}}catch(e){}}
+function syncHosting(room){try{if(!window.Bridge||!Bridge.hosting)return;const want=(room&&C.code)?((C.mode==='lan'&&(room.isHost||!IN_APP||!C.lanHost))?'lan':(C.mode==='online'&&room.isHost)?'online':'none'):'none';if(want!==C.hostingState){C.hostingState=want;Bridge.hosting(want);}}catch(e){}}
 function applyRoom(room){setOnline(true);creditAwards(room);syncHosting(room);const key=JSON.stringify(room);if(key===C.roomKey){return;}C.roomKey=key;
     if(room.view&&room.view.game==='kniffel'&&room.view.seq!==C.lastSeq&&C.lastSeq>=0){C.anim=true;setTimeout(()=>{C.anim=false;render();},480);}
     if(room.view&&room.view.game==='kniffel')C.lastSeq=room.view.seq;
@@ -953,7 +957,7 @@ function applyRoom(room){setOnline(true);creditAwards(room);syncHosting(room);co
 setInterval(async()=>{if(!C.code||!C.pid||C.busy||C.mode==='local')return;
   try{
     if(C.mode==='online'){if(C.isHost||!OL.ready)return;const r=await OL.send('/api/state',{code:C.code,pid:C.pid,token:C.token});if(r.status===403){leave();return;}if(r.status===200)applyRoom(r.body);return;}
-    const r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());
+    const r=await fetch(lanUrl('/api/state'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:C.code,pid:C.pid,token:C.token})});if(r.status===403){leave();return;}if(r.ok)applyRoom(await r.json());
   }catch(e){setOnline(false);}},C.mode==='online'?5000:3000);
 // Host im Internet-Modus: eigenen Stand direkt aus der Engine lesen (rein lokal, unabhängig vom Relay) – so ist die Lobby-Spielerliste beim Gastgeber immer aktuell
 setInterval(()=>{const v=C.room&&C.room.view;if(!v||C.page!=='game')return;if((v.game==='schnauz'&&v.blitz&&v.deadline&&(v.phase==='turn'||v.phase==='dealer'))||(v.autoNext&&C.autoDeadline))render();},1000);
@@ -986,7 +990,7 @@ function home(){
   const online=C.mode==='online';const local=C.mode==='local';const len=online?6:4;
   return`<header class="hero"><p class="eyebrow">Stubenspiele</p><h1>Schnauz, Kniffel &amp; Vier Farben</h1><p class="lede">Jeder spielt auf dem eigenen Handy. Einer eröffnet, die anderen treten mit dem Code bei.</p><p class="verline">${verLabel()}${window.Bridge?' · App':' · Web'}</p></header>
   ${LAN_OK?`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!online?'is-on':''}" data-a="setMode" data-m="lan">WLAN / Hotspot</button><button class="seg-btn ${online?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div>
-  <p class="hint">${local?'Kein Netz nötig – ideal im Flugzeug. Alle spielen auf diesem Handy, es wandert reihum; vor jedem Zug kommt ein Weitergeben-Schirm, damit niemand fremde Karten sieht.':online?'Für Hotel-WLAN oder Mobilfunk: Läuft über einen öffentlichen Relay im Internet, alle brauchen nur Internet. Die anderen öffnen die Seite unter '+WEB_URL+'.':'Alle im gleichen WLAN oder am Hotspot dieses Handys; die anderen öffnen die unten gezeigte Adresse im Browser.'}</p>
+  <p class="hint">${local?'Kein Netz nötig – ideal im Flugzeug. Alle spielen auf diesem Handy, es wandert reihum; vor jedem Zug kommt ein Weitergeben-Schirm, damit niemand fremde Karten sieht.':online?'Für Hotel-WLAN oder Mobilfunk: Läuft über einen öffentlichen Relay im Internet, alle brauchen nur Internet. Die anderen öffnen die Seite unter '+WEB_URL+'.':'Alle im gleichen WLAN oder am Hotspot dieses Handys. Die anderen tragen die unten gezeigte Adresse in ihrer App unter „Beitreten“ ein – oder öffnen sie im Browser.'}</p>
   ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy wird zum Server, sobald du einen Tisch eröffnest.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
   :`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!local?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div><p class="hint">${local?'Kein Netz nötig: alle spielen auf diesem Handy, es wandert reihum.':'Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.'}</p></section>`}
   ${INVITE&&!C.code&&C.codeIn?`<div class="notice"><b>Einladung zu Tisch ${esc(C.codeIn)}.</b> ${C.name?'Du bist gleich drin …':'Nur noch deinen Namen eintragen und auf Mitspielen tippen.'}</div>`:''}
@@ -995,7 +999,7 @@ function home(){
   <section class="panel"><h2>Dein Name</h2><input class="field" id="name" data-f="name" value="${esc(C.name)}" placeholder="z. B. Jim" maxlength="14" autocomplete="off">
   ${C.err?`<p class="error">${esc(C.err)}</p>`:''}
   <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':local?'Tisch auf diesem Handy aufbauen':'Spiel eröffnen'}</button></section>
-  ${local?'':`<section class="panel"><h2>Beitreten</h2><input class="field code" id="code" data-f="codeIn" value="${esc(C.codeIn)}" placeholder="${'·'.repeat(len)}" maxlength="${len}" autocomplete="off" autocapitalize="characters">
+  ${local?'':`<section class="panel"><h2>Beitreten</h2>${!online&&IN_APP?`<label class="hint" style="display:block">Adresse des Gastgeber-Handys<input class="field" data-f="lanHostIn" value="${esc(C.lanHost||'')}" placeholder="z. B. 172.20.10.3:3000" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:6px"></label><p class="hint">Steht beim Gastgeber im Kasten „Adresse für die anderen“ – oder den Einladungslink hier einfügen. Du spielst dann in deiner App mit deinem eigenen Geldbeutel.</p>`:''}<input class="field code" id="code" data-f="codeIn" value="${esc(C.codeIn)}" placeholder="${'·'.repeat(len)}" maxlength="${len}" autocomplete="off" autocapitalize="characters">
   <button class="btn btn-outline btn-big" data-a="join" ${C.busy||C.codeIn.length<len?'disabled':''}>${C.busy?'Verbinde …':'Mitspielen'}</button></section>`}`;
 }
 function lobby(){
@@ -1270,7 +1274,7 @@ function render(){
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
 }
 
-$app.addEventListener('input',e=>{const t=e.target;if(!t.dataset.f)return;if(t.dataset.f==='lname'){LOCAL.nameIn=t.value;const b=$app.querySelector('[data-a="localAdd"]');if(b)b.disabled=!t.value.trim();return;}C[t.dataset.f]=t.dataset.f==='codeIn'?t.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,C.mode==='online'?6:4):t.value;if(t.dataset.f==='name')persist();
+$app.addEventListener('input',e=>{const t=e.target;if(!t.dataset.f)return;if(t.dataset.f==='lanHostIn'){C.lanHost=normHost(t.value);persist();const ci=$app.querySelector('[data-f="codeIn"]');if(ci&&ci.value!==C.codeIn)ci.value=C.codeIn;const b=$app.querySelector('[data-a="join"]');if(b)b.disabled=C.codeIn.length<4||C.busy;return;}if(t.dataset.f==='lname'){LOCAL.nameIn=t.value;const b=$app.querySelector('[data-a="localAdd"]');if(b)b.disabled=!t.value.trim();return;}C[t.dataset.f]=t.dataset.f==='codeIn'?t.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,C.mode==='online'?6:4):t.value;if(t.dataset.f==='name')persist();
   if(t.dataset.f==='codeIn'){const b=$app.querySelector('[data-a="join"]');if(b)b.disabled=C.codeIn.length<(C.mode==='online'?6:4)||C.busy;}});
 let minLP=null;
 $app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="minTap"]');C.mSkip=false;clearTimeout(minLP);if(!t||t.disabled)return;const i=+t.dataset.i;minLP=setTimeout(()=>{minLP=null;C.mSkip=true;minTap(i,true);},380);});
@@ -1334,6 +1338,7 @@ $app.addEventListener('click',async e=>{
         }
         C.busy=false;if(!r){C.code=null;OL.closeAll();render();break;}
         Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();OL.pub(OL.topicHost(),{type:'sub',from:C.cid,pid:C.pid,token:C.token});break;}
+      if(IN_APP&&!C.lanHost){C.err='Bitte zuerst die Adresse des Gastgeber-Handys eintragen (steht bei ihm auf dem Bildschirm).';render();break;}
       const r=await post('/api/join',{code:C.codeIn,name:C.name});if(r){Object.assign(C,{code:r.code,pid:r.pid,token:r.token});persist();connect();}break;}
     case 'reload':location.reload();break;
     case 'localAdd':{const nm=LOCAL.nameIn.trim();if(!nm)break;const r=await post('/api/join',{code:C.code,name:nm});if(r){LOCAL.seats.push({pid:r.pid,token:r.token,name:nm});LOCAL.nameIn='';localSync();}break;}

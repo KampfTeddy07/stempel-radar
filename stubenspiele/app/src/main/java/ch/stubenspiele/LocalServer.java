@@ -121,6 +121,11 @@ public class LocalServer {
             String path = target, query = "";
             int q = target.indexOf('?'); if (q >= 0) { path = target.substring(0, q); query = target.substring(q + 1); }
 
+            if (method.equals("OPTIONS")) { // CORS-Vorabfrage: Gäste-Apps sprechen den Gastgeber von ihrer eigenen App aus an
+                OutputStream out = sock.getOutputStream();
+                out.write(("HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nAccess-Control-Max-Age: 86400\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+                out.flush(); sock.close(); return;
+            }
             if (method.equals("GET") && (path.equals("/") || path.equals("/index.html"))) { serveAsset(sock, "index.html", "text/html; charset=utf-8"); return; }
             if (method.equals("GET") && path.equals("/engine.js")) { serveAsset(sock, "engine.js", "application/javascript; charset=utf-8"); return; }
             if (method.equals("GET") && path.equals("/mqtt.min.js")) { serveAsset(sock, "mqtt.min.js", "application/javascript; charset=utf-8"); return; }
@@ -191,7 +196,7 @@ public class LocalServer {
         try {
             String reason = status == 200 ? "OK" : status == 404 ? "Not Found" : status == 403 ? "Forbidden" : status == 409 ? "Conflict" : status == 503 ? "Service Unavailable" : "Error";
             OutputStream out = sock.getOutputStream();
-            out.write(("HTTP/1.1 " + status + " " + reason + "\r\nContent-Type: " + type + "\r\nContent-Length: " + body.length + "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            out.write(("HTTP/1.1 " + status + " " + reason + "\r\nContent-Type: " + type + "\r\nContent-Length: " + body.length + "\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8));
             out.write(body); out.flush();
         } catch (IOException ignored) {}
         try { sock.close(); } catch (IOException ignored) {}
