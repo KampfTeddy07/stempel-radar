@@ -49,7 +49,7 @@ jobs:
         with:
           tag_name: stubenspiele-latest
           name: Stubenspiele Android (aktuell)
-          body: "Stubenspiele – Schnauz, Kniffel, Vier Farben, 17 und 4 und eine Spielhalle für 2–8 Leute (WLAN/Hotspot, Internet oder ein Gerät). Stubenspiele.apk herunterladen, öffnen, Installation erlauben. Ab Version 1.48 meldet die App neue Versionen selbst und installiert sie auf Tippen."
+          body: "Stubenspiele – Schnauz, Kniffel, Vier Farben, 17 und 4 und eine Spielhalle für 2–8 Leute (WLAN/Hotspot, Internet oder ein Gerät). Stubenspiele.apk herunterladen, öffnen, Installation erlauben. Ab Version 1.48 meldet die App neue Versionen selbst; der Download läuft über den Browser."
           files: Stubenspiele.apk
       - name: Versionsnummer für die Web-Seite veröffentlichen
         run: |

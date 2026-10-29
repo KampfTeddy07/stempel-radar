@@ -460,22 +460,18 @@ const verLabel=()=>BUILD.apk?`Version 1.${BUILD.apk} · ${BUILD.sha}`:'Entwicklu
 /* ---- Auto-Update der App: Versionsdatei der Webseite prüfen, APK laden, Installer öffnen ---- */
 const APK_URL='https://github.com/KampfTeddy07/stempel-radar/releases/download/stubenspiele-latest/Stubenspiele.apk';
 const UPD={avail:0,state:'idle',pct:0,msg:'',dismissed:0,checked:0,checking:false};
-const CAN_UPDATE=()=>!!(window.Bridge&&Bridge.update);
+const CAN_UPDATE=()=>!!(window.Bridge&&Bridge.openUrl);
 async function checkUpdate(manual){if(!CAN_UPDATE()||UPD.checking)return;UPD.checking=true;if(manual){UPD.msg='';render();}
   try{const r=await fetch('https://'+WEB_URL+'/version.js?t='+Date.now(),{cache:'no-store'});const m=(await r.text()).match(/apk:(\d+)/);const n=m?+m[1]:0;UPD.checked=Date.now();
     if(n>(BUILD.apk||0)){UPD.avail=n;if(manual)UPD.dismissed=0;}else if(manual){UPD.msg='Du hast die neueste Version.';}}
   catch(e){if(manual)UPD.msg='Keine Verbindung zur Versionsprüfung.';}
   UPD.checking=false;render();}
-function startUpdate(){if(!CAN_UPDATE()||UPD.state==='downloading')return;UPD.state='downloading';UPD.pct=0;UPD.msg='';render();try{Bridge.update(APK_URL);}catch(e){UPD.state='error';UPD.msg=String(e);render();}}
-window.stubenUpdate=function(ev,val){if(ev==='progress'){UPD.pct=+val;const b=$app.querySelector('.updbar i'),t=$app.querySelector('.updpct');if(b&&UPD.pct>=0)b.style.width=UPD.pct+'%';if(t)t.textContent=UPD.pct>=0?UPD.pct+' %':'…';return;}
-  if(ev==='downloaded')UPD.state='downloaded';else if(ev==='needperm')UPD.state='needperm';else if(ev==='installing')UPD.state='installing';else if(ev==='error'){UPD.state='error';UPD.msg=val||'Fehler';}render();};
+function startUpdate(){if(!CAN_UPDATE())return;UPD.state='browser';render();try{Bridge.openUrl(APK_URL);}catch(e){UPD.state='error';UPD.msg=String(e);render();}}
 function updateBanner(){if(!CAN_UPDATE()||!UPD.avail||UPD.dismissed===UPD.avail)return'';const v='1.'+UPD.avail;
   let body;
-  if(UPD.state==='downloading')body=`<div class="updrow"><span>Lade ${v} herunter … <b class="updpct">${UPD.pct>=0?UPD.pct+' %':'…'}</b></span></div><div class="updbar"><i style="width:${Math.max(0,UPD.pct)}%"></i></div>`;
-  else if(UPD.state==='needperm')body=`<div class="updrow"><span>Erlaube im Android-Bildschirm, dass Stubenspiele Apps installieren darf – danach öffnet sich die Installation von selbst.</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updInstall">Installation öffnen</button></div>`;
-  else if(UPD.state==='installing'||UPD.state==='downloaded')body=`<div class="updrow"><span>Die Installation öffnet sich. Auf „Aktualisieren“ tippen – die App startet danach neu.</span></div><div class="updbtns"><button class="btn btn-outline" data-a="updInstall">Nochmal öffnen</button></div>`;
-  else if(UPD.state==='error')body=`<div class="updrow"><span>Update fehlgeschlagen: ${esc(UPD.msg)}</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updNow">Nochmal versuchen</button><button class="btn btn-ghost" data-a="updBrowser">Im Browser laden</button></div>`;
-  else body=`<div class="updrow"><span><b>Version ${v} ist da</b> – du hast 1.${BUILD.apk}.</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updNow">Jetzt aktualisieren</button><button class="btn btn-ghost" data-a="updLater">Später</button></div>`;
+  if(UPD.state==='browser')body=`<div class="updrow"><span>Der Browser lädt <b>Stubenspiele.apk</b> herunter. Danach die Download-Meldung antippen und auf „Aktualisieren“ tippen – Geldbeutel und Designs bleiben erhalten.</span></div><div class="updbtns"><button class="btn btn-outline" data-a="updNow">Download nochmal öffnen</button><button class="btn btn-ghost" data-a="updLater">Ausblenden</button></div>`;
+  else if(UPD.state==='error')body=`<div class="updrow"><span>Konnte den Browser nicht öffnen: ${esc(UPD.msg)}</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updNow">Nochmal versuchen</button></div>`;
+  else body=`<div class="updrow"><span><b>Version ${v} ist da</b> – du hast 1.${BUILD.apk}.</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updNow">Jetzt herunterladen</button><button class="btn btn-ghost" data-a="updLater">Später</button></div>`;
   return`<div class="update">${body}</div>`;}
 setTimeout(()=>checkUpdate(false),2500);setInterval(()=>checkUpdate(false),4*3600e3);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-UPD.checked>30*60e3)checkUpdate(false);});
@@ -1340,8 +1336,6 @@ $app.addEventListener('click',async e=>{
     case 'updCheck':checkUpdate(true);break;
     case 'updNow':startUpdate();break;
     case 'updLater':UPD.dismissed=UPD.avail;render();break;
-    case 'updInstall':try{Bridge.installAgain();}catch(e){}break;
-    case 'updBrowser':window.open('https://github.com/KampfTeddy07/stempel-radar/releases/tag/stubenspiele-latest','_blank');break;
     case 'moleOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='mole';render();break;
     case 'moleStart':moleStart();break;
     case 'moleHit':break;

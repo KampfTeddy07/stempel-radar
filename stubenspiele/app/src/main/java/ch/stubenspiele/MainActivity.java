@@ -3,7 +3,6 @@ package ch.stubenspiele;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
-import android.provider.Settings;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
@@ -19,11 +18,7 @@ import org.json.JSONArray;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,7 +33,6 @@ public class MainActivity extends Activity {
     private static final String APP_HOST = "stubenspiele.local";
     private WebView web;
     private LocalServer server; // nur gesetzt, während ein WLAN-Tisch gehostet wird
-    private volatile boolean updating = false, installPending = false;
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -83,54 +77,6 @@ public class MainActivity extends Activity {
         web.loadUrl("http://" + APP_HOST + "/");
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Zurück aus den Einstellungen („Unbekannte Apps installieren“): Installation nachholen
-        if (installPending && UpdateProvider.file(this).exists() && (Build.VERSION.SDK_INT < 26 || getPackageManager().canRequestPackageInstalls())) { installPending = false; installUpdate(); }
-    }
-
-    private void js(final String code) { runOnUiThread(new Runnable() { public void run() { if (web != null) web.evaluateJavascript(code, null); } }); }
-    private void updEvent(String ev, String val) { js("window.stubenUpdate&&stubenUpdate(" + org.json.JSONObject.quote(ev) + "," + org.json.JSONObject.quote(val) + ")"); }
-
-    /** Lädt die APK in den Cache und öffnet danach den Paket-Installer. */
-    private void downloadUpdate(final String url) {
-        if (updating) return; updating = true;
-        new Thread(new Runnable() { public void run() {
-            File f = UpdateProvider.file(MainActivity.this);
-            try {
-                if (!url.startsWith("https://github.com/") && !url.startsWith("https://objects.githubusercontent.com/")) throw new Exception("Unerwartete Download-Adresse");
-                f.getParentFile().mkdirs(); if (f.exists()) f.delete();
-                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-                c.setInstanceFollowRedirects(true); c.setConnectTimeout(15000); c.setReadTimeout(30000);
-                int code = c.getResponseCode();
-                if (code != 200) throw new Exception("Server antwortet mit " + code);
-                long total = c.getContentLength(); long got = 0; int lastPct = -1;
-                InputStream in = c.getInputStream(); FileOutputStream out = new FileOutputStream(f);
-                byte[] buf = new byte[65536]; int n;
-                while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); got += n; int pct = total > 0 ? (int) (got * 100 / total) : -1; if (pct != lastPct) { lastPct = pct; updEvent("progress", String.valueOf(pct)); } }
-                out.close(); in.close();
-                if (got < 100000) throw new Exception("Download unvollständig");
-                updEvent("downloaded", String.valueOf(got));
-                runOnUiThread(new Runnable() { public void run() { installUpdate(); } });
-            } catch (Exception e) { if (f.exists()) f.delete(); updEvent("error", String.valueOf(e.getMessage())); }
-            finally { updating = false; }
-        } }).start();
-    }
-
-    private void installUpdate() {
-        try {
-            if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
-                installPending = true; updEvent("needperm", "");
-                startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
-                return;
-            }
-            Intent i = new Intent(Intent.ACTION_VIEW);
-            i.setDataAndType(UpdateProvider.uri(), "application/vnd.android.package-archive");
-            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(i); updEvent("installing", "");
-        } catch (Exception e) { updEvent("error", String.valueOf(e.getMessage())); }
-    }
 
     @Override
     public void onBackPressed() {
@@ -181,8 +127,10 @@ public class MainActivity extends Activity {
             } });
         }
         @JavascriptInterface public boolean isPublic() { return server != null; }
-        @JavascriptInterface public boolean canUpdate() { return true; }
-        @JavascriptInterface public void update(final String url) { downloadUpdate(url); }
-        @JavascriptInterface public void installAgain() { runOnUiThread(new Runnable() { public void run() { if (UpdateProvider.file(MainActivity.this).exists()) installUpdate(); } }); }
+        /** Öffnet eine Adresse im System-Browser (z. B. den Download einer neuen Version). */
+        @JavascriptInterface public void openUrl(final String url) {
+            if (!url.startsWith("https://github.com/KampfTeddy07/") && !url.startsWith("https://kampfteddy07.github.io/")) return;
+            runOnUiThread(new Runnable() { public void run() { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception ignored) {} } });
+        }
     }
 }
