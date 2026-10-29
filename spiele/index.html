@@ -323,6 +323,17 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .solstock{position:relative;width:var(--sw)} .solstock .cnt{position:absolute;right:-2px;bottom:-6px;font-size:.65rem;background:var(--brass);color:var(--ink);border-radius:999px;padding:1px 6px;font-weight:700}
 .solwaste{display:flex;min-height:var(--sh)} .solwaste .card.sol{position:relative}
 .solfound{display:flex;gap:4px;justify-content:flex-end} .solfound .fs{font-size:1.3rem}
+/* Maulwurf */
+.molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
+.molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.hole{width:var(--hs);height:var(--hs);border-radius:50%;border:4px solid #2a1d10;background:radial-gradient(ellipse at 50% 35%,#3a2a18 0 45%,#1a110a 70%);box-shadow:inset 0 10px 18px rgba(0,0,0,.7),0 2px 0 rgba(255,255,255,.08);padding:0;position:relative;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hole .mole{position:absolute;left:0;right:0;bottom:6px;font-size:calc(var(--hs)*.55);line-height:1;animation:molein .14s ease-out;filter:drop-shadow(0 3px 3px rgba(0,0,0,.5))}
+@keyframes molein{0%{transform:translateY(70%)}100%{transform:translateY(0)}}
+.hole.gold{box-shadow:inset 0 10px 18px rgba(0,0,0,.7),0 0 16px rgba(210,171,82,.8)}.hole.bad .mole{filter:drop-shadow(0 0 6px rgba(255,80,80,.9))}
+.hole .pop{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font:800 calc(var(--hs)*.34) var(--font-body);color:#ffd76a;animation:molepop .26s ease-out}
+.hole.bad .pop{color:#ff8a8a}
+@keyframes molepop{0%{transform:translateY(-30%) scale(.6);opacity:0}40%{opacity:1}100%{transform:translateY(-80%) scale(1.1);opacity:0}}
+.molegrid:not(.live) .hole{cursor:default;opacity:.85}
 /* Kugelfall */
 .plkbox{margin:10px auto 0;width:min(360px,calc(100vw - 32px));border-radius:14px;background:rgba(0,0,0,.3);padding:6px;box-sizing:border-box}
 .plkcv{display:block;width:100%;height:min(400px,calc((100vw - 32px)*1.1))}
@@ -573,8 +584,37 @@ function clawPlay(){
   setTimeout(()=>{const c=el();if(C.claw.res&&Math.random()<.15){C.claw.slip=true;C.claw.res=null;if(c)c.classList.remove('holding');}else if(c&&C.claw.res)c.style.setProperty('--x','9%');},4100);
   setTimeout(()=>{if(C.claw.res){W.prizes[C.claw.res.k]=(W.prizes[C.claw.res.k]||0)+1;W.wins++;saveW();}C.claw.busy=false;C.claw.phase='result';render();},5600);
 }
-const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire'||C.page==='mines'||C.page==='t2048'||C.page==='plinko';
-function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button><button class="seg-btn ${active==='mines'?'is-on':''}" data-a="minesOpen">💣 Minen</button><button class="seg-btn ${active==='t2048'?'is-on':''}" data-a="t2048Open">🔢 2048</button><button class="seg-btn ${active==='plinko'?'is-on':''}" data-a="plkOpen">⚪ Kugelfall</button></div>`;}
+const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire'||C.page==='mines'||C.page==='t2048'||C.page==='plinko'||C.page==='mole';
+function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button><button class="seg-btn ${active==='mines'?'is-on':''}" data-a="minesOpen">💣 Minen</button><button class="seg-btn ${active==='t2048'?'is-on':''}" data-a="t2048Open">🔢 2048</button><button class="seg-btn ${active==='plinko'?'is-on':''}" data-a="plkOpen">⚪ Kugelfall</button><button class="seg-btn ${active==='mole'?'is-on':''}" data-a="moleOpen">🐭 Maulwurf</button></div>`;}
+/* ---- Maulwurf-Klopfen: 30 Sekunden tippen, jeder Treffer gibt Taler. Kostet nichts. ---- */
+const MOLE_MS=30000,MOLE_CAP=40;
+function moleState(){if(!C.mole)C.mole={busy:false,score:0,hits:0,miss:0,left:MOLE_MS,holes:Array(9).fill(null),lastEnd:null};return C.mole;}
+function moleStart(){const M=moleState();if(M.busy)return;Object.assign(M,{busy:true,score:0,hits:0,miss:0,left:MOLE_MS,holes:Array(9).fill(null),start:performance.now(),lastSpawn:0,lastEnd:null,streak:0});render();
+  M.timer=setInterval(moleTick,60);}
+function moleTick(){const M=moleState();if(!M.busy)return;const now=performance.now();M.left=Math.max(0,MOLE_MS-(now-M.start));const prog=1-M.left/MOLE_MS;
+  // ablaufen lassen
+  M.holes.forEach((h,i)=>{if(h&&now>h.until){M.holes[i]=null;if(!h.hit&&h.kind!=='bad')M.miss++;moleHole(i);}});
+  const active=M.holes.filter(h=>h&&!h.hit).length;const gap=900-600*prog;const maxActive=prog<.4?1:prog<.75?2:3;
+  if(active<maxActive&&now-M.lastSpawn>gap*(active?0.6:1)){const free=M.holes.map((h,i)=>h?-1:i).filter(i=>i>=0);if(free.length){const i=free[Math.floor(Math.random()*free.length)];const r=Math.random();const kind=r<.1?'gold':r<.22?'bad':'mole';M.holes[i]={kind,until:now+(1200-650*prog)*(kind==='gold'?0.7:1),hit:false};M.lastSpawn=now;moleHole(i);}}
+  const t=$app.querySelector('.moletime');if(t)t.textContent=(M.left/1000).toFixed(1)+' s';const bar=$app.querySelector('.molebar i');if(bar)bar.style.width=(M.left/MOLE_MS*100)+'%';
+  if(M.left<=0)moleEnd();}
+function moleHole(i){const el=$app.querySelector(`[data-a="moleHit"][data-i="${i}"]`);if(!el)return;const h=moleState().holes[i];el.className='hole'+(h?(' up '+h.kind+(h.hit?' hit':'')):'');el.innerHTML=h?(h.hit?`<span class="pop">${h.kind==='bad'?'−3':h.kind==='gold'?'+3':'+1'}</span>`:`<span class="mole">${h.kind==='gold'?'🐹':h.kind==='bad'?'💣':'🐭'}</span>`):'';}
+function moleHit(i){const M=moleState();if(!M.busy)return;const h=M.holes[i];if(!h||h.hit){return;}h.hit=true;h.until=performance.now()+260;
+  if(h.kind==='bad'){M.score=Math.max(0,M.score-3);M.streak=0;if(navigator.vibrate)try{navigator.vibrate(60);}catch(e){}}else{M.hits++;M.streak++;M.score+=h.kind==='gold'?3:1;if(M.streak%10===0)M.score+=2;if(navigator.vibrate)try{navigator.vibrate(12);}catch(e){}}
+  moleHole(i);const s=$app.querySelector('.molescore');if(s)s.textContent=M.score;}
+function moleEnd(){const M=moleState();clearInterval(M.timer);M.busy=false;const pay=Math.min(MOLE_CAP,M.score);W.coins+=pay;W.moleRounds=(W.moleRounds||0)+1;if(!W.moleBest||M.score>W.moleBest)W.moleBest=M.score;saveW();M.lastEnd={score:M.score,pay,hits:M.hits,miss:M.miss};if(pay)toast('🪙 +'+pay+' · '+M.hits+' Treffer','coin');render();}
+function mole(){const M=moleState();
+  const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
+  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack" ${M.busy?'disabled':''}>‹ ${back}</button><span class="bar-title">Maulwurf</span><span class="bar-meta">${M.busy?`<span class="molescore">${M.score}</span> Pkt · <span class="moletime">${(M.left/1000).toFixed(1)} s</span>`:'🪙 '+W.coins}</span></div>`+(M.busy?'':arcadeNav('mole'));
+  if(M.busy)h+=`<div class="molebar"><i style="width:${M.left/MOLE_MS*100}%"></i></div>`;
+  h+=`<div class="molegrid${M.busy?' live':''}">${M.holes.map((hh,i)=>`<button class="hole${hh?' up '+hh.kind:''}" data-a="moleHit" data-i="${i}" aria-label="Loch ${i+1}">${hh&&!hh.hit?`<span class="mole">${hh.kind==='gold'?'🐹':hh.kind==='bad'?'💣':'🐭'}</span>`:''}</button>`).join('')}</div>`;
+  if(!M.busy){
+    if(M.lastEnd)h+=`<div class="winner"><p class="eyebrow">Runde vorbei</p><h2>${M.lastEnd.score} Punkte</h2><p class="hint">${M.lastEnd.hits} Treffer · ${M.lastEnd.miss} entwischt · +${M.lastEnd.pay} Taler${W.moleBest?' · Rekord '+W.moleBest:''}</p></div>`;
+    h+=`<button class="btn btn-primary btn-big" data-a="moleStart">${M.lastEnd?'Noch eine Runde':'Los geht’s · 30 Sekunden'}</button>
+    <p class="hint">Kostet nichts. 🐭 = 1 Punkt, 🐹 (golden, kurz da) = 3 Punkte, 💣 nicht antippen (−3). Alle 10 Treffer am Stück +2 Bonus. Am Ende gibt es die Punkte als Taler, höchstens ${MOLE_CAP} pro Runde.${W.moleRounds?` Bisher ${W.moleRounds} Runden, Rekord ${W.moleBest} Punkte.`:''}</p>`;
+  }
+  return h;}
+
 /* ---- Kugelfall: Kugel fällt durch Stifte in ein Fach mit Faktor. Mehrere Kugeln gleichzeitig möglich. ---- */
 const PLK_ROWS=8,PLK_MULT=[12,3,1.3,0.7,0.3,0.7,1.3,3,12],PLK_BETS=[10,25,50,100];
 function plkState(){if(!C.plk)C.plk={bet:10,balls:[],busy:false,last:[],flash:{}};return C.plk;}
@@ -940,7 +980,7 @@ function home(){
   ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy wird zum Server, sobald du einen Tisch eröffnest.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
   :`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!local?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div><p class="hint">${local?'Kein Netz nötig: alle spielen auf diesem Handy, es wandert reihum.':'Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.'}</p></section>`}
   ${INVITE&&!C.code&&C.codeIn?`<div class="notice"><b>Einladung zu Tisch ${esc(C.codeIn)}.</b> ${C.name?'Du bist gleich drin …':'Nur noch deinen Namen eintragen und auf Mitspielen tippen.'}</div>`:''}
-  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><div class="actions" style="gap:6px;grid-template-columns:repeat(3,1fr)"><button class="btn btn-outline" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-outline" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-outline" data-a="solOpen">🃏 Solitär</button><button class="btn btn-outline" data-a="minesOpen">💣 Minen</button><button class="btn btn-outline" data-a="t2048Open">🔢 2048</button><button class="btn btn-outline" data-a="plkOpen">⚪ Kugelfall</button></div></div><p class="hint">Taler gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
+  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><div class="actions" style="gap:6px;grid-template-columns:repeat(3,1fr)"><button class="btn btn-outline" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-outline" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-outline" data-a="solOpen">🃏 Solitär</button><button class="btn btn-outline" data-a="minesOpen">💣 Minen</button><button class="btn btn-outline" data-a="t2048Open">🔢 2048</button><button class="btn btn-outline" data-a="plkOpen">⚪ Kugelfall</button><button class="btn btn-outline" data-a="moleOpen">🐭 Maulwurf</button></div></div><p class="hint">Taler gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
   <section class="panel"><h2>Dein Name</h2><input class="field" id="name" data-f="name" value="${esc(C.name)}" placeholder="z. B. Jim" maxlength="14" autocomplete="off">
   ${C.err?`<p class="error">${esc(C.err)}</p>`:''}
   <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':local?'Tisch auf diesem Handy aufbauen':'Spiel eröffnen'}</button></section>
@@ -962,7 +1002,7 @@ function lobby(){
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
   ${(()=>{const link=inviteLink(r);return link?`<div class="invite"><div class="qrbox">${qrSvg(link)}</div><p class="hint">Einladung scannen – landet direkt am Tisch</p>${r.online?'':'<p class="hint tip">Hotspot ohne Internet? Dann bei den Mitspielern <b>mobile Daten aus</b> oder „Trotzdem verbunden bleiben“ bestätigen – sonst springt ihr Handy aufs Mobilfunknetz.</p>'}<button class="btn btn-outline" data-a="copyInvite" data-link="${esc(link)}">${C.copied?'Link kopiert ✓':'Einladungslink kopieren'}</button></div>`:''})()}
   <p class="hint" style="text-align:center">Oder im Browser öffnen:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
-  <div class="walletline"><span>🪙 ${W.coins} Taler</span><span><button class="btn btn-ghost" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-ghost" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-ghost" data-a="solOpen">🃏 Solitär</button><button class="btn btn-ghost" data-a="minesOpen">💣 Minen</button><button class="btn btn-ghost" data-a="t2048Open">🔢 2048</button><button class="btn btn-ghost" data-a="plkOpen">⚪ Kugelfall</button></span></div>
+  <div class="walletline"><span>🪙 ${W.coins} Taler</span><span><button class="btn btn-ghost" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-ghost" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-ghost" data-a="solOpen">🃏 Solitär</button><button class="btn btn-ghost" data-a="minesOpen">💣 Minen</button><button class="btn btn-ghost" data-a="t2048Open">🔢 2048</button><button class="btn btn-ghost" data-a="plkOpen">⚪ Kugelfall</button><button class="btn btn-ghost" data-a="moleOpen">🐭 Maulwurf</button></span></div>
   <section class="panel"><h2>Am Tisch (${n} von ${r.maxPlayers||4})</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}${r.isHost&&!p.host&&!p.connected?`<button class="btn btn-ghost sm" data-a="kick" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno" ${r.isHost?'':'disabled'}>Vier Farben</button><button class="seg-btn ${r.game==='bj'?'is-on':''}" data-a="setGame" data-g="bj" ${r.isHost?'':'disabled'}>17 und 4</button></div>
@@ -1206,10 +1246,10 @@ function bj(){
 function toastHtml(){return`<div class="toasts">${toasts.map(t=>`<div class="toast ${t.cls}">${t.text}</div>`).join('')}</div>`;}
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
-  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))||(C.page==='plinko'&&C.plk&&C.plk.busy&&$app.querySelector('.plkbox'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
+  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))||(C.page==='plinko'&&C.plk&&C.plk.busy&&$app.querySelector('.plkbox'))||(C.page==='mole'&&C.mole&&C.mole.busy&&$app.querySelector('.molegrid.live'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
   let h=C.online||C.page==='home'||isArcade()?'':(C.mode==='lan'&&!C.isHost?`<div class="offline wide"><b>Keine Verbindung zum Gastgeber-Handy.</b><span>Dein Handy ist vermutlich auf mobile Daten gesprungen, weil der Hotspot kein Internet hat. Abhilfe: <b>mobile Daten kurz aus</b> – oder in der Meldung „WLAN ohne Internet“ auf <b>Trotzdem verbunden bleiben</b> tippen (iPhone: WLAN-Unterstützung aus).</span><button class="btn btn-primary" data-a="reload">Neu verbinden</button></div>`:'<div class="offline">Verbindung wird neu aufgebaut …</div>');
   h+=toastHtml();
-  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.page==='mines')h+=mines();else if(C.page==='t2048')h+=t2048();else if(C.page==='plinko')h+=plinko();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
+  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.page==='mines')h+=mines();else if(C.page==='t2048')h+=t2048();else if(C.page==='plinko')h+=plinko();else if(C.page==='mole')h+=mole();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
   $app.innerHTML=h;
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   if(C.page==='slots')slotsMount();
@@ -1226,6 +1266,7 @@ $app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="minTa
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>$app.addEventListener(ev,()=>{clearTimeout(minLP);minLP=null;}));
 $app.addEventListener('pointermove',e=>{if(minLP&&!e.target.closest('[data-a="minTap"]')){clearTimeout(minLP);minLP=null;}});
 $app.addEventListener('contextmenu',e=>{if(e.target.closest('.mingrid'))e.preventDefault();});
+$app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="moleHit"]');if(t){e.preventDefault();moleHit(+t.dataset.i);}});
 let tSw=null;
 $app.addEventListener('pointerdown',e=>{const b=e.target.closest('.tboard');tSw=b?{x:e.clientX,y:e.clientY,id:e.pointerId}:null;},{passive:true});
 $app.addEventListener('pointerup',e=>{if(!tSw||e.pointerId!==tSw.id)return;const dx=e.clientX-tSw.x,dy=e.clientY-tSw.y;tSw=null;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;tSwipe(Math.abs(dx)>Math.abs(dy)?(dx>0?2:0):(dy>0?3:1));});
@@ -1241,6 +1282,9 @@ $app.addEventListener('click',async e=>{
     case 'slotsSpin':slotsSpin();break;
     case 'solOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='solitaire';render();break;
     case 'solTap':solTap(d.k,+d.i,+d.j);break;
+    case 'moleOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='mole';render();break;
+    case 'moleStart':moleStart();break;
+    case 'moleHit':break;
     case 'plkOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='plinko';render();break;
     case 'plkBet':{const P=plkState();P.bet=+d.b;if(P.busy){$app.querySelectorAll('.plkbets .seg-btn').forEach(b=>b.classList.toggle('is-on',+b.dataset.b===P.bet));const db=$app.querySelector('[data-a="plkDrop"]');if(db){db.textContent='Kugel fallen lassen · '+P.bet+' 🪙';db.disabled=W.coins<P.bet;}}else render();break;}
     case 'plkDrop':plkDrop();break;
@@ -1319,7 +1363,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local')){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
