@@ -26,8 +26,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Kleiner HTTP-Server. Statische Dateien kommen aus den Assets, /api/* geht an die JS-Engine im WebView. */
+/** Kleiner HTTP-Server für Mitspieler im WLAN. Läuft nur, während ein WLAN-Tisch gehostet wird.
+ *  Statische Dateien kommen aus den Assets, /api/* geht an die JS-Engine im WebView. */
 public class LocalServer {
+    public static final int DEFAULT_PORT = 3000;
     private final Context ctx;
     private final WebView web;
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -42,12 +44,12 @@ public class LocalServer {
     public LocalServer(Context ctx, WebView web) { this.ctx = ctx; this.web = web; }
 
     private volatile boolean isPublic = false;
-    /** Bindet den Server neu: standardmäßig nur auf 127.0.0.1 (nur für die eigene App erreichbar), im WLAN-Modus auf alle Schnittstellen. */
+    /** Bindet den Server: für Mitspieler auf allen Schnittstellen (pub), sonst nur auf 127.0.0.1. */
     private void bind(boolean pub) throws IOException {
         IOException last = null;
         ServerSocket old = ss;
         if (old != null) { try { old.close(); } catch (IOException ignored) {} }
-        for (int p = (port > 0 ? port : 3000); p < 3011; p++) {
+        for (int p = (port > 0 ? port : DEFAULT_PORT); p < DEFAULT_PORT + 11; p++) {
             try { ServerSocket n = new ServerSocket(); n.setReuseAddress(true); n.bind(new InetSocketAddress(pub ? "0.0.0.0" : "127.0.0.1", p)); ss = n; port = p; last = null; break; }
             catch (IOException e) { last = e; }
         }
@@ -62,7 +64,7 @@ public class LocalServer {
     public boolean isPublic() { return isPublic; }
 
     public int start() throws IOException {
-        bind(false);
+        bind(true);
         running = true;
         Thread t = new Thread(new Runnable() { public void run() {
             while (running) {
@@ -83,7 +85,8 @@ public class LocalServer {
     public void stop() { running = false; try { if (ss != null) ss.close(); } catch (IOException ignored) {} pool.shutdownNow(); }
 
     /** Nur WLAN/Hotspot-Adressen; VPN-Tunnel (tun) und Mobilfunk (rmnet, ccmni) sind für Mitspieler nutzlos. */
-    public List<String> urls() {
+    public List<String> urls() { return urls(port); }
+    public static List<String> urls(int port) {
         List<String> wifi = new ArrayList<>(), rest = new ArrayList<>();
         try {
             for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {

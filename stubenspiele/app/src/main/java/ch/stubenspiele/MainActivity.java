@@ -2,21 +2,37 @@ package ch.stubenspiele;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.TextView;
 
 import org.json.JSONArray;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Die Oberfläche kommt direkt aus den App-Dateien (abgefangene Anfragen an einen internen Hostnamen),
+ * es läuft also kein Netzwerk-Server, solange niemand einen WLAN-Tisch eröffnet. Erst dann startet
+ * der kleine HTTP-Server für die Mitspieler – und wird beim Verlassen des Tisches wieder beendet.
+ */
 public class MainActivity extends Activity {
+    /** Interner Hostname nur für die App-eigene Oberfläche; wird nie im Netz angefragt. */
+    private static final String APP_HOST = "stubenspiele.local";
     private WebView web;
-    private LocalServer server;
+    private LocalServer server; // nur gesetzt, während ein WLAN-Tisch gehostet wird
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -32,25 +48,33 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         web.setWebChromeClient(new WebChromeClient());
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri u = request.getUrl();
+                if (u == null || !APP_HOST.equals(u.getHost())) return null;
+                String path = u.getPath();
+                if (path == null || path.equals("/") || path.equals("/index.html")) path = "/index.html";
+                String name = path.substring(1);
+                Map<String, String> headers = new HashMap<>();
+                headers.put("Cache-Control", "no-store");
+                if (name.contains("..") || name.contains("/")) return notFound(headers);
+                String mime = name.endsWith(".js") ? "application/javascript" : name.endsWith(".html") ? "text/html" : name.endsWith(".json") ? "application/json" : "application/octet-stream";
+                try {
+                    InputStream in = getAssets().open(name);
+                    WebResourceResponse res = new WebResourceResponse(mime, "utf-8", in);
+                    res.setResponseHeaders(headers);
+                    return res;
+                } catch (IOException e) { return notFound(headers); }
+            }
+            private WebResourceResponse notFound(Map<String, String> headers) {
+                return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", headers, new ByteArrayInputStream("Nicht gefunden".getBytes(StandardCharsets.UTF_8)));
+            }
+        });
         web.setBackgroundColor(0xFF153527);
         web.addJavascriptInterface(new Bridge(), "Bridge");
-        server = new LocalServer(this, web);
-        try {
-            // Netzwerk nicht auf dem UI-Thread: Server in eigenem Thread binden, kurz warten.
-            final Exception[] err = new Exception[1];
-            Thread t = new Thread(new Runnable() { public void run() { try { server.start(); } catch (Exception e) { err[0] = e; } } });
-            t.start(); t.join(5000);
-            if (err[0] != null) throw err[0];
-            if (server.port == 0) throw new Exception("Zeitüberschreitung beim Starten");
-            setContentView(web);
-            web.loadUrl("http://127.0.0.1:" + server.port + "/");
-        } catch (Exception e) {
-            TextView tv = new TextView(this);
-            tv.setPadding(48, 96, 48, 48);
-            tv.setText("Der Server konnte nicht starten:\n" + e.getMessage());
-            setContentView(tv);
-        }
+        setContentView(web);
+        web.loadUrl("http://" + APP_HOST + "/");
     }
 
     @Override
@@ -62,23 +86,38 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         try { stopService(new Intent(this, KeepAliveService.class)); } catch (Exception ignored) {}
-        if (server != null) server.stop();
+        stopServer();
         if (web != null) web.destroy();
         super.onDestroy();
     }
 
+    private synchronized void startServer() {
+        if (server != null) return;
+        final LocalServer srv = new LocalServer(this, web);
+        server = srv;
+        new Thread(new Runnable() { public void run() {
+            try { srv.start(); } catch (Exception e) { synchronized (MainActivity.this) { if (server == srv) server = null; } }
+        } }).start();
+    }
+
+    private synchronized void stopServer() {
+        if (server == null) return;
+        final LocalServer srv = server; server = null;
+        new Thread(new Runnable() { public void run() { srv.stop(); } }).start();
+    }
+
     /** Was die JS-Engine im WebView aufrufen darf. */
     class Bridge {
-        @JavascriptInterface public void respond(String id, int status, String body) { server.respond(id, status, body); }
-        @JavascriptInterface public void push(String id, String data) { server.push(id, data); }
-        @JavascriptInterface public void closeStream(String id) { server.closeStream(id); }
-        @JavascriptInterface public String urls() { return new JSONArray(server.urls()).toString(); }
-        @JavascriptInterface public int port() { return server.port; }
-        /** mode: "lan" = Server nach außen öffnen + Dienst, "online" = nur Dienst (Relay-Gastgeber), "none" = alles zu. */
+        @JavascriptInterface public void respond(String id, int status, String body) { LocalServer s = server; if (s != null) s.respond(id, status, body); }
+        @JavascriptInterface public void push(String id, String data) { LocalServer s = server; if (s != null) s.push(id, data); }
+        @JavascriptInterface public void closeStream(String id) { LocalServer s = server; if (s != null) s.closeStream(id); }
+        @JavascriptInterface public String urls() { LocalServer s = server; return new JSONArray(LocalServer.urls(s != null && s.port > 0 ? s.port : LocalServer.DEFAULT_PORT)).toString(); }
+        @JavascriptInterface public int port() { LocalServer s = server; return s != null ? s.port : 0; }
+        /** mode: "lan" = WLAN-Server starten + Dienst, "online" = nur Dienst (Relay-Gastgeber), "none" = alles zu. */
         @JavascriptInterface public void hosting(final String mode) {
             runOnUiThread(new Runnable() { public void run() {
                 boolean lan = "lan".equals(mode), host = lan || "online".equals(mode);
-                new Thread(new Runnable() { public void run() { server.setPublic(lan); } }).start();
+                if (lan) startServer(); else stopServer();
                 try {
                     Intent svc = new Intent(MainActivity.this, KeepAliveService.class);
                     if (host) { if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc); else startService(svc); }
@@ -86,6 +125,6 @@ public class MainActivity extends Activity {
                 } catch (Exception ignored) {}
             } });
         }
-        @JavascriptInterface public boolean isPublic() { return server.isPublic(); }
+        @JavascriptInterface public boolean isPublic() { return server != null; }
     }
 }
