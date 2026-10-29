@@ -323,6 +323,10 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .solstock{position:relative;width:var(--sw)} .solstock .cnt{position:absolute;right:-2px;bottom:-6px;font-size:.65rem;background:var(--brass);color:var(--ink);border-radius:999px;padding:1px 6px;font-weight:700}
 .solwaste{display:flex;min-height:var(--sh)} .solwaste .card.sol{position:relative}
 .solfound{display:flex;gap:4px;justify-content:flex-end} .solfound .fs{font-size:1.3rem}
+/* Kugelfall */
+.plkbox{margin:10px auto 0;width:min(360px,calc(100vw - 32px));border-radius:14px;background:rgba(0,0,0,.3);padding:6px;box-sizing:border-box}
+.plkcv{display:block;width:100%;height:min(400px,calc((100vw - 32px)*1.1))}
+.plkbets{margin:10px 0 8px} .plklast b{color:var(--cream)} .plklast b.hi{color:var(--brass)} .plklast b.lo{color:var(--muted);font-weight:400}
 /* 2048 */
 .tboard{--tg:8px;--tb:min(360px,calc(100vw - 32px));--tt:calc((var(--tb) - 5*var(--tg))/4);position:relative;width:var(--tb);height:var(--tb);margin:10px auto 0;padding:var(--tg);box-sizing:border-box;border-radius:14px;background:rgba(0,0,0,.32);display:grid;grid-template-columns:repeat(4,var(--tt));grid-auto-rows:var(--tt);gap:var(--tg);touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
 .tcell{border-radius:8px;background:rgba(255,255,255,.07)}
@@ -569,8 +573,58 @@ function clawPlay(){
   setTimeout(()=>{const c=el();if(C.claw.res&&Math.random()<.15){C.claw.slip=true;C.claw.res=null;if(c)c.classList.remove('holding');}else if(c&&C.claw.res)c.style.setProperty('--x','9%');},4100);
   setTimeout(()=>{if(C.claw.res){W.prizes[C.claw.res.k]=(W.prizes[C.claw.res.k]||0)+1;W.wins++;saveW();}C.claw.busy=false;C.claw.phase='result';render();},5600);
 }
-const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire'||C.page==='mines'||C.page==='t2048';
-function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button><button class="seg-btn ${active==='mines'?'is-on':''}" data-a="minesOpen">💣 Minen</button><button class="seg-btn ${active==='t2048'?'is-on':''}" data-a="t2048Open">🔢 2048</button></div>`;}
+const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire'||C.page==='mines'||C.page==='t2048'||C.page==='plinko';
+function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button><button class="seg-btn ${active==='mines'?'is-on':''}" data-a="minesOpen">💣 Minen</button><button class="seg-btn ${active==='t2048'?'is-on':''}" data-a="t2048Open">🔢 2048</button><button class="seg-btn ${active==='plinko'?'is-on':''}" data-a="plkOpen">⚪ Kugelfall</button></div>`;}
+/* ---- Kugelfall: Kugel fällt durch Stifte in ein Fach mit Faktor. Mehrere Kugeln gleichzeitig möglich. ---- */
+const PLK_ROWS=8,PLK_MULT=[12,3,1.3,0.7,0.3,0.7,1.3,3,12],PLK_BETS=[10,25,50,100];
+function plkState(){if(!C.plk)C.plk={bet:10,balls:[],busy:false,last:[],flash:{}};return C.plk;}
+function plkRR(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();}
+function plkGeo(cv){const Wd=cv.clientWidth,Hd=cv.clientHeight;const s=(Wd-16)/9;const bucketH=Math.max(34,s*0.9);const y0=26,dy=(Hd-y0-bucketH-24)/PLK_ROWS;return{W:Wd,H:Hd,s,cx:Wd/2,y0,dy,bucketH,by:Hd-bucketH-8};}
+function plkDraw(){const cv=$app.querySelector('.plkcv');if(!cv)return;const g=plkGeo(cv);const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}
+  const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,g.W,g.H);const P=plkState();const now=performance.now();
+  // Fächer
+  for(let k=0;k<9;k++){const m=PLK_MULT[k];const bx=g.cx+(k-4.5)*g.s+2,bw=g.s-4;const hot=m>=12?'#b5363c':m>=3?'#d2ab52':m>=1.3?'#2e8b57':m>=0.7?'#3a5a48':'#2a3a33';
+    const fl=P.flash[k]&&now-P.flash[k]<600?1-(now-P.flash[k])/600:0;x.fillStyle=hot;x.globalAlpha=0.85+0.15*fl;plkRR(x,bx,g.by,bw,g.bucketH,6);x.fill();x.globalAlpha=1;
+    if(fl){x.strokeStyle='rgba(255,255,255,'+fl+')';x.lineWidth=2;x.stroke();}
+    x.fillStyle=m>=1.3?'#1c1a17':'#f4ebd9';x.font='700 '+Math.max(10,Math.min(14,g.s*0.36))+'px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('×'+m,bx+bw/2,g.by+g.bucketH/2);}
+  // Stifte
+  x.fillStyle='rgba(244,235,217,.9)';for(let r=0;r<PLK_ROWS;r++){const n=r+3;for(let i=0;i<n;i++){const px=g.cx+(i-(n-1)/2)*g.s,py=g.y0+r*g.dy;x.beginPath();x.arc(px,py,Math.max(2.5,g.s*0.08),0,Math.PI*2);x.fill();}}
+  // Kugeln
+  for(const b of P.balls){
+    const xAt=i=>{i=Math.min(i,PLK_ROWS);return i<=0?g.cx:g.cx+(b.k[i-1]-i/2)*g.s;};
+    const yAt=i=>i<=0?g.y0-g.dy*0.8:i>PLK_ROWS?g.by+g.bucketH*0.45:g.y0+(i-1)*g.dy+g.dy*0.5;
+    let bx,by;if(b.t>=PLK_ROWS+1){bx=xAt(PLK_ROWS);by=yAt(PLK_ROWS+1);}
+    else{const i0=Math.floor(b.t),f=b.t-i0;const x0=xAt(i0),x1=xAt(i0+1);const e=f<.5?2*f*f:1-Math.pow(-2*f+2,2)/2;bx=x0+(x1-x0)*e;by=yAt(i0)+(yAt(i0+1)-yAt(i0))*f-(i0<PLK_ROWS?Math.sin(Math.PI*f)*g.dy*0.3:0);}
+    x.beginPath();x.arc(bx,by+2,g.s*0.26,0,Math.PI*2);x.fillStyle='rgba(0,0,0,.35)';x.fill();
+    const grd=x.createRadialGradient(bx-g.s*0.08,by-g.s*0.08,1,bx,by,g.s*0.26);grd.addColorStop(0,'#ffe9a8');grd.addColorStop(1,'#b8862b');x.fillStyle=grd;x.beginPath();x.arc(bx,by,g.s*0.26,0,Math.PI*2);x.fill();}
+  // Gewinn-Zahlen
+  for(const t of P.texts||[]){const a=1-(now-t.at)/900;if(a<=0)continue;x.globalAlpha=a;x.fillStyle=t.win?'#ffd76a':'#f4ebd9';x.font='800 15px system-ui,sans-serif';x.textAlign='center';x.fillText(t.s,t.x,g.by-10-(1-a)*30);x.globalAlpha=1;}
+}
+function plkLoop(ts){const P=plkState();if(!P.lastTs)P.lastTs=ts;const dt=Math.min(50,ts-P.lastTs);P.lastTs=ts;const SPEED=1/190; // Reihen pro ms
+  for(const b of P.balls){b.t+=dt*SPEED;if(b.t>=PLK_ROWS+1&&!b.done){b.done=true;plkLand(b);}}
+  P.balls=P.balls.filter(b=>!b.done||performance.now()-b.doneAt<250);P.texts=(P.texts||[]).filter(t=>performance.now()-t.at<900);
+  plkDraw();
+  if(P.balls.length||P.texts.length){requestAnimationFrame(plkLoop);}else{P.busy=false;P.lastTs=0;render();}}
+function plkLand(b){const P=plkState();const k=b.k[PLK_ROWS-1];const m=PLK_MULT[k];const win=Math.round(b.bet*m);b.doneAt=performance.now();W.coins+=win;W.plkDrops=(W.plkDrops||0)+1;W.plkWon=(W.plkWon||0)+win-b.bet;if(!W.plkBest||m>W.plkBest)W.plkBest=m;saveW();
+  P.flash[k]=performance.now();P.last.unshift(m);P.last=P.last.slice(0,6);
+  const cv=$app.querySelector('.plkcv');if(cv){const g=plkGeo(cv);P.texts.push({s:(win>=b.bet?'+':'')+(win-b.bet),x:g.cx+(k-4)*g.s,at:performance.now(),win:win>b.bet});}
+  if(m>=12)toast('🎯 ×12! +'+win+' Taler','coin');
+  const el=$app.querySelector('.plkcoins');if(el)el.textContent='🪙 '+W.coins;const lf=$app.querySelector('.plklast');if(lf)lf.innerHTML=plkLastHtml();}
+function plkLastHtml(){const P=plkState();return P.last.length?'Zuletzt: '+P.last.map(m=>`<b class="${m>=3?'hi':m<1?'lo':''}">×${m}</b>`).join(' '):'Noch keine Kugel gefallen.';}
+function plkDrop(){const P=plkState();if(W.coins<P.bet){toast('Nicht genug Taler für diesen Einsatz.','');return;}if(P.balls.length>=6)return;W.coins-=P.bet;saveW();
+  const k=[];let n=0;for(let r=0;r<PLK_ROWS;r++){if(Math.random()<.5)n++;k.push(n);}P.balls.push({t:0,k,bet:P.bet,done:false});P.texts=P.texts||[];
+  const el=$app.querySelector('.plkcoins');if(el)el.textContent='🪙 '+W.coins;
+  if(!P.busy){P.busy=true;P.lastTs=0;requestAnimationFrame(plkLoop);}}
+function plinko(){const P=plkState();
+  const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
+  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack">‹ ${back}</button><span class="bar-title">Kugelfall</span><span class="bar-meta plkcoins">🪙 ${W.coins}</span></div>`+arcadeNav('plinko');
+  h+=`<div class="plkbox"><canvas class="plkcv" aria-label="Kugelfall-Brett"></canvas></div>`;
+  h+=`<div class="seg plkbets">${PLK_BETS.map(b=>`<button class="seg-btn sm ${P.bet===b?'is-on':''}" data-a="plkBet" data-b="${b}">${b}</button>`).join('')}</div>
+    <button class="btn btn-primary btn-big" data-a="plkDrop" ${W.coins<P.bet?'disabled':''}>Kugel fallen lassen · ${P.bet} 🪙</button>
+    <p class="hint plklast">${plkLastHtml()}</p>
+    <p class="hint">Die Kugel springt an jedem Stift zufällig nach links oder rechts. Außen zahlt ×12, die Mitte nur ×0,3 – die Kugel landet aber meistens in der Mitte. Bis zu sechs Kugeln gleichzeitig; einfach mehrmals tippen.${W.plkDrops?` Bisher ${W.plkDrops} Kugeln, Bilanz ${W.plkWon>=0?'+':''}${W.plkWon||0} Taler, bester Treffer ×${W.plkBest||0}.`:''}</p>`;
+  return h;}
+
 /* ---- 2048, solo & offline. Wischen oder Pfeiltasten; gleiche Zahlen verschmelzen. ---- */
 const TK='stuben-2048';const T_PAY={256:5,512:10,1024:25,2048:60,4096:150};
 let tSeq=1;
@@ -886,7 +940,7 @@ function home(){
   ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy wird zum Server, sobald du einen Tisch eröffnest.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
   :`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!local?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div><p class="hint">${local?'Kein Netz nötig: alle spielen auf diesem Handy, es wandert reihum.':'Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.'}</p></section>`}
   ${INVITE&&!C.code&&C.codeIn?`<div class="notice"><b>Einladung zu Tisch ${esc(C.codeIn)}.</b> ${C.name?'Du bist gleich drin …':'Nur noch deinen Namen eintragen und auf Mitspielen tippen.'}</div>`:''}
-  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><div class="actions" style="gap:6px;grid-template-columns:repeat(3,1fr)"><button class="btn btn-outline" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-outline" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-outline" data-a="solOpen">🃏 Solitär</button><button class="btn btn-outline" data-a="minesOpen">💣 Minen</button><button class="btn btn-outline" data-a="t2048Open">🔢 2048</button></div></div><p class="hint">Taler gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
+  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><div class="actions" style="gap:6px;grid-template-columns:repeat(3,1fr)"><button class="btn btn-outline" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-outline" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-outline" data-a="solOpen">🃏 Solitär</button><button class="btn btn-outline" data-a="minesOpen">💣 Minen</button><button class="btn btn-outline" data-a="t2048Open">🔢 2048</button><button class="btn btn-outline" data-a="plkOpen">⚪ Kugelfall</button></div></div><p class="hint">Taler gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
   <section class="panel"><h2>Dein Name</h2><input class="field" id="name" data-f="name" value="${esc(C.name)}" placeholder="z. B. Jim" maxlength="14" autocomplete="off">
   ${C.err?`<p class="error">${esc(C.err)}</p>`:''}
   <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':local?'Tisch auf diesem Handy aufbauen':'Spiel eröffnen'}</button></section>
@@ -908,7 +962,7 @@ function lobby(){
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
   ${(()=>{const link=inviteLink(r);return link?`<div class="invite"><div class="qrbox">${qrSvg(link)}</div><p class="hint">Einladung scannen – landet direkt am Tisch</p>${r.online?'':'<p class="hint tip">Hotspot ohne Internet? Dann bei den Mitspielern <b>mobile Daten aus</b> oder „Trotzdem verbunden bleiben“ bestätigen – sonst springt ihr Handy aufs Mobilfunknetz.</p>'}<button class="btn btn-outline" data-a="copyInvite" data-link="${esc(link)}">${C.copied?'Link kopiert ✓':'Einladungslink kopieren'}</button></div>`:''})()}
   <p class="hint" style="text-align:center">Oder im Browser öffnen:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
-  <div class="walletline"><span>🪙 ${W.coins} Taler</span><span><button class="btn btn-ghost" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-ghost" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-ghost" data-a="solOpen">🃏 Solitär</button><button class="btn btn-ghost" data-a="minesOpen">💣 Minen</button><button class="btn btn-ghost" data-a="t2048Open">🔢 2048</button></span></div>
+  <div class="walletline"><span>🪙 ${W.coins} Taler</span><span><button class="btn btn-ghost" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-ghost" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-ghost" data-a="solOpen">🃏 Solitär</button><button class="btn btn-ghost" data-a="minesOpen">💣 Minen</button><button class="btn btn-ghost" data-a="t2048Open">🔢 2048</button><button class="btn btn-ghost" data-a="plkOpen">⚪ Kugelfall</button></span></div>
   <section class="panel"><h2>Am Tisch (${n} von ${r.maxPlayers||4})</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}${r.isHost&&!p.host&&!p.connected?`<button class="btn btn-ghost sm" data-a="kick" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno" ${r.isHost?'':'disabled'}>Vier Farben</button><button class="seg-btn ${r.game==='bj'?'is-on':''}" data-a="setGame" data-g="bj" ${r.isHost?'':'disabled'}>17 und 4</button></div>
@@ -1152,13 +1206,14 @@ function bj(){
 function toastHtml(){return`<div class="toasts">${toasts.map(t=>`<div class="toast ${t.cls}">${t.text}</div>`).join('')}</div>`;}
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
-  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
+  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))||(C.page==='plinko'&&C.plk&&C.plk.busy&&$app.querySelector('.plkbox'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
   let h=C.online||C.page==='home'||isArcade()?'':(C.mode==='lan'&&!C.isHost?`<div class="offline wide"><b>Keine Verbindung zum Gastgeber-Handy.</b><span>Dein Handy ist vermutlich auf mobile Daten gesprungen, weil der Hotspot kein Internet hat. Abhilfe: <b>mobile Daten kurz aus</b> – oder in der Meldung „WLAN ohne Internet“ auf <b>Trotzdem verbunden bleiben</b> tippen (iPhone: WLAN-Unterstützung aus).</span><button class="btn btn-primary" data-a="reload">Neu verbinden</button></div>`:'<div class="offline">Verbindung wird neu aufgebaut …</div>');
   h+=toastHtml();
-  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.page==='mines')h+=mines();else if(C.page==='t2048')h+=t2048();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
+  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.page==='mines')h+=mines();else if(C.page==='t2048')h+=t2048();else if(C.page==='plinko')h+=plinko();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
   $app.innerHTML=h;
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   if(C.page==='slots')slotsMount();
+  if(C.page==='plinko')plkDraw();
   if(isArcade()){const nav=$app.querySelector('.arcnav'),on=nav&&nav.querySelector('.is-on');if(on&&nav.scrollWidth>nav.clientWidth)nav.scrollLeft=Math.max(0,on.offsetLeft-(nav.clientWidth-on.offsetWidth)/2);}
   const kAge=Date.now()-C.knockAt;if(kAge<1500&&!$app.classList.contains('tableshake')){$app.classList.add('tableshake');setTimeout(()=>$app.classList.remove('tableshake'),1500-kAge);}
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
@@ -1186,6 +1241,9 @@ $app.addEventListener('click',async e=>{
     case 'slotsSpin':slotsSpin();break;
     case 'solOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='solitaire';render();break;
     case 'solTap':solTap(d.k,+d.i,+d.j);break;
+    case 'plkOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='plinko';render();break;
+    case 'plkBet':{const P=plkState();P.bet=+d.b;if(P.busy){$app.querySelectorAll('.plkbets .seg-btn').forEach(b=>b.classList.toggle('is-on',+b.dataset.b===P.bet));const db=$app.querySelector('[data-a="plkDrop"]');if(db){db.textContent='Kugel fallen lassen · '+P.bet+' 🪙';db.disabled=W.coins<P.bet;}}else render();break;}
+    case 'plkDrop':plkDrop();break;
     case 't2048Open':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='t2048';render();break;
     case 'tDir':tSwipe(+d.d);break;
     case 'tNew':C.t2048=tNew();tSave();render();break;
@@ -1261,7 +1319,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local')){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
