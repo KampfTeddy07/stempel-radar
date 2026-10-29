@@ -359,7 +359,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .zclawbox{border-radius:14px;overflow:hidden;border:2px solid var(--brass);margin-bottom:10px;box-shadow:0 4px 14px rgba(0,0,0,.4)}.zclaw{display:block;width:100%;height:230px;touch-action:none}
 .zreveal.row{flex-direction:row;justify-content:center;gap:12px;padding:6px 0 10px}.zreveal.row span{font-size:2.2rem}.zreveal.row div{display:flex;flex-direction:column;text-align:left}
 .zgrab{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-size:.95rem}
-.zvbox{border-radius:14px;overflow:hidden;border:1px solid var(--felt-line);margin:10px 0 8px;box-shadow:0 4px 14px rgba(0,0,0,.4)}.zv{display:block;width:100%;height:225px;touch-action:manipulation}
+.zvbox{border-radius:14px;overflow:hidden;border:1px solid var(--felt-line);margin:10px 0 8px;box-shadow:0 4px 14px rgba(0,0,0,.4)}.zv{display:block;width:100%;height:260px;touch-action:manipulation}
 .vt small{font-size:.58rem;color:var(--brass);font-weight:700}.vt.on small{color:#7a5a12}
 .zrow.lvl{margin-top:10px;border-color:var(--brass);background:linear-gradient(180deg,rgba(210,171,82,.16),rgba(210,171,82,.05))}
 .zres{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.zres span{padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.25);border:1px solid var(--felt-line);font:700 .8rem var(--font-body);color:var(--cream)}
@@ -765,8 +765,9 @@ function zClaw(){const Z=zState();if(!Z.claw)Z.claw={phase:'idle',x:40,y:30,dir:
 function zClawFill(cl){const pick=t=>{const pool=Object.keys(ZW).filter(k=>ZW[k].r===t);return pool[Math.floor(Math.random()*pool.length)];};const ks=[pick(1),pick(1),pick(1),pick(2),pick(2),Math.random()<0.12?pick(4):pick(3)];
   for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]];}cl.crates=ks.map((k,i)=>({k,slot:i}));}
 function zClawGeo(cv){const W=cv.clientWidth,H=cv.clientHeight;return{W,H,floor:H-26,chute:28,slotW:(W-56)/6,left:56};}
-function zClawHold(){const Z=zState(),cl=zClaw(),U=zUp();if(cl.phase!=='idle')return;if(U.zc<zPullCost()){toast('Nicht genug Zombie-Münzen ('+zPullCost()+' ☠ nötig).','');return;}U.zc-=zPullCost();saveW();cl.phase='move';cl.result=null;cl.msg='';cl.held=null;cl.open=1;cl.y=30;cl.lastTs=0;const m=$app.querySelector('.zclawcoins');if(m)m.textContent='☠ '+U.zc+' Münzen';requestAnimationFrame(zClawLoop);}
-function zClawRelease(){const cl=zClaw();if(cl.phase==='move')cl.phase='drop';}
+function zClawBtn(txt,dis){const b=$app.querySelector('.zgrab');if(b){b.textContent=txt;b.disabled=!!dis;}}
+function zClawHold(){const Z=zState(),cl=zClaw(),U=zUp();if(cl.phase!=='idle')return;if(U.zc<zPullCost()){toast('Nicht genug Zombie-Münzen ('+zPullCost()+' ☠ nötig).','');return;}U.zc-=zPullCost();saveW();cl.phase='move';zClawBtn('Jetzt greifen!',false);cl.result=null;cl.msg='';cl.held=null;cl.open=1;cl.y=30;cl.lastTs=0;const m=$app.querySelector('.zclawcoins');if(m)m.textContent='☠ '+U.zc+' Münzen';requestAnimationFrame(zClawLoop);}
+function zClawRelease(){const cl=zClaw();if(cl.phase==='move'){cl.phase='drop';zClawBtn('…',true);}}
 function zClawLoop(ts){const Z=zState(),cl=zClaw();const cv=$app.querySelector('.zclaw');if(!cv){cl.phase='idle';return;}const g=zClawGeo(cv);if(!cl.lastTs)cl.lastTs=ts;const dt=Math.min(50,ts-cl.lastTs)/1000;cl.lastTs=ts;
   const crateX=i=>g.left+g.slotW*(i+0.5);
   if(cl.phase==='move'){cl.x+=cl.dir*150*dt;if(cl.x>g.W-24){cl.x=g.W-24;cl.dir=-1;}if(cl.x<g.left+10){cl.x=g.left+10;cl.dir=1;}}
@@ -821,8 +822,8 @@ function zombies(){const Z=zState();const U=zUp();
     h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🎰 Waffenautomat</h3><span class="hint zclawcoins">☠ ${U.zc} Münzen</span></div>
     <div class="zclawbox"><canvas class="zclaw"></canvas></div>
     ${rv?`<div class="zreveal row"><span>${ZW[rv].e}</span><div><b>${ZW[rv].n}</b><small>${ZW_RAR[ZW[rv].r]}${U.weapons[rv]>1?' · Stufe '+U.weapons[rv]:''}</small></div></div>`:''}
-    <button class="btn btn-primary btn-big zgrab" data-a="zGrab" ${U.zc<zPullCost()?'disabled':''}>Halten: Greifer fährt · Loslassen: greifen · ${zPullCost()} ☠</button>
-    <p class="hint">Den Knopf gedrückt halten, der Greifer fährt hin und her; loslassen, wenn er über der gewünschten Kiste ist. Je genauer, desto sicherer der Griff – goldene Kisten rutschen gern ab. Gewöhnlich: grau · Selten: blau · Episch: lila · Legendär: gold. Doppelte Waffen steigen eine Stufe (+15 % Schaden, bis 5).</p>${zLvPanel('claw')}
+    <button class="btn btn-primary btn-big zgrab" data-a="zGrab" ${U.zc<zPullCost()?'disabled':''}>Greifer starten · ${zPullCost()} ☠</button>
+    <p class="hint">Einmal tippen: der Greifer fährt hin und her. Nochmal tippen (Knopf oder Automat), wenn er über der gewünschten Kiste ist – dann fällt er. Je genauer, desto sicherer der Griff – goldene Kisten rutschen gern ab. Gewöhnlich: grau · Selten: blau · Episch: lila · Legendär: gold. Doppelte Waffen steigen eine Stufe (+15 % Schaden, bis 5).</p>${zLvPanel('claw')}
     <div class="zshop">${Object.keys(ZW).map(k=>{const w=ZW[k],own=U.weapons[k];return`<div class="zrow ${own?'':'dim'} ${U.weapon===k?'eq':''}"><span class="ze">${own?w.e:'🔒'}</span><div class="zinfo"><b>${own?w.n:'???'} <small>${ZW_RAR[w.r]}${own>1?' · Stufe '+own:''}</small></b><span>${own?w.d+' · '+w.dmg+' Schaden · '+w.cd+' ms'+(w.rad?' · Radius '+w.rad:''):'noch nicht gezogen'}</span></div>${own?`<button class="btn ${U.weapon===k?'btn-primary':'btn-outline'}" data-a="zEquip" data-k="${k}" ${U.weapon===k?'disabled':''}>${U.weapon===k?'Aktiv':'Nehmen'}</button>`:'<span></span>'}</div>`;}).join('')}</div></section>`;
   }else if(Z.tab==='witch'){
     h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🧙 Hexenhaus</h3><span class="hint">max. ${2+zLv('camp')} pro Sorte</span></div><div class="zshop">${Object.keys(ZPOT).map(p=>{const t=ZPOT[p],n=U.potions[p]||0,c=zPotCost(p);return`<div class="zrow"><span class="ze">${t.e}</span><div class="zinfo"><b>${t.n} <small>×${n}</small></b><span>${t.d}</span></div><button class="btn btn-outline" data-a="zBuyPot" data-p="${p}" ${n>=2+zLv('camp')||W.coins<c?'disabled':''}>${c} 🪙</button></div>`;}).join('')}</div>${zLvPanel('witch')}<p class="hint">Im Lauf erscheinen die Tränke als Knöpfe unter dem Spielfeld. „Es ist alles nur Kräuterzeug“, sagt die Hexe.</p></section>`;
@@ -868,34 +869,58 @@ function zBoxDraw(x,cx,cy,f,h,col,opt){opt=opt||{};const hx=f*ZISO.tw/2,hy=f*ZIS
   return{N:up(N),E:up(E),S:up(S),W:up(Wp),hx,hy,top:cy-hy-h-(opt.roof||0)};}
 function zWindow(x,px,py,lit){x.fillStyle=lit?'#ffd76a':'#2a2a3a';x.fillRect(px-3,py-4,6,8);if(lit){x.fillStyle='rgba(255,215,106,.25)';x.fillRect(px-6,py-7,12,14);}}
 function zVillageDraw(cv,t){const Z=zState(),U=zUp();const dpr=Math.min(2,window.devicePixelRatio||1);const W_=cv.clientWidth,H_=cv.clientHeight;if(cv.width!==Math.round(W_*dpr)){cv.width=Math.round(W_*dpr);cv.height=Math.round(H_*dpr);}
-  const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);const g={ox:W_/2,oy:46};Z.vhits=[];
-  const sky=x.createLinearGradient(0,0,0,H_);sky.addColorStop(0,'#101c2e');sky.addColorStop(.5,'#1b2f3a');sky.addColorStop(1,'#213d2c');x.fillStyle=sky;x.fillRect(0,0,W_,H_);
-  x.fillStyle='rgba(255,255,255,.7)';for(let k=0;k<14;k++){x.fillRect((k*53+17)%W_,(k*29+5)%40,1.5,1.5);}x.font='18px system-ui';x.textBaseline='middle';x.textAlign='center';x.fillText('🌙',W_-28,22);
-  // Boden
-  const n=ZISO.n;for(let i=0;i<n;i++)for(let j=0;j<n;j++){const c=zIso(i,j,g);const hx=ZISO.tw/2,hy=ZISO.th/2;const path=(i===3&&j>=3)||(j===3&&i>=1&&i<=4)||(i===3&&j===2);const col=path?'#6b5a3a':((i+j)%2?'#2f6b3a':'#2a5f34');zPoly(x,[[c.x,c.y-hy],[c.x+hx,c.y],[c.x,c.y+hy],[c.x-hx,c.y]],col,'rgba(0,0,0,.12)');}
-  // Wald am linken Rand, Mauer/Barrikade am rechten hinteren Rand (da kommen die Zombies her)
-  for(let k=0;k<n;k++){const c=zIso(-1,k,g);x.font='26px system-ui';x.fillText(k%2?'🌲':'🌳',c.x,c.y-10);}
-  for(let k=0;k<n;k++){const c=zIso(k,-1,g);if(U.wall){zBoxDraw(x,c.x,c.y,.75,8+3*U.wall,'#8a8a92');}else{x.font='22px system-ui';x.fillText('🪵',c.x,c.y-6);}}
-  {const c=zIso(2.5,-2.2,g);x.font='22px system-ui';x.globalAlpha=.75;x.fillText('🧟',c.x+Math.sin(t/700)*6,c.y);x.fillText('🧟',c.x+40,c.y-8+Math.sin(t/900)*3);x.globalAlpha=1;}
-  // Gebäude (von hinten nach vorn)
-  const list=Object.keys(ZB).filter(k=>k!=='wall').map(k=>({k,...ZB[k],lv:zLv(k),found:k==='camp'||!!U.found[k]})).sort((a,b)=>(a.i+a.j)-(b.i+b.j));
-  for(const b of list){const c=zIso(b.i,b.j,g);const lv=b.lv;let top;
-    if(!b.found){x.globalAlpha=.75;x.font='20px system-ui';x.fillText('🌿',c.x-12,c.y+2);x.fillText('🌿',c.x+12,c.y+4);x.fillStyle='#8b6b3a';x.fillRect(c.x-1.5,c.y-26,3,24);x.fillStyle='#e2d4b7';x.fillRect(c.x-11,c.y-34,22,14);x.fillStyle='#1c1a17';x.font='800 11px system-ui';x.fillText('?',c.x,c.y-27);x.globalAlpha=1;top=c.y-40;Z.vhits.push({k:b.k,x:c.x-24,y:c.y-44,w:48,h:56,locked:true});continue;}
+  const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);const g={ox:W_/2,oy:52};Z.vhits=[];const n=ZISO.n,tw=ZISO.tw,th=ZISO.th,hx=tw/2,hy=th/2;
+  // Himmel + Wiese rundherum (Tag)
+  const sky=x.createLinearGradient(0,0,0,H_*0.35);sky.addColorStop(0,'#9fd0ea');sky.addColorStop(1,'#cfe6d2');x.fillStyle=sky;x.fillRect(0,0,W_,H_);
+  x.fillStyle='#6fa85a';x.fillRect(0,H_*0.28,W_,H_);x.fillStyle='#ffe9a0';x.beginPath();x.arc(W_-40,26,13,0,Math.PI*2);x.fill();
+  x.fillStyle='rgba(255,255,255,.85)';[[40,22,28],[120,34,20],[260,18,24]].forEach(([cx,cy,r])=>{x.beginPath();x.arc(cx,cy,r*0.5,0,Math.PI*2);x.arc(cx+r*0.5,cy-4,r*0.6,0,Math.PI*2);x.arc(cx+r,cy,r*0.5,0,Math.PI*2);x.fill();});
+  const diamond=(c,f,col,stroke)=>zPoly(x,[[c.x,c.y-hy*f],[c.x+hx*f,c.y],[c.x,c.y+hy*f],[c.x-hx*f,c.y]],col,stroke);
+  // Außenwiese um die Mauer
+  for(let i=-3;i<n+3;i++)for(let j=-3;j<n+3;j++){if(i>=-1&&i<=n&&j>=-1&&j<=n)continue;const c=zIso(i,j,g);diamond(c,1,(i+j)%2?'#7bb264':'#6fa85a');}
+  // Dorfboden
+  const path=(i,j)=>(i===3&&j>=3)||(j===3&&i>=1)||(i===3&&j===2)||(i===4&&j===3);
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){const c=zIso(i,j,g);diamond(c,1,path(i,j)?'#c9a86a':((i+j)%2?'#8ec46f':'#84ba66'),'rgba(0,0,0,.08)');if(!path(i,j)&&(i*7+j*3)%5===0){x.fillStyle='rgba(255,255,255,.35)';x.fillRect(c.x-6,c.y-2,2,2);x.fillRect(c.x+5,c.y+3,2,2);}}
+  // Mauerring: Holzpalisade oder Steinmauer, mit Tor vorne rechts und Ecktürmen
+  const stone=U.wall>0,wh=stone?9+2*U.wall:16;
+  const seg=(i,j,dir)=>{const c=zIso(i,j,g);const front=(i===n||j===n);if(front)x.globalAlpha=.6;if(stone){zBoxDraw(x,c.x,c.y,.9,wh,'#9c9ca4');x.fillStyle='rgba(0,0,0,.15)';for(let k=0;k<2;k++)x.fillRect(c.x-hx*.6+k*16,c.y-wh*0.45,10,2);}
+    else{const sx=dir==='i'?1:-1;for(let k=-2;k<=2;k++){const px=c.x+sx*k*hx*0.36,py=c.y+k*hy*0.36;const col=k%2?'#9a6b3a':'#8a5e30';x.fillStyle=col;x.fillRect(px-4,py-wh,8,wh);x.fillStyle=zShade(col,1.25);x.beginPath();x.moveTo(px-4,py-wh);x.lineTo(px,py-wh-5);x.lineTo(px+4,py-wh);x.fill();}}x.globalAlpha=1;};
+  const towerAt=(i,j)=>{const c=zIso(i,j,g);const h=wh+12;zBoxDraw(x,c.x,c.y,.6,h,stone?'#8a8a92':'#7a5230',{roof:10,roofCol:stone?'#6b4a3a':'#5a3b1e'});};
+  const drawables=[];
+  const gate={i:n,j:3};
+  for(let k=0;k<n;k++){drawables.push({d:k+(-1),f:()=>seg(k,-1,'i')});drawables.push({d:(-1)+k,f:()=>seg(-1,k,'j')});if(!(k===gate.j))drawables.push({d:n+k,f:()=>seg(n,k,'j')});drawables.push({d:k+n,f:()=>seg(k,n,'i')});}
+  [[-1,-1],[n,-1],[-1,n],[n,n]].forEach(([i,j])=>drawables.push({d:i+j+0.1,f:()=>towerAt(i,j)}));
+  drawables.push({d:gate.i+gate.j,f:()=>{const c=zIso(gate.i,gate.j,g);zBoxDraw(x,c.x-6,c.y-3,.3,wh+8,stone?'#8a8a92':'#7a5230');zBoxDraw(x,c.x+8,c.y+4,.3,wh+8,stone?'#8a8a92':'#7a5230');x.fillStyle='#4a3419';x.fillRect(c.x-8,c.y-wh-8,20,5);x.font='12px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText('🚪',c.x+1,c.y-6);}});
+  // Weg aus dem Tor
+  drawables.push({d:gate.i+gate.j-0.5,f:()=>{for(let k=1;k<=2;k++){const c=zIso(n+k,3,g);diamond(c,1,'#c9a86a');}}});
+  // Zombies vor dem Tor
+  drawables.push({d:99,f:()=>{const c=zIso(n+2.2,3,g);x.font='22px system-ui';x.textAlign='center';x.textBaseline='middle';x.globalAlpha=.9;x.fillText('🧟',c.x+Math.sin(t/700)*5,c.y-8);x.fillText('🧟‍♂️',c.x+34,c.y+2+Math.sin(t/900)*3);x.globalAlpha=1;}});
+  // Bäume außen
+  [[-2,1],[-2,4],[1,-2.5],[4,-2.6],[-2.5,6.5],[7.5,6]].forEach(([i,j],k)=>drawables.push({d:i+j-0.2,f:()=>{const c=zIso(i,j,g);x.font='28px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText(k%2?'🌲':'🌳',c.x,c.y-12);}}));
+  x.textAlign='center';x.textBaseline='middle';
+  const timber=(cx,cy,f,h)=>{const hx2=f*hx,hy2=f*hy;x.strokeStyle='rgba(60,35,15,.55)';x.lineWidth=1.5;x.beginPath();x.moveTo(cx-hx2,cy-h/2);x.lineTo(cx,cy+hy2-h/2);x.moveTo(cx,cy+hy2-h/2);x.lineTo(cx+hx2,cy-h/2);x.moveTo(cx-hx2*0.5,cy+hy2*0.5-h);x.lineTo(cx-hx2*0.5,cy+hy2*0.5);x.moveTo(cx+hx2*0.5,cy+hy2*0.5-h);x.lineTo(cx+hx2*0.5,cy+hy2*0.5);x.stroke();};
+  const tiles=(cx,top,w,h)=>{x.strokeStyle='rgba(0,0,0,.18)';x.lineWidth=1;for(let k=1;k<4;k++){const yy=top+h*k/4;x.beginPath();x.moveTo(cx-w*(1-k/4)*0.95,yy);x.lineTo(cx+w*(1-k/4)*0.95,yy);x.stroke();}};
+  const door=(px,py)=>{x.fillStyle='#4a3419';x.fillRect(px-3,py-8,6,8);};
+  const list=Object.keys(ZB).filter(k=>k!=='wall').map(k=>({k,...ZB[k],lv:zLv(k),found:k==='camp'||!!U.found[k]}));
+  for(const b of list)drawables.push({d:b.i+b.j,f:()=>{const c=zIso(b.i,b.j,g);const lv=b.lv;let top;
+    if(!b.found){x.font='18px system-ui';x.fillText('🌿',c.x-12,c.y+2);x.fillText('🌾',c.x+12,c.y+4);x.fillStyle='#8b6b3a';x.fillRect(c.x-1.5,c.y-26,3,24);x.fillStyle='#f0e4c8';x.fillRect(c.x-11,c.y-34,22,14);x.strokeStyle='#6b4a2a';x.strokeRect(c.x-11,c.y-34,22,14);x.fillStyle='#1c1a17';x.font='800 11px system-ui';x.fillText('?',c.x,c.y-27);Z.vhits.push({k:b.k,x:c.x-24,y:c.y-44,w:48,h:56,locked:true});return;}
     const h=14+5*lv;
-    if(b.k==='camp'){const r=zBoxDraw(x,c.x,c.y,.8,h,'#b08a5a',{roof:16+2*lv,roofCol:'#8a3b2a'});zWindow(x,c.x+9,c.y-h/2-2,lv>=2);if(lv>=3)zWindow(x,c.x-9,c.y-h/2+2,true);top=r.top;
-      x.fillStyle='#5a3b1e';x.fillRect(c.x+14,c.y-h-30,2,22);x.fillStyle=lv>=5?'#ffd76a':'#b5363c';zPoly(x,[[c.x+16,c.y-h-30],[c.x+26+Math.sin(t/300)*2,c.y-h-26],[c.x+16,c.y-h-22]],lv>=5?'#ffd76a':'#b5363c');}
-    else if(b.k==='smith'){const r=zBoxDraw(x,c.x,c.y,.78,h,'#7d7d86');top=r.top;x.fillStyle='#3a3a44';x.fillRect(c.x+6,c.y-h-16,7,16);for(let s=0;s<3;s++){const a=((t/900)+s/3)%1;x.fillStyle='rgba(200,200,210,'+(0.45*(1-a))+')';x.beginPath();x.arc(c.x+9+Math.sin(a*6)*3,c.y-h-18-a*22,3+a*4,0,Math.PI*2);x.fill();}zWindow(x,c.x-8,c.y-h/2,true);x.font='14px system-ui';x.fillText('⚒️',c.x-14,c.y+4);if(lv>=3){x.fillStyle='#ff8a3a';x.fillRect(c.x+2,c.y-6,10,4);}}
-    else if(b.k==='claw'){const r=zBoxDraw(x,c.x,c.y,.8,h+4,'#4a2a6b');top=r.top;const neon=Math.floor(t/400)%2?'#ff5bd6':'#5fd3ff';x.fillStyle=neon;x.fillRect(c.x-12,c.y-h-10,24,5);x.fillStyle='rgba(255,255,255,'+(0.08+0.05*Math.sin(t/200))+')';x.fillRect(c.x-16,c.y-h-14,32,13);zWindow(x,c.x+8,c.y-h/2,true);zWindow(x,c.x-8,c.y-h/2+3,lv>=2);x.font='13px system-ui';x.fillText('🎰',c.x,c.y-h-22);}
-    else if(b.k==='witch'){const r=zBoxDraw(x,c.x,c.y,.66,h-2,'#5e4a7a',{roof:26+3*lv,roofCol:'#2e2342'});top=r.top;zWindow(x,c.x+6,c.y-h/2+1,true);x.font='13px system-ui';x.fillText('🧪',c.x-14,c.y+2);if(lv>=2){x.fillStyle='rgba(120,255,160,'+(0.35+0.2*Math.sin(t/500))+')';x.beginPath();x.arc(c.x-14,c.y-6,6,0,Math.PI*2);x.fill();}x.font='12px system-ui';x.fillText('🦇',c.x+16+Math.sin(t/600)*5,c.y-h-30+Math.cos(t/800)*4);}
-    else if(b.k==='tower'){if(lv===0){zBoxDraw(x,c.x,c.y,.5,22,'#6d6d72');x.font='12px system-ui';x.fillStyle='#e2d4b7';x.fillText('verfallen',c.x,c.y+16);top=c.y-30;}else{const hh=30+9*lv;const r=zBoxDraw(x,c.x,c.y,.5,hh,'#8a8a92');top=r.top;[-1,0,1].forEach(s=>{zBoxDraw(x,c.x+s*7,c.y-hh+2,.16,6,'#9a9aa2');});zWindow(x,c.x+4,c.y-hh*0.6,true);x.font='12px system-ui';x.fillText('🏹',c.x,c.y-hh-10);if(Math.floor(t/1800)%3===0){x.strokeStyle='rgba(255,215,106,.7)';x.lineWidth=1.5;x.beginPath();x.moveTo(c.x,c.y-hh-6);x.lineTo(c.x+60,c.y-hh-50);x.stroke();}}}
-    else if(b.k==='market'){const r=zBoxDraw(x,c.x,c.y,.74,h-6,'#9a6b3a');top=r.top;for(let s=0;s<5;s++){x.fillStyle=s%2?'#f4ebd9':'#b5363c';x.fillRect(c.x-20+s*8,c.y-h-2,8,6);}x.font='14px system-ui';x.fillText('🍎',c.x-8,c.y-4);x.fillText(lv>=3?'💎':'🧺',c.x+8,c.y-2);}
-    else if(b.k==='chapel'){const r=zBoxDraw(x,c.x,c.y,.7,h,'#d8d0c0',{roof:12,roofCol:'#6b4a3a'});top=r.top;zBoxDraw(x,c.x-8,c.y-2,.22,h+18,'#e2d4b7',{roof:12,roofCol:'#6b4a3a'});x.fillStyle='#d2ab52';x.fillRect(c.x-9,c.y-h-40,2,10);x.fillRect(c.x-12,c.y-h-37,8,2);zWindow(x,c.x+8,c.y-h/2,lv>=2);top-=24;}
-    // Stufen-Plakette
+    if(b.k==='camp'){const r=zBoxDraw(x,c.x,c.y,.82,h,'#e8d7b5',{roof:16+2*lv,roofCol:'#a8402e'});timber(c.x,c.y,.82,h);tiles(c.x,r.top,hx*.82,16+2*lv);zWindow(x,c.x+10,c.y-h/2-2,lv>=2);if(lv>=3)zWindow(x,c.x-10,c.y-h/2+2,true);door(c.x+2,c.y+hy*.4);top=r.top;
+      x.fillStyle='#5a3b1e';x.fillRect(c.x+14,c.y-h-32,2,24);zPoly(x,[[c.x+16,c.y-h-32],[c.x+27+Math.sin(t/300)*2,c.y-h-28],[c.x+16,c.y-h-24]],lv>=5?'#ffd76a':'#b5363c');}
+    else if(b.k==='smith'){const r=zBoxDraw(x,c.x,c.y,.8,h,'#a89f93',{roof:10,roofCol:'#4a4a52'});top=r.top;x.fillStyle='#3a3a44';x.fillRect(c.x+7,c.y-h-20,7,18);for(let s=0;s<3;s++){const a=((t/900)+s/3)%1;x.fillStyle='rgba(120,120,130,'+(0.5*(1-a))+')';x.beginPath();x.arc(c.x+10+Math.sin(a*6)*3,c.y-h-22-a*22,3+a*4,0,Math.PI*2);x.fill();}x.fillStyle='#ff8a3a';x.fillRect(c.x-12,c.y-6,10,5);x.fillStyle='rgba(255,140,58,'+(0.3+0.2*Math.sin(t/150))+')';x.fillRect(c.x-14,c.y-9,14,10);x.font='13px system-ui';x.fillText('⚒️',c.x-16,c.y+8);timber(c.x,c.y,.8,h);}
+    else if(b.k==='claw'){const r=zBoxDraw(x,c.x,c.y,.82,h+4,'#7a4a9a',{roof:8,roofCol:'#3a2452'});top=r.top;const neon=Math.floor(t/400)%2?'#ff5bd6':'#5fd3ff';x.fillStyle=neon;x.fillRect(c.x-13,c.y-h-9,26,5);zWindow(x,c.x+9,c.y-h/2,true);zWindow(x,c.x-9,c.y-h/2+3,lv>=2);door(c.x,c.y+hy*.4);x.font='13px system-ui';x.fillText('🎰',c.x,c.y-h-20);}
+    else if(b.k==='witch'){const r=zBoxDraw(x,c.x,c.y,.66,h-2,'#8a6aa8',{roof:26+3*lv,roofCol:'#3a2a52'});top=r.top;timber(c.x,c.y,.66,h-2);zWindow(x,c.x+6,c.y-h/2+1,true);x.font='13px system-ui';x.fillText('🧪',c.x-15,c.y+2);x.fillStyle='rgba(120,255,160,'+(0.35+0.2*Math.sin(t/500))+')';x.beginPath();x.arc(c.x-15,c.y-6,6,0,Math.PI*2);x.fill();x.font='12px system-ui';x.fillText('🦇',c.x+16+Math.sin(t/600)*5,c.y-h-30+Math.cos(t/800)*4);}
+    else if(b.k==='tower'){if(lv===0){zBoxDraw(x,c.x,c.y,.5,22,'#9a9aa2');x.fillStyle='#1c1a17';x.font='11px system-ui';x.fillText('verfallen',c.x,c.y+16);top=c.y-30;}else{const hh=30+9*lv;const r=zBoxDraw(x,c.x,c.y,.5,hh,'#b5b5bd');top=r.top;[-1,0,1].forEach(s=>{zBoxDraw(x,c.x+s*7,c.y-hh+2,.16,6,'#c5c5cd');});zWindow(x,c.x+4,c.y-hh*0.6,false);x.font='12px system-ui';x.fillText('🏹',c.x,c.y-hh-10);if(Math.floor(t/1800)%3===0){x.strokeStyle='rgba(60,35,15,.8)';x.lineWidth=1.5;x.beginPath();x.moveTo(c.x,c.y-hh-6);x.lineTo(c.x+70,c.y-hh-20);x.stroke();}}}
+    else if(b.k==='market'){const r=zBoxDraw(x,c.x,c.y,.74,h-6,'#c8a070');top=r.top;for(let s=0;s<5;s++){x.fillStyle=s%2?'#f4ebd9':'#b5363c';x.fillRect(c.x-20+s*8,c.y-h-2,8,6);}x.font='14px system-ui';x.fillText('🍎',c.x-8,c.y-4);x.fillText(lv>=3?'💎':'🧺',c.x+8,c.y-2);}
+    else if(b.k==='chapel'){const r=zBoxDraw(x,c.x,c.y,.7,h,'#efe6d6',{roof:12,roofCol:'#8a5a3a'});top=r.top;tiles(c.x,r.top,hx*.7,12);zBoxDraw(x,c.x-8,c.y-2,.22,h+18,'#f4ecdc',{roof:12,roofCol:'#8a5a3a'});x.fillStyle='#d2ab52';x.fillRect(c.x-9,c.y-h-40,2,10);x.fillRect(c.x-12,c.y-h-37,8,2);zWindow(x,c.x+8,c.y-h/2,lv>=2);door(c.x+2,c.y+hy*.35);top-=24;}
     x.fillStyle='rgba(0,0,0,.6)';const lab='Lv '+lv;x.font='700 10px system-ui';const lw=x.measureText(lab).width+10;x.fillRect(c.x-lw/2,top-18,lw,14);x.fillStyle=lv>=5?'#ffd76a':'#f4ebd9';x.fillText(lab,c.x,top-11);
     Z.vhits.push({k:b.k,x:c.x-30,y:top-20,w:60,h:c.y-top+34});
-    if(Z.tab===b.k){x.strokeStyle='#ffd76a';x.lineWidth=2;x.setLineDash([4,3]);x.strokeRect(c.x-30,top-22,60,c.y-top+36);x.setLineDash([]);}
-  }
-  x.fillStyle='rgba(0,0,0,.45)';x.fillRect(0,H_-18,W_,18);x.fillStyle='#e2d4b7';x.font='11px system-ui';x.textAlign='left';x.fillText('Gebäude antippen · ❔ = noch nicht entdeckt',8,H_-9);}
+    if(Z.tab===b.k){x.strokeStyle='#ffd76a';x.lineWidth=2;x.setLineDash([4,3]);x.strokeRect(c.x-30,top-22,60,c.y-top+36);x.setLineDash([]);}}});
+  // Dorfbewohner & Deko
+  drawables.push({d:3.6,f:()=>{const c=zIso(2,3,g);x.font='14px system-ui';x.fillText('🧑‍🌾',c.x+Math.sin(t/1500)*10,c.y-6);}});
+  drawables.push({d:5.2,f:()=>{const c=zIso(2,4,g);x.font='14px system-ui';x.fillText('🐓',c.x,c.y-4);}});
+  drawables.push({d:7.5,f:()=>{const c=zIso(4,4,g);x.fillStyle='#6b6b72';x.beginPath();x.arc(c.x,c.y,8,0,Math.PI*2);x.fill();x.fillStyle='#3a6ea8';x.beginPath();x.arc(c.x,c.y,5,0,Math.PI*2);x.fill();x.fillStyle='#8b6b3a';x.fillRect(c.x-1,c.y-18,2,14);}});
+  drawables.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
+  x.fillStyle='rgba(0,0,0,.45)';x.fillRect(0,H_-18,W_,18);x.fillStyle='#f4ebd9';x.font='11px system-ui';x.textAlign='left';x.fillText('Gebäude antippen · ❔ = noch nicht entdeckt'+(stone?' · Steinmauer Stufe '+U.wall:' · Holzpalisade'),8,H_-9);}
 function zVillageTap(px,py){const Z=zState();const hit=(Z.vhits||[]).slice().reverse().find(h=>px>=h.x&&px<=h.x+h.w&&py>=h.y&&py<=h.y+h.h);if(!hit)return;if(hit.locked){const ev=ZSTORY.find(s=>s.key===hit.k);toast('❔ Noch nicht entdeckt – ab Welle '+(ev?ev.wave:'?')+' wartet hier etwas.','');return;}Z.tab=hit.k;render();}
 /* ---- Maulwurf-Klopfen: 30 Sekunden tippen, jeder Treffer gibt Taler. Kostet nichts. ---- */
 const MOLE_MS=30000,MOLE_CAP=40;
@@ -1583,8 +1608,7 @@ $app.addEventListener('contextmenu',e=>{if(e.target.closest('.mingrid')||e.targe
 $app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="moleHit"]');if(t){e.preventDefault();moleHit(+t.dataset.i);}});
 $app.addEventListener('pointerdown',e=>{const cv=e.target.closest('.zcv');if(!cv)return;e.preventDefault();const r=cv.getBoundingClientRect();zHit(e.clientX-r.left,e.clientY-r.top);});
 setInterval(()=>{if(C.page!=='zomb'||(C.zomb&&C.zomb.running))return;const vv=$app.querySelector('.zv');if(vv)zVillageDraw(vv,performance.now());},120);
-$app.addEventListener('pointerdown',e=>{const vv=e.target.closest('.zv');if(vv){const r=vv.getBoundingClientRect();zVillageTap(e.clientX-r.left,e.clientY-r.top);return;}const b=e.target.closest('[data-a="zGrab"]');if(!b||b.disabled)return;e.preventDefault();zClawHold();});
-['pointerup','pointercancel'].forEach(ev=>document.addEventListener(ev,()=>{if(C.zomb&&C.zomb.claw&&C.zomb.claw.phase==='move')zClawRelease();}));
+$app.addEventListener('pointerdown',e=>{const vv=e.target.closest('.zv');if(vv){const r=vv.getBoundingClientRect();zVillageTap(e.clientX-r.left,e.clientY-r.top);return;}if(e.target.closest('.zclaw')&&C.zomb&&C.zomb.claw&&C.zomb.claw.phase==='move'){e.preventDefault();zClawRelease();}});
 let tSw=null;
 $app.addEventListener('pointerdown',e=>{const b=e.target.closest('.tboard');tSw=b?{x:e.clientX,y:e.clientY,id:e.pointerId}:null;},{passive:true});
 $app.addEventListener('pointerup',e=>{if(!tSw||e.pointerId!==tSw.id)return;const dx=e.clientX-tSw.x,dy=e.clientY-tSw.y;tSw=null;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;tSwipe(Math.abs(dx)>Math.abs(dy)?(dx>0?2:0):(dy>0?3:1));});
@@ -1608,7 +1632,7 @@ $app.addEventListener('click',async e=>{
     case 'zQuit':if(C.zomb&&C.zomb.running)zEnd(C.zomb,true);break;
     case 'zBuy':zBuy(d.k);break;
     case 'zPull':zPull();break;
-    case 'zGrab':break;
+    case 'zGrab':{const cl=zClaw();if(cl.phase==='idle')zClawHold();else if(cl.phase==='move')zClawRelease();break;}
     case 'zEquip':zEquip(d.k);break;
     case 'zBuyPot':zBuyPot(d.p);break;
     case 'zBuild':zBuild(d.k);break;
