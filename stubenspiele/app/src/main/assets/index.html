@@ -666,6 +666,7 @@ const ZSTORY=[
  {wave:4,key:'claw',e:'🎰',title:'Die alte Spielhalle',text:'Hinter dem Dorfplatz steht ein verstaubter Greifautomat voller Waffen. Er schluckt nur die grünen Zombie-Münzen, die manche Zombies fallen lassen. Münzen im Lauf antippen, um sie einzusammeln!'},
  {wave:7,key:'witch',e:'🧙',title:'Die Hexe im Wald',text:'Auf dem Weg zum Fluss steht eine Hütte auf Hühnerbeinen. Die Hexe lacht: „Tränke gegen Taler. Nehmt sie mit in den Kampf.“ Das Hexenhaus ist offen.'},
  {wave:10,key:'tower',e:'🗼',title:'Der alte Turm',text:'Ein halb verfallener Wachturm am Dorfrand. Mit ein paar Talern kann dort jemand Wache schieben – und schießt dann von selbst.'},
+ {wave:11,key:'stall',e:'🐕',title:'Der Stall',text:'Hinter der Schmiede winselt es: Ein struppiger Hund hat sich im alten Stall verkrochen. Mit etwas Futter bleibt er – und sammelt im Kampf von selbst Münzen und Rohstoffe ein, die ihr liegen lasst.'},
  {wave:13,key:'market',e:'🛒',title:'Der fahrende Händler',text:'Ein Händler mit einem Karren voller Krimskrams. Er tauscht Zombie-Münzen gegen Taler und umgekehrt – zu seinen Kursen, versteht sich.'},
  {wave:16,key:'wall',e:'🏰',title:'Die Steinmetzin',text:'Eine Steinmetzin bietet an, eine echte Dorfmauer zu bauen. Jede Stufe gibt ein Leben mehr pro Lauf.'},
  {wave:20,key:'chapel',e:'⛪',title:'Die Kapelle',text:'Die Glocke der alten Kapelle läutet wieder. Ab jetzt beginnt jeder Lauf mit einem Heiltrank gratis.'}];
@@ -677,17 +678,20 @@ function zPullCost(){return ZW_PULL-Math.max(0,zLv('claw')-1);}
 function zStats(U){const w=ZW[U.weapon]||ZW.fork,wl=U.weapons[U.weapon]||1;return{w,wl,dmg:Math.round(w.dmg*(1+0.15*(wl-1)))+(U.dmg-1),cd:w.cd/(1+0.3*(U.rate-1)),rad:w.rad+(U.shot>1?18*(U.shot-1):0)+(w.rad&&U.shot>1?2:0)};}
 function zState(){if(!C.zomb)C.zomb={running:false,last:null,tab:'camp'};return C.zomb;}
 function zStart(){const Z=zState();const U=zUp();const lives=2+U.hp+U.wall;const pots=Object.assign({},U.potions);if(U.found.chapel)pots.heal=(pots.heal||0)+(zLv('chapel')>=4?2:1);
-  Object.assign(Z,{running:true,paused:null,wave:1,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,loot:{},zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
+  Object.assign(Z,{running:true,paused:null,wave:1,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,loot:{},zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,freezeUntil:0,helpAt:{},dog:U.found.stall?{x:60,y:0,tgt:null,busyUntil:0}:null,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
   if(U.luckNext){U.luckNext=false;saveW();}zWave(Z);render();requestAnimationFrame(zLoop);}
 function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z.spawnAt=performance.now()+700;Z.waveMsg=performance.now();
   const U=zUp();const ev=ZSTORY.find(s=>s.wave===Z.wave&&!U.found[s.key]);if(ev){U.found[ev.key]=1;saveW();Z.paused=ev;Z.spawnAt+=1e9;}}
-function zSpawn(Z,cv){const g=zGeo(cv);const r=Math.random();const boss=Z.wave%5===0&&Z.toSpawn===1;const fat=!boss&&r<0.12+Z.wave*0.01;
-  const hp=boss?8+Z.wave*2:fat?3+Math.floor(Z.wave/2):1+Math.floor(Z.wave/3);const sp=(26+Z.wave*3)*(boss?0.55:fat?0.7:1)*(0.85+Math.random()*0.3);
-  Z.zs.push({x:24+Math.random()*(g.W-48),y:-34,hp,maxHp:hp,sp,boss,fat,r:boss?30:fat?24:19,wob:Math.random()*6});}
+/* Gegnerarten: normal, fat (dick), runner (Sprinter, ab 3), splitter (Spalter, ab 5), tank (Panzer, ab 6), mini (aus Spalter), boss (alle 5), Rufer-Boss (alle 10) */
+function zSpawn(Z,cv,kind,px,py){const g=zGeo(cv);const w=Z.wave;if(!kind){const r=Math.random();if(w%5===0&&Z.toSpawn===1)kind='boss';else if(w>=6&&r<0.09)kind='tank';else if(w>=5&&r<0.19)kind='splitter';else if(w>=3&&r<0.34)kind='runner';else if(r<0.46+w*0.01)kind='fat';else kind='normal';}
+  const base=26+w*3;const K={normal:{hp:1+Math.floor(w/3),sp:1,r:19},fat:{hp:3+Math.floor(w/2),sp:0.7,r:24},runner:{hp:1+Math.floor(w/5),sp:1.9,r:16},splitter:{hp:2+Math.floor(w/3),sp:0.9,r:21},mini:{hp:1,sp:1.4,r:14},tank:{hp:4+w,sp:0.6,r:24},boss:{hp:8+w*2,sp:0.55,r:30}}[kind];
+  Z.zs.push({kind,x:px!==undefined?px:24+Math.random()*(g.W-48),y:py!==undefined?py:-34,hp:K.hp,maxHp:K.hp,sp:base*K.sp*(0.85+Math.random()*0.3),boss:kind==='boss',fat:kind==='fat',r:K.r,wob:Math.random()*6,summoner:kind==='boss'&&w%10===0,lastCall:performance.now()});}
 function zGeo(cv){return{W:cv.clientWidth,H:cv.clientHeight,wall:cv.clientHeight-64};}
-function zKill(Z,z,now){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind:'splat',big:z.boss||z.fat});const U=zUp();const luck=Z.luck?2:1;
-  const n=z.boss?5:z.fat?(Math.random()<0.5*luck?2:0):(Math.random()<(0.22+0.03*Math.max(0,zLv('chapel')-1))*luck?1:0);for(let i=0;i<n;i++)Z.coins.push({t:'zc',x:z.x+(Math.random()-0.5)*30,y:z.y,at:now,vy:12+Math.random()*10});
-  for(const q in ZMAT){const d=ZMAT[q];if(Z.wave<d.from)continue;const k=z.boss?(q==='wood'?3:q==='stone'?2:1):(Math.random()<d.p*(z.fat?1.6:1)*luck?1:0);for(let i=0;i<k;i++)Z.coins.push({t:q,x:z.x+(Math.random()-0.5)*34,y:z.y+6,at:now,vy:14+Math.random()*10});}}
+function zKill(Z,z,now){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind:'splat',big:z.boss||z.fat||z.kind==='tank'});const U=zUp();const luck=Z.luck?2:1;
+  if(z.kind==='splitter'){const cv=$app.querySelector('.zcv');if(cv){zSpawn(Z,cv,'mini',z.x-14,z.y);zSpawn(Z,cv,'mini',z.x+14,z.y);}}
+  if(z.kind==='mini')return;
+  const n=z.boss?5:z.kind==='tank'?2:z.fat?(Math.random()<0.5*luck?2:0):(Math.random()<(0.22+0.03*Math.max(0,zLv('chapel')-1))*luck?1:0);for(let i=0;i<n;i++)Z.coins.push({t:'zc',x:z.x+(Math.random()-0.5)*30,y:z.y,at:now,vy:12+Math.random()*10});
+  for(const q in ZMAT){const d=ZMAT[q];if(Z.wave<d.from)continue;const k=z.boss?(q==='wood'?3:q==='stone'?2:1):z.kind==='tank'&&q==='stone'?1:(Math.random()<d.p*(z.fat?1.6:1)*luck?1:0);for(let i=0;i<k;i++)Z.coins.push({t:q,x:z.x+(Math.random()-0.5)*34,y:z.y+6,at:now,vy:14+Math.random()*10});}}
 function zDamage(Z,z,dmg,now){z.hp-=dmg;z.hitAt=now;if(z.hp<=0&&!z.dead)zKill(Z,z,now);}
 function zHit(x,y){const Z=zState();if(!Z.running||Z.over)return;const now=performance.now();
   if(Z.paused){Z.paused=null;Z.spawnAt=now+700;Z.waveMsg=now;return;}
@@ -698,7 +702,7 @@ function zHit(x,y){const Z=zState();if(!Z.running||Z.over)return;const now=perfo
   const cv=$app.querySelector('.zcv');if(!cv)return;Z.flash={x,y,at:now,e:st.w.e};
   const aim=8;let target=null,best=1e9;for(const z of Z.zs){if(z.dead)continue;const d=Math.hypot(z.x-x,z.y-y);if(d<z.r+aim&&d<best){best=d;target=z;}}
   if(!target){Z.fx.push({x,y,at:now,kind:'miss'});return;}
-  zDamage(Z,target,st.dmg,now);
+  const shielded=target.kind==='tank'&&!st.rad&&!st.w.pierce&&!st.w.chain;zDamage(Z,target,shielded?1:st.dmg,now);if(shielded&&!(target.shieldAt&&now-target.shieldAt<700)){target.shieldAt=now;Z.fx.push({x:target.x,y:target.y-10,at:now,kind:'text',s:'🛡️ Schild!',small:true});}
   if(st.rad){for(const z of Z.zs){if(z!==target&&!z.dead&&Math.hypot(z.x-target.x,z.y-target.y)<=st.rad+z.r)zDamage(Z,z,st.dmg,now);}Z.fx.push({x:target.x,y:target.y,at:now,kind:'ring',r:st.rad});}
   if(st.w.pierce){for(const z of Z.zs){if(z!==target&&!z.dead&&Math.abs(z.x-target.x)<24&&z.y<=target.y)zDamage(Z,z,st.dmg,now);}Z.fx.push({x:target.x,y:target.y,at:now,kind:'line'});}
   if(st.w.chain){let from=target;const hitSet=new Set([target]);for(let k=0;k<st.w.chain;k++){let nx=null,nd=1e9;for(const z of Z.zs){if(hitSet.has(z)||z.dead)continue;const d=Math.hypot(z.x-from.x,z.y-from.y);if(d<110&&d<nd){nd=d;nx=z;}}if(!nx)break;hitSet.add(nx);zDamage(Z,nx,Math.max(1,Math.round(st.dmg*0.7)),now);Z.fx.push({x:from.x,y:from.y,x2:nx.x,y2:nx.y,at:now,kind:'bolt'});from=nx;}}
@@ -715,17 +719,31 @@ function zLoop(ts){const Z=zState();if(!Z.running)return;const cv=$app.querySele
   if(!Z.lastTs)Z.lastTs=ts;const dt=Math.min(50,ts-Z.lastTs)/1000;Z.lastTs=ts;const now=performance.now();const U=zUp();
   if(!Z.paused){
     if(Z.toSpawn>0&&now>=Z.spawnAt){zSpawn(Z,cv);Z.toSpawn--;Z.spawnAt=now+Z.spawnGap*(0.7+Math.random()*0.6);}
-    const slow=now<Z.slowUntil?0.5:1;
-    for(const z of Z.zs){if(z.dead)continue;z.y+=z.sp*slow*dt;z.x+=Math.sin(now/400+z.wob)*8*dt;if(z.y>=g.wall-z.r*0.4){z.dead=true;Z.hp-=z.boss?3:z.fat?2:1;Z.fx.push({x:z.x,y:g.wall,at:now,kind:'crash'});if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}}}
+    const slow=(now<Z.slowUntil?0.5:1)*(now<Z.freezeUntil?0:1);
+    for(const z of Z.zs){if(z.dead)continue;if(z.summoner&&now-z.lastCall>4000&&Z.zs.length<18){z.lastCall=now;zSpawn(Z,cv,'runner',z.x,z.y+10);Z.fx.push({x:z.x,y:z.y-30,at:now,kind:'text',s:'📣 Kommt!',small:true});}z.y+=z.sp*slow*dt;z.x+=Math.sin(now/400+z.wob)*8*dt;if(z.y>=g.wall-z.r*0.4){z.dead=true;Z.hp-=z.boss?3:(z.fat||z.kind==='tank')?2:1;Z.fx.push({x:z.x,y:g.wall,at:now,kind:'crash'});if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}}}
     for(const c of Z.coins){c.y+=c.vy*dt;if(c.y>g.wall-6)c.y=g.wall-6;}
     Z.coins=Z.coins.filter(c=>now-c.at<5500);
     if(U.tower>0&&now-Z.towerAt>2200/U.tower){let t=null;for(const z of Z.zs)if(!z.dead&&(!t||z.y>t.y))t=z;if(t){Z.towerAt=now;zDamage(Z,t,1+Math.floor(U.tower/2),now);Z.fx.push({x:g.W-26,y:g.wall-30,x2:t.x,y2:t.y,at:now,kind:'tower'});}}
+    zHelpers(Z,g,now,U);zDog(Z,g,now,dt,U);
     Z.zs=Z.zs.filter(z=>!z.dead);
     if(Z.hp<=0){zEnd(Z,false);return;}
     if(Z.toSpawn===0&&!Z.zs.length){const pay=Math.round((3+Z.wave)*zGoldMul(U.gold)*(1+0.05*(zLv('camp')-1)));W.coins+=pay;Z.earned+=pay;if(Z.wave>(U.maxWave||0))U.maxWave=Z.wave;saveW();Z.fx.push({x:g.W/2,y:g.H/2,at:now,kind:'text',s:'Welle '+Z.wave+' geschafft · +'+pay+' 🪙'});Z.wave++;zWave(Z);}
   }
   Z.fx=Z.fx.filter(f=>now-f.at<700);
   zDraw(cv,Z,g,now);requestAnimationFrame(zLoop);}
+/* Helfer: Gebäude ab Stufe 3 greifen im Lauf ein */
+function zHelpers(Z,g,now,U){const due=(k,ms)=>{if(!U.found[k]||zLv(k)<3)return false;if(!Z.helpAt[k])Z.helpAt[k]=now+ms*0.5;if(now<Z.helpAt[k])return false;Z.helpAt[k]=now+ms;return true;};
+  if(due('smith',18000)){let t=null;for(const z of Z.zs)if(!z.dead&&(!t||z.hp>t.hp))t=z;if(t){zDamage(Z,t,3+zLv('smith'),now);Z.fx.push({x:30,y:g.wall-20,x2:t.x,y2:t.y,at:now,kind:'hammer'});Z.fx.push({x:t.x,y:t.y-24,at:now,kind:'text',s:'🔨 Schmied!',small:true});}}
+  if(due('witch',25000)&&Z.zs.length){Z.slowUntil=Math.max(Z.slowUntil,now+4000);Z.fx.push({x:g.W/2,y:g.H*0.5,at:now,kind:'text',s:'🐸 Hexenfrosch – Zeitlupe!'});}
+  if(due('market',20000)){Z.coins.push({t:'zc',x:30+Math.random()*(g.W-60),y:g.wall-40,at:now,vy:10});Z.fx.push({x:g.W/2,y:g.H*0.6,at:now,kind:'text',s:'🛒 Händler wirft eine Münze',small:true});}
+  if(due('claw',30000)){const q=['wood','stone','iron'][Math.floor(Math.random()*3)];Z.coins.push({t:q,x:30+Math.random()*(g.W-60),y:g.wall-50,at:now,vy:10});}
+  if(due('chapel',30000)&&Z.zs.length){Z.freezeUntil=now+2000;Z.fx.push({x:g.W/2,y:g.H*0.45,at:now,kind:'text',s:'🔔 Die Glocke – alles erstarrt!'});}}
+/* Hund aus dem Stall: läuft zur nächsten Beute und sammelt sie ein */
+function zDog(Z,g,now,dt,U){const d=Z.dog;if(!d)return;const lv=Math.max(1,zLv('stall'));if(!d.y)d.y=g.wall-16;if(d.tgt&&!Z.coins.includes(d.tgt))d.tgt=null;
+  if(!d.tgt&&now>=d.busyUntil){let best=null,bd=1e9;for(const c of Z.coins){const dd=Math.hypot(c.x-d.x,c.y-d.y);if(dd<bd){bd=dd;best=c;}}d.tgt=best;}
+  if(d.tgt){const sp=90+35*lv;const dx=d.tgt.x-d.x,dy=d.tgt.y-d.y,dist=Math.hypot(dx,dy);if(dist<14){const c=d.tgt;Z.coins.splice(Z.coins.indexOf(c),1);if(c.t&&c.t!=='zc'){Z.loot[c.t]=(Z.loot[c.t]||0)+1;}else Z.zc++;Z.fx.push({x:c.x,y:c.y,at:now,kind:'text',s:'🐕 +1 '+(c.t&&c.t!=='zc'?ZMAT[c.t].e:'☠'),small:true});d.tgt=null;d.busyUntil=now+Math.max(300,2600-450*lv);}
+    else{d.x+=dx/dist*sp*dt;d.y+=dy/dist*sp*dt;d.dir=dx<0?-1:1;}}
+  else{const hy=g.wall-16;d.y+=(hy-d.y)*Math.min(1,dt*3);d.x+=Math.sin(now/1300)*20*dt;}}
 function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;U.zc+=Z.zc;const mat=zMat();for(const q in Z.loot)mat[q]=(mat[q]||0)+Z.loot[q];saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,zc:Z.zc,loot:Z.loot,quit};Z.tab='camp';toast((quit?'Lauf beendet':'🧟 Überrannt in Welle '+Z.wave)+' · +'+Z.earned+' Taler · +'+Z.zc+' ☠','');render();}
 function zWrap(x,text,maxW){const words=text.split(' '),lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}if(cur)lines.push(cur);return lines;}
 function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);const U=zUp();
@@ -735,12 +753,18 @@ function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(c
   x.font='30px system-ui';x.fillText('🧑‍🌾',g.W/2,g.H-22);x.font='18px system-ui';x.fillText(zStats(U).w.e,g.W/2+22,g.H-30);
   if(U.tower>0){x.font='30px system-ui';x.fillText('🗼',g.W-26,g.wall-22);}
   for(const c of Z.coins){const age=now-c.at;const blink=age>4000&&Math.floor(age/150)%2===0;if(blink)continue;if(c.t&&c.t!=='zc'){x.fillStyle=ZMAT[c.t].col;x.beginPath();x.arc(c.x,c.y,11,0,Math.PI*2);x.fill();x.strokeStyle='rgba(255,255,255,.5)';x.lineWidth=1.5;x.stroke();x.font='13px system-ui';x.fillText(ZMAT[c.t].e,c.x,c.y+1);continue;}x.fillStyle='#39c46a';x.beginPath();x.arc(c.x,c.y,10,0,Math.PI*2);x.fill();x.strokeStyle='#1d6b3a';x.lineWidth=2;x.stroke();x.fillStyle='#0b1a12';x.font='800 12px system-ui';x.fillText('☠',c.x,c.y+1);}
-  for(const z of Z.zs){const sz=z.boss?46:z.fat?36:28;x.font=sz+'px system-ui';const hit=z.hitAt&&now-z.hitAt<120;if(hit){x.save();x.filter='brightness(1.8)';}x.fillText(z.boss?'👹':z.fat?'🧟‍♂️':'🧟',z.x,z.y);if(hit)x.restore();
+  if(now<Z.freezeUntil){x.fillStyle='rgba(160,200,255,.18)';x.fillRect(0,0,g.W,g.wall);}
+  if(Z.dog){const d=Z.dog;x.save();x.translate(d.x,d.y);if(d.dir<0)x.scale(-1,1);x.font='22px system-ui';x.fillText('🐕',0,0);x.restore();}
+  for(const z of Z.zs){const sz=z.boss?46:z.fat?36:z.kind==='tank'?34:z.kind==='runner'?24:z.kind==='mini'?18:z.kind==='splitter'?30:28;x.font=sz+'px system-ui';const hit=z.hitAt&&now-z.hitAt<120;if(hit){x.save();x.filter='brightness(1.8)';}
+    if(z.kind==='runner'){x.strokeStyle='rgba(255,255,255,.35)';x.lineWidth=2;x.beginPath();x.moveTo(z.x-10,z.y-12);x.lineTo(z.x-16,z.y-22);x.moveTo(z.x+10,z.y-12);x.lineTo(z.x+16,z.y-22);x.stroke();}
+    if(z.kind==='splitter'){x.fillStyle='rgba(120,255,120,.25)';x.beginPath();x.arc(z.x,z.y,sz*0.6,0,Math.PI*2);x.fill();}
+    x.fillText(z.boss?(z.summoner?'👹':'👹'):z.fat?'🧟‍♂️':z.kind==='splitter'?'🧟‍♀️':'🧟',z.x,z.y);if(z.kind==='tank'){x.font='20px system-ui';x.fillText('🛡️',z.x,z.y+10);}if(z.summoner){x.font='16px system-ui';x.fillText('📣',z.x+22,z.y-14);}if(hit)x.restore();
     if(z.maxHp>1){const w=sz,hpw=w*Math.max(0,z.hp)/z.maxHp;x.fillStyle='rgba(0,0,0,.5)';x.fillRect(z.x-w/2,z.y-sz*0.75,w,4);x.fillStyle=z.boss?'#ff5b5b':'#7fd18f';x.fillRect(z.x-w/2,z.y-sz*0.75,hpw,4);}}
   for(const f of Z.fx){const a=1-(now-f.at)/700;x.globalAlpha=Math.max(0,a);
     if(f.kind==='splat'){x.fillStyle='#4caf50';for(let i=0;i<6;i++){const ang=i*1.05+f.x*0.01,rr=(1-a)*(f.big?34:22);x.beginPath();x.arc(f.x+Math.cos(ang)*rr,f.y+Math.sin(ang)*rr,f.big?6:4,0,Math.PI*2);x.fill();}}
     else if(f.kind==='ring'){x.strokeStyle='#ffd76a';x.lineWidth=2;x.beginPath();x.arc(f.x,f.y,f.r*(1.2-a*0.2),0,Math.PI*2);x.stroke();}
     else if(f.kind==='line'){x.strokeStyle='#ffe9a8';x.lineWidth=2;x.beginPath();x.moveTo(f.x,f.y);x.lineTo(f.x,-10);x.stroke();}
+    else if(f.kind==='hammer'){const q=1-a;const px=f.x+(f.x2-f.x)*q,py=f.y+(f.y2-f.y)*q-Math.sin(q*Math.PI)*60;x.font='20px system-ui';x.fillText('🔨',px,py);}
     else if(f.kind==='bolt'||f.kind==='tower'){x.strokeStyle=f.kind==='bolt'?'#9fd8ff':'#ffd76a';x.lineWidth=f.kind==='bolt'?3:2;x.beginPath();x.moveTo(f.x,f.y);x.lineTo(f.x2,f.y2);x.stroke();}
     else if(f.kind==='miss'){x.fillStyle='#ccc';x.beginPath();x.arc(f.x,f.y,3+(1-a)*6,0,Math.PI*2);x.fill();}
     else if(f.kind==='crash'){x.fillStyle='#ff5b5b';x.font='800 18px system-ui';x.fillText('−1 ❤️',f.x,f.y-10-(1-a)*20);}
@@ -805,7 +829,7 @@ function zombies(){const Z=zState();const U=zUp();
     if(pots.length)h+=`<div class="zpots">${pots.map(p=>`<button class="zpot" data-a="zPot" data-p="${p}" ${Z.pots[p]>0?'':'disabled'} title="${ZPOT[p].n}">${ZPOT[p].e}<b class="cnt">${Z.pots[p]||0}</b></button>`).join('')}</div>`;
     h+=`<div class="actions"><button class="btn btn-outline wide" data-a="zQuit">Lauf beenden (alles behalten)</button></div><p class="hint">Zombies antippen = schießen. Grüne ☠-Münzen antippen = einsammeln (verschwinden nach ein paar Sekunden).</p>`;return h;}
   const found=ZSTORY.filter(s=>U.found[s.key]).length;
-  const tabs=[['camp','🏚️','Lager',true],['smith','⚒️','Schmiede',!!U.found.smith],['claw','🎰','Automat',!!U.found.claw],['witch','🧙','Hexe',!!U.found.witch],['tower','🗼','Turm',!!U.found.tower],['market','🛒','Markt',!!U.found.market],['wall','🏰','Mauer',!!U.found.wall],['chapel','⛪','Kapelle',!!U.found.chapel]];
+  const tabs=[['camp','🏚️','Lager',true],['smith','⚒️','Schmiede',!!U.found.smith],['claw','🎰','Automat',!!U.found.claw],['witch','🧙','Hexe',!!U.found.witch],['tower','🗼','Turm',!!U.found.tower],['market','🛒','Markt',!!U.found.market],['wall','🏰','Mauer',!!U.found.wall],['chapel','⛪','Kapelle',!!U.found.chapel],['stall','🐕','Stall',!!U.found.stall]];
   if(!tabs.find(t=>t[0]===Z.tab&&t[3]))Z.tab='camp';
   h+=zMatBar()+`<div class="zvbox"><canvas class="zv" data-a="zVill"></canvas></div><div class="village">${tabs.map(([k,e,n,ok])=>`<button class="vt ${Z.tab===k?'on':''} ${ok?'':'locked'}" data-a="zTab" data-t="${k}" ${ok?'':'disabled'}><span class="ve">${ok?e:'❔'}</span><span>${ok?n:'?'}</span>${ok?`<small>Lv ${zLv(k)}</small>`:''}</button>`).join('')}</div>`;
   const st=zStats(U);
@@ -814,7 +838,7 @@ function zombies(){const Z=zState();const U=zUp();
     h+=`<button class="btn btn-primary btn-big" data-a="zStart">${Z.last?'Neuer Lauf':'Lauf starten'}</button>
     ${zLvPanel('camp')}
     <div class="zcamp"><div><span class="eyebrow">Waffe</span><b>${st.w.e} ${st.w.n}${st.wl>1?' +'+(st.wl-1):''}</b><small>${st.dmg} Schaden · ${Math.round(st.cd)} ms${st.rad?' · Radius '+st.rad:''}${st.w.pierce?' · durchschlägt':''}${st.w.chain?' · Kettenblitz':''}</small></div><div><span class="eyebrow">Leben</span><b>${2+U.hp+U.wall} ❤️</b><small>Barrikade ${2+U.hp}${U.wall?' + Mauer '+U.wall:''}</small></div><div><span class="eyebrow">Tränke dabei</span><b>${Object.keys(ZPOT).map(p=>(U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)>0?ZPOT[p].e+'×'+((U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)):'').filter(Boolean).join(' ')||'–'}</b><small>${U.luckNext?'🍀 Glück aktiv':'aus dem Hexenhaus'}</small></div><div><span class="eyebrow">Dorf</span><b>${found} von ${ZSTORY.length} Orten</b><small>${found<ZSTORY.length?'Nächster ab Welle '+ZSTORY.find(s=>!U.found[s.key]).wave:'alles entdeckt'}</small></div></div>
-    <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede Welle zahlt Taler, manche Zombies lassen grüne ☠-Münzen und Rohstoffe fallen (antippen!): 🪵 Holz ab Welle 1, 🪨 Stein ab Welle 4, ⚙️ Eisen ab Welle 9 – Bosse lassen alles liegen. Gebäude-Ausbau braucht Taler plus Rohstoffe. Je weiter du kommst, desto mehr vom Dorf entdeckst du: Schmied, Spielhalle, Hexe, Turm …${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies.`:''}</p>`;
+    <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede Welle zahlt Taler, manche Zombies lassen grüne ☠-Münzen und Rohstoffe fallen (antippen!): 🪵 Holz ab Welle 1, 🪨 Stein ab Welle 4, ⚙️ Eisen ab Welle 9 – Bosse lassen alles liegen. Gebäude-Ausbau braucht Taler plus Rohstoffe. Je weiter du kommst, desto mehr vom Dorf entdeckst du: Schmied, Spielhalle, Hexe, Turm, Stall … Ab Stufe 3 helfen die Gebäude im Kampf mit (Schmied wirft Hämmer, Hexenfrosch bremst, Händler wirft Münzen, Glocke lässt alles erstarren). Neue Gegner: 🏃 Sprinter ab Welle 3, 🧟‍♀️ Spalter ab 5, 🛡️ Panzer ab 6 (nur Flächen-, Durchschlag- oder Blitzwaffen knacken den Schild), alle 10 Wellen ein Rufer-Boss.${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies.`:''}</p>`;
   }else if(Z.tab==='smith'){
     h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">⚒️ Schmiede</h3><span class="hint">gilt für jede Waffe</span></div><div class="zshop">${Object.keys(ZUP).map(k=>{const u=ZUP[k],l=U[k],max=l>=u.max,p=zPrice(k);return`<div class="zrow"><span class="ze">${u.e}</span><div class="zinfo"><b>${u.n} <small>Stufe ${l}${max?' (max)':''}</small></b><span>${u.d(l)}</span><i class="zlv">${'●'.repeat(l)}${'○'.repeat(u.max-l)}</i></div><button class="btn btn-outline" data-a="zBuy" data-k="${k}" ${max||W.coins<p||zMat().iron<zBuyIron(k)?'disabled':''}>${max?'Max':p+' 🪙'+(zBuyIron(k)?' + '+zBuyIron(k)+' ⚙️':'')}</button></div>`;}).join('')}</div>${zLvPanel('smith')}</section>`;
   }else if(Z.tab==='claw'){
@@ -831,6 +855,8 @@ function zombies(){const Z=zState();const U=zUp();
     const k=Z.tab;h+=`<section class="panel"><h3 style="margin:0">${k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer'}</h3><p class="hint">${k==='tower'?'Der Turm schießt von selbst auf den vordersten Zombie – je höher ausgebaut, desto schneller und härter.':'Jede Stufe der Mauer gibt ein Leben mehr pro Lauf; im Dorf wird sie sichtbar höher.'}</p>${zLvPanel(k)}</section>`;
   }else if(Z.tab==='market'){
     h+=`<section class="panel"><h3 style="margin:0">🛒 Markt</h3><p class="hint">Der Händler tauscht – mit Aufschlag.</p><div class="actions"><button class="btn btn-outline" data-a="zTrade" data-d="sell" ${U.zc<10?'disabled':''}>10 ☠ → ${12+2*(zLv('market')-1)} 🪙</button><button class="btn btn-outline" data-a="zTrade" data-d="buy" ${W.coins<20?'disabled':''}>20 🪙 → ${5+zLv('market')-1} ☠</button></div><p class="hint" style="margin-top:8px">Rohstoffe gegen Zombie-Münzen${zLv('market')>=3?' (Stufe 3: je eins mehr)':''}:</p><div class="actions" style="grid-template-columns:repeat(3,1fr)"><button class="btn btn-outline" data-a="zTrade" data-d="wood" ${U.zc<5?'disabled':''}>5 ☠ → ${3+(zLv('market')>=3?1:0)} 🪵</button><button class="btn btn-outline" data-a="zTrade" data-d="stone" ${U.zc<8?'disabled':''}>8 ☠ → ${2+(zLv('market')>=3?1:0)} 🪨</button><button class="btn btn-outline" data-a="zTrade" data-d="iron" ${U.zc<12?'disabled':''}>12 ☠ → ${1+(zLv('market')>=3?1:0)} ⚙️</button></div>${zLvPanel('market')}</section>`;
+  }else if(Z.tab==='stall'){
+    h+=`<section class="panel"><h3 style="margin:0">🐕 Stall</h3><p class="hint">Der Hund läuft im Lauf von selbst zu liegengebliebenen Münzen und Rohstoffen und bringt sie dir. Je höher der Stall, desto schneller ist er wieder unterwegs.</p>${zLvPanel('stall')}</section>`;
   }else if(Z.tab==='chapel'){
     h+=`<section class="panel"><h3 style="margin:0">⛪ Kapelle</h3><p class="hint">Die Glocke läutet. Jeder Lauf beginnt mit Heiltrank gratis – unabhängig vom Beutel. Ihr Segen lässt Zombies öfter Münzen fallen.</p>${zLvPanel('chapel')}</section>`;
   }
@@ -852,6 +878,7 @@ const ZB={camp:{n:'Lager',e:'🏚️',i:3,j:3,eff:l=>'+'+(5*(l-1))+' % Taler pro
   tower:{n:'Wachturm',e:'🗼',i:5,j:1,eff:l=>l?'schießt alle '+Math.round(2200/l)+' ms, '+(1+Math.floor(l/2))+' Schaden':'unbemannt'},
   market:{n:'Markt',e:'🛒',i:3,j:5,eff:l=>'10 ☠ → '+(12+2*(l-1))+' 🪙 · 20 🪙 → '+(5+l-1)+' ☠'},
   wall:{n:'Dorfmauer',e:'🏰',i:-1,j:-1,eff:l=>'+'+l+' Leben pro Lauf'},
+  stall:{n:'Stall',e:'🐕',i:0,j:1,eff:l=>'Hund sammelt, Pause '+(Math.max(300,2600-450*l)/1000).toFixed(1)+' s, Tempo '+(90+35*l)},
   chapel:{n:'Kapelle',e:'⛪',i:5,j:4,eff:l=>'+'+(3*(l-1))+' % Münz-Chance · '+(l>=4?2:1)+' Heiltrank gratis'}};
 function zLv(k){const U=zUp();if(k==='tower')return U.tower;if(k==='wall')return U.wall;if(!U.lv)U.lv={};return U.found[k]||k==='camp'?(U.lv[k]||1):0;}
 function zLvCost(k){const lv=zLv(k);const tab=k==='tower'?ZTOWER:k==='wall'?ZWALL:ZLVL;return lv>=tab.length-1?null:tab[lv+1];}
@@ -927,6 +954,7 @@ function zVillageDraw(cv,t){const Z=zState(),U=zUp();const dpr=Math.min(2,window
     else if(b.k==='witch'){const r=zHouse(x,c.x,c.y,.66,h-2,tier,{wc:tier>=3?'#7a6a9a':'#8a6aa8',rc:'#3a2a52',roof:tier>=3?'slate':'thatch',roofH:26+3*lv,noChimney:true});top=r.top;zWindow(x,c.x+6,c.y-h/2+1,true);x.font='13px system-ui';x.fillText('🧪',c.x-15,c.y+2);x.fillStyle='rgba(120,255,160,'+(0.35+0.2*Math.sin(t/500))+')';x.beginPath();x.arc(c.x-15,c.y-6,6,0,Math.PI*2);x.fill();x.font='12px system-ui';x.fillText('🦇',c.x+16+Math.sin(t/600)*5,c.y-h-30+Math.cos(t/800)*4);if(lv>=4){x.fillStyle='#d2ab52';x.beginPath();x.arc(r.apex[0],r.apex[1]-4,3,0,Math.PI*2);x.fill();}}
     else if(b.k==='tower'){if(lv===0){zHouse(x,c.x,c.y,.5,20,1,{wall:'stone',roof:'flat',wc:'#8a8a92',noChimney:true});x.fillStyle='#1c1a17';x.font='11px system-ui';x.fillText('verfallen',c.x,c.y+16);top=c.y-30;}else{const hh=30+8*lv;const r=zHouse(x,c.x,c.y,.5,hh,Math.min(5,lv+1),{wall:lv>=2?'stone':'log',roof:lv>=4?'slate':'flat',wc:lv>=2?'#b5b5bd':'#a8783f',rc:'#3f4a66',roofH:10,noChimney:true});top=r.top;if(lv<4){[-1,0,1].forEach(s=>{x.fillStyle='#c5c5cd';x.fillRect(c.x+s*7-3,c.y-hh-hy*.5-6,6,6);});}zWindow(x,c.x+4,c.y-hh*0.6,false);x.font='12px system-ui';x.fillText('🏹',c.x,top-8);if(Math.floor(t/1800)%3===0){x.strokeStyle='rgba(60,35,15,.8)';x.lineWidth=1.5;x.beginPath();x.moveTo(c.x,top);x.lineTo(c.x+70,top-14);x.stroke();}}}
     else if(b.k==='market'){const r=zHouse(x,c.x,c.y,.74,h-6,tier,{roof:'flat',noChimney:true});top=r.top;for(let s=0;s<5;s++){x.fillStyle=s%2?'#f4ebd9':'#b5363c';x.fillRect(c.x-20+s*8,c.y-h+4,8,6);}x.fillStyle='rgba(0,0,0,.25)';x.fillRect(c.x-20,c.y-h+10,40,2);x.font='14px system-ui';x.fillText('🍎',c.x-8,c.y-4);x.fillText(lv>=3?'💎':'🧺',c.x+8,c.y-2);top-=8;}
+    else if(b.k==='stall'){const r=zHouse(x,c.x,c.y,.8,h-6,tier,{roof:tier>=3?'tile':'thatch',roofH:10,noChimney:true});top=r.top;x.font='13px system-ui';x.fillText('🌾',c.x-14,c.y+2);x.fillText('🐕',c.x+12+Math.sin(t/900)*4,c.y+4);x.fillStyle='#5a3b1e';for(let k=-1;k<=1;k++)x.fillRect(c.x+k*9-1,c.y-h+8,2,8);}
     else if(b.k==='chapel'){const r=zHouse(x,c.x,c.y,.7,h,tier,{wc:tier>=3?'#efe6d6':'#e8d7b5',rc:tier>=3?'#8a5a3a':'#c9a850',roofH:12,noChimney:true});top=r.top;zHouse(x,c.x-8,c.y-2,.22,h+18,tier,{wc:tier>=3?'#f4ecdc':'#e8d7b5',rc:tier>=3?'#8a5a3a':'#c9a850',roofH:12,noChimney:true});x.fillStyle='#d2ab52';x.fillRect(c.x-9,c.y-h-42,2,10);x.fillRect(c.x-12,c.y-h-39,8,2);zWindow(x,c.x+8,c.y-h/2,lv>=2);door(c.x+2,c.y+hy*.35,tier);top-=26;}
     x.fillStyle='rgba(0,0,0,.6)';const lab='Lv '+lv;x.font='700 10px system-ui';const lw=x.measureText(lab).width+10;x.fillRect(c.x-lw/2,top-18,lw,14);x.fillStyle=lv>=5?'#ffd76a':'#f4ebd9';x.fillText(lab,c.x,top-11);
     Z.vhits.push({k:b.k,x:c.x-30,y:top-20,w:60,h:c.y-top+34});
