@@ -369,10 +369,13 @@
   }
 
   /* ---- Räume ---- */
+  /* Tischgröße: vom Gastgeber gewählt (2–8); harte Obergrenze je Spiel (Blitz-Blatt hat nur 24 Karten). */
+  function roomMax(room) { return Math.max(1, Math.min(8, room.maxPlayers || 4)); }
+  function gameMax(room) { const hard = (room.game === 'schnauz' && room.variant === 'blitz') ? 6 : 8; return Math.min(roomMax(room), hard); }
   function newGame(room) { const nm = room.players.map(x => x.name); const st = room.game === 'schnauz' ? szNew(nm, room.variant === 'blitz', room.turnMs) : room.game === 'uno' ? unoNew(nm, room.variant === 'extreme') : room.game === 'bj' ? bjNew(nm) : knNew(nm); st.gid = room.code + '-' + Math.random().toString(36).slice(2, 8); st.awards = []; st.awardSeq = 0; return st; }
   function roomView(room, pid) {
     const pi = room.players.findIndex(p => p.id === pid);
-    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', turnMs: (room.turnMs === undefined ? 30000 : room.turnMs), online: !!room.online, awards: (room.state && room.state.awards) || [] };
+    const base = { code: room.code, me: pi, isHost: room.host === pid, phase: room.phase, urls: lanUrls(), players: room.players.map(p => ({ name: p.name, connected: p.streams.length > 0, host: p.id === room.host })), game: room.game, variant: room.variant || 'classic', turnMs: (room.turnMs === undefined ? 30000 : room.turnMs), maxPlayers: roomMax(room), online: !!room.online, awards: (room.state && room.state.awards) || [] };
     if (room.phase === 'playing') base.view = room.game === 'schnauz' ? szView(room.state, pi) : room.game === 'uno' ? unoView(room.state, pi) : room.game === 'bj' ? bjView(room.state, pi) : knView(room.state, pi);
     return base;
   }
@@ -387,9 +390,10 @@
       if (a === 'setGame' && room.host === p.id && (d.g === 'schnauz' || d.g === 'kniffel' || d.g === 'uno' || d.g === 'bj')) room.game = d.g;
       if (a === 'setVariant' && room.host === p.id && (d.v === 'classic' || d.v === 'extreme' || d.v === 'blitz')) room.variant = d.v;
       if (a === 'setTurn' && room.host === p.id && [0, 15000, 30000, 60000].includes(+d.ms)) room.turnMs = +d.ms;
+      if (a === 'setMax' && room.host === p.id && +d.n >= 2 && +d.n <= 8) room.maxPlayers = Math.floor(+d.n);
       if (a === 'start' && room.host === p.id) {
         const n = room.players.length; const min = (room.game === 'kniffel' || room.game === 'bj') ? 1 : 2;
-        if (n >= min && n <= 4) { room.state = newGame(room); room.phase = 'playing'; }
+        if (n >= min && n <= gameMax(room)) { room.state = newGame(room); room.phase = 'playing'; }
       }
       if (a === 'leave') { room.players.splice(pi, 1); if (room.host === p.id && room.players[0]) room.host = room.players[0].id; }
       if (a === 'kick' && room.host === p.id) { const t = room.players[+d.i]; if (t && t.id !== room.host && t.streams.length === 0) room.players.splice(+d.i, 1); }
@@ -419,9 +423,9 @@
       // Gleicher Name, aber nicht verbunden (z. B. Beitritt ohne Antwort): Platz übernehmen statt Geist anlegen
       const ghost = room.players.find(p => p.name === name && p.id !== room.host && p.streams.length === 0);
       if (ghost) { ghost.token = uid(); broadcast(room); return [200, { code: room.code, pid: ghost.id, token: ghost.token }]; }
-      if (room.players.length >= 4) {
+      if (room.players.length >= roomMax(room)) {
         const gi = room.players.findIndex(p => p.id !== room.host && p.streams.length === 0);
-        if (gi < 0) return [409, { error: 'Der Tisch ist voll (4 Spieler).' }];
+        if (gi < 0) return [409, { error: 'Der Tisch ist voll (' + roomMax(room) + ' Spieler).' }];
         room.players.splice(gi, 1);
       }
       const p = { id: uid(), token: uid(), name, streams: [] };

@@ -41,7 +41,8 @@ p{margin:0}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px} .actions .wide{grid-column:1 / -1}
 .seg{display:flex;gap:8px}
 .seg-btn{flex:1;min-height:50px;border-radius:12px;border:2px solid var(--cream-2);background:transparent;color:var(--cream);font:700 1.05rem var(--font-body);cursor:pointer}
-.seg-btn.is-on{background:var(--cream);color:var(--ink)} .seg-btn:disabled{cursor:default}
+.seg-btn.is-on{background:var(--cream);color:var(--ink)}
+.seg-btn.sm{min-height:42px;font-size:.95rem;padding:0}.seg-btn.warn:not(.is-on){border-style:dashed;opacity:.8}.seg-btn.warn.is-on{background:#e6c56a} .seg-btn:disabled{cursor:default}
 input.field{min-height:52px;padding:0 14px;border-radius:10px;border:1px solid var(--cream-2);background:rgba(244,235,217,.08);color:var(--cream);font:500 1.1rem var(--font-body);min-width:0;width:100%}
 input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--font-display);font-size:1.6rem;text-align:center}
 input::placeholder{color:rgba(244,235,217,.35);letter-spacing:normal}
@@ -308,6 +309,20 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .lever.pulled .stick{transform:rotateX(150deg) scaleY(.4)} .lever.pulled .knob{transform:translateY(78px) scale(.9)}
 .lever:active .knob{transform:translateY(20px)}
 .slotfoot{text-align:center;margin-top:10px;color:var(--cream);font-weight:700;font-variant-numeric:tabular-nums}
+/* Solitär */
+.soltop{--sw:min(60px,calc((100vw - 32px - 24px)/7));--sh:calc(var(--sw)*1.4);display:grid;grid-template-columns:var(--sw) calc(var(--sw) + 46px) 1fr;gap:4px;align-items:start}
+.soltab{--sw:min(60px,calc((100vw - 32px - 24px)/7));--sh:calc(var(--sw)*1.4);display:grid;grid-template-columns:repeat(7,var(--sw));gap:4px;justify-content:space-between;min-height:calc(var(--sh) + 300px);padding-bottom:8px}
+.solcol{position:relative;min-height:var(--sh)}
+.card.sol{width:var(--sw);height:var(--sh);flex:0 0 auto;aspect-ratio:auto;border-radius:6px;box-shadow:0 2px 5px rgba(0,0,0,.35);cursor:pointer;transition:transform .12s,outline-color .12s;outline:2px solid transparent;outline-offset:0}
+.solcol .card.sol{position:absolute;left:0}
+.card.sol .rk{top:3px;left:4px;font-size:.78rem} .card.sol .rk2{bottom:3px;right:4px;font-size:.78rem} .card.sol .su{font-size:1.15rem;padding-top:6px}
+.card.sol.back{border:2px solid var(--cream-2);cursor:default}
+.card.sol.sel{outline-color:var(--brass);transform:translateY(-6px);box-shadow:0 8px 14px rgba(0,0,0,.45)}
+.card.sol.empty{background:rgba(0,0,0,.22);border:2px dashed var(--felt-line);box-shadow:none;display:grid;place-items:center;color:rgba(244,235,217,.35);font-size:1.4rem}
+.card.sol.empty.slot{pointer-events:none}
+.solstock{position:relative;width:var(--sw)} .solstock .cnt{position:absolute;right:-2px;bottom:-6px;font-size:.65rem;background:var(--brass);color:var(--ink);border-radius:999px;padding:1px 6px;font-weight:700}
+.solwaste{display:flex;min-height:var(--sh)} .solwaste .card.sol{position:relative}
+.solfound{display:flex;gap:4px;justify-content:flex-end} .solfound .fs{font-size:1.3rem}
 .offline{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:8px 16px;border-radius:999px;background:var(--rouge);color:#fff;text-align:center;font-size:.85rem;line-height:1.3;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 
 .ucard{flex:0 0 auto;width:clamp(50px,15vw,66px);aspect-ratio:5/7;border-radius:10px;border:3px solid var(--cream);background:var(--uc,#333);color:var(--cream);position:relative;padding:0;cursor:pointer;font-family:var(--font-display);box-shadow:0 4px 12px rgba(0,0,0,.35);outline:3px solid transparent;transition:transform .15s,outline-color .15s}
@@ -533,8 +548,65 @@ function clawPlay(){
   setTimeout(()=>{const c=el();if(C.claw.res&&Math.random()<.15){C.claw.slip=true;C.claw.res=null;if(c)c.classList.remove('holding');}else if(c&&C.claw.res)c.style.setProperty('--x','9%');},4100);
   setTimeout(()=>{if(C.claw.res){W.prizes[C.claw.res.k]=(W.prizes[C.claw.res.k]||0)+1;W.wins++;saveW();}C.claw.busy=false;C.claw.phase='result';render();},5600);
 }
-const isArcade=()=>C.page==='claw'||C.page==='slots';
-function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifautomat</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button></div>`;}
+const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire';
+function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button></div>`;}
+/* ---- Solitär (Klondike), solo & offline. Tippen: Karte wählen, Ziel tippen. ---- */
+const SOLK='stuben-solitaire';
+const SOL_SUITS=[{s:'♠',red:false},{s:'♥',red:true},{s:'♦',red:true},{s:'♣',red:false}];
+const SOL_RANKS=['A','2','3','4','5','6','7','8','9','10','B','D','K'];
+function solDeck(){const d=[];for(const su of SOL_SUITS)for(let v=1;v<=13;v++)d.push({s:su.s,red:su.red,v,r:SOL_RANKS[v-1],up:false});for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}return d;}
+function solNew(draw3){const deck=solDeck();const tab=[];for(let c=0;c<7;c++){const col=[];for(let k=0;k<=c;k++){const card=deck.pop();card.up=(k===c);col.push(card);}tab.push(col);}
+  return{tab,found:[[],[],[],[]],stock:deck,waste:[],draw3:!!draw3,moves:0,sel:null,undo:[],won:false,start:Date.now(),awarded:false};}
+function solLoad(){try{const r=localStorage.getItem(SOLK);if(r){const g=JSON.parse(r);if(g&&g.tab)return g;}}catch(e){}return null;}
+function solSave(){try{if(C.sol)localStorage.setItem(SOLK,JSON.stringify(Object.assign({},C.sol,{sel:null,undo:C.sol.undo.slice(-30)})));}catch(e){}}
+function solSnap(g){return JSON.stringify({tab:g.tab,found:g.found,stock:g.stock,waste:g.waste,moves:g.moves});}
+function solPush(g){g.undo.push(solSnap(g));if(g.undo.length>60)g.undo.shift();}
+function solUndo(){const g=C.sol;if(!g||!g.undo.length||g.won)return;const st=JSON.parse(g.undo.pop());Object.assign(g,st);g.sel=null;g.moves++;solSave();render();}
+function solCanFound(card,pile){const top=pile[pile.length-1];return top?(top.s===card.s&&card.v===top.v+1):card.v===1;}
+function solCanTab(card,col){const top=col[col.length-1];return top?(top.red!==card.red&&card.v===top.v-1):card.v===13;}
+function solCheckWin(g){if(g.found.every(p=>p.length===13)){g.won=true;if(!g.awarded){g.awarded=true;W.coins+=30;W.solWins=(W.solWins||0)+1;saveW();toast('🪙 +30 · Solitär gelöst!','coin');}}}
+function solDraw(){const g=C.sol;if(g.won)return;solPush(g);g.sel=null;if(!g.stock.length){if(!g.waste.length){g.undo.pop();return;}g.stock=g.waste.reverse().map(c=>(c.up=false,c));g.waste=[];}
+  else{const n=g.draw3?3:1;for(let i=0;i<n&&g.stock.length;i++){const c=g.stock.pop();c.up=true;g.waste.push(c);}}g.moves++;solSave();render();}
+/* Auswahlquelle: {from:'waste'} | {from:'tab',col,idx} | {from:'found',pile} */
+function solCards(g,src){if(src.from==='waste')return g.waste.length?[g.waste[g.waste.length-1]]:[];if(src.from==='found'){const p=g.found[src.pile];return p.length?[p[p.length-1]]:[];}return g.tab[src.col].slice(src.idx);}
+function solRemove(g,src,n){if(src.from==='waste')g.waste.pop();else if(src.from==='found')g.found[src.pile].pop();else{const col=g.tab[src.col];col.splice(src.idx,n);if(col.length&&!col[col.length-1].up)col[col.length-1].up=true;}}
+function solTryMove(src,dst){const g=C.sol;const cards=solCards(g,src);if(!cards.length)return false;
+  if(dst.to==='found'){if(cards.length!==1)return false;const pile=g.found[dst.pile];if(!solCanFound(cards[0],pile))return false;solPush(g);solRemove(g,src,1);pile.push(cards[0]);}
+  else{const col=g.tab[dst.col];if(src.from==='tab'&&src.col===dst.col)return false;if(!solCanTab(cards[0],col))return false;solPush(g);solRemove(g,src,cards.length);col.push(...cards);}
+  g.lastMove={src,dst,n:cards.length};g.moves++;g.sel=null;solCheckWin(g);solSave();render();return true;}
+function solAuto(src){const g=C.sol;const cards=solCards(g,src);if(cards.length!==1)return false;for(let p=0;p<4;p++)if(solCanFound(cards[0],g.found[p]))return solTryMove(src,{to:'found',pile:p});return false;}
+function solTap(kind,a,b){const g=C.sol;if(!g||g.won)return;
+  if(kind==='stock'){solDraw();return;}
+  const src=kind==='waste'?{from:'waste'}:kind==='found'?{from:'found',pile:a}:{from:'tab',col:a,idx:b};
+  if(g.sel){ // zweiter Tipp = Ziel
+    const dst=kind==='found'?{to:'found',pile:a}:kind==='tab'?{to:'tab',col:a}:null;
+    const same=JSON.stringify(g.sel)===JSON.stringify(src);
+    if(same){if(!solAuto(g.sel)){g.sel=null;render();}return;}
+    if(dst&&solTryMove(g.sel,dst))return;
+    g.sel=null;
+  }
+  if(kind==='tab'){const col=g.tab[a];if(!col.length||b>=col.length){render();return;}if(!col[b].up)return;}
+  if(kind==='waste'&&!g.waste.length)return;if(kind==='found'&&!g.found[a].length)return;
+  g.sel=src;render();}
+function solCardHtml(c,o){const cls=['card','sol',c.red?'red':'',o.sel?'sel':'',c.up?'':'back'].join(' ');const inner=c.up?`<span class="rk">${c.r}</span><span class="su">${c.s}</span><span class="rk2">${c.r}</span>`:'';return`<div class="${cls}" ${o.a?`data-a="${o.a}" data-k="${o.k}" data-i="${o.i}" data-j="${o.j}"`:''} style="${o.style||''}">${inner}</div>`;}
+function solitaire(){
+  if(!C.sol)C.sol=solLoad()||solNew(false);const g=C.sol;const sel=g.sel;
+  const isSel=(from,a,b)=>sel&&sel.from===from&&(from==='waste'||(from==='found'&&sel.pile===a)||(from==='tab'&&sel.col===a&&b>=sel.idx));
+  const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
+  const mins=Math.floor((Date.now()-(g.start||Date.now()))/60000);
+  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack">‹ ${back}</button><span class="bar-title">Solitär</span><span class="bar-meta">${g.moves} Züge${mins?' · '+mins+' min':''}</span></div>`+arcadeNav('sol');
+  const w=g.waste;const shown=w.slice(-(g.draw3?3:1));
+  h+=`<div class="soltop"><div class="solstock" data-a="solTap" data-k="stock">${g.stock.length?`<div class="card sol back"></div><span class="cnt">${g.stock.length}</span>`:`<div class="card sol empty">${w.length?'↻':''}</div>`}</div>
+    <div class="solwaste">${shown.length?shown.map((c,i)=>solCardHtml(c,{a:i===shown.length-1?'solTap':'',k:'waste',i:0,j:0,sel:i===shown.length-1&&isSel('waste'),style:`margin-left:${i?-46:0}px;z-index:${i}`})).join(''):'<div class="card sol empty"></div>'}</div>
+    <div class="solfound">${g.found.map((p,i)=>p.length?solCardHtml(p[p.length-1],{a:'solTap',k:'found',i,j:0,sel:isSel('found',i)}):`<div class="card sol empty" data-a="solTap" data-k="found" data-i="${i}"><span class="fs">${SOL_SUITS[i].s}</span></div>`).join('')}</div></div>`;
+  h+=`<div class="soltab">${g.tab.map((col,ci)=>{let top=0;const tops=col.map((c,k)=>{const t=top;top+=c.up?26:9;return t;});const last=col.length?tops[col.length-1]:0;return`<div class="solcol" data-a="solTap" data-k="tab" data-i="${ci}" data-j="${col.length}" style="height:calc(${last}px + var(--sh))">${col.length?col.map((c,k)=>solCardHtml(c,{a:'solTap',k:'tab',i:ci,j:k,sel:isSel('tab',ci,k),style:`top:${tops[k]}px`})).join(''):'<div class="card sol empty slot"></div>'}</div>`;}).join('')}</div>`;
+  if(g.won)h+=`<div class="winner"><p class="eyebrow">Gelöst</p><h2>Alle Asse oben!</h2><p class="hint">${g.moves} Züge · +30 Taler gutgeschrieben</p></div>`;
+  h+=`<div class="actions"><button class="btn btn-outline" data-a="solUndo" ${g.undo.length&&!g.won?'':'disabled'}>↶ Zurück</button><button class="btn btn-outline" data-a="solNew">Neu mischen</button>
+    <button class="btn btn-ghost wide" data-a="solDraw3">${g.draw3?'Modus: 3 Karten ziehen (zu 1 wechseln)':'Modus: 1 Karte ziehen (zu 3 wechseln)'}</button></div>
+    <p class="hint">Karte antippen, dann Ziel antippen. Zweimal dieselbe Karte: legt sie automatisch oben ab. Stapel antippen zieht; ist er leer, dreht er die Ablage um. Gelöst gibt 30 Taler.${W.solWins?' Bisher '+W.solWins+' Mal gelöst.':''}</p>`;
+  return h;
+}
+
 /* ---- Walzenspiel ---- */
 const SYM=[{e:'🍒',w:6},{e:'🍋',w:5},{e:'🔔',w:4},{e:'⭐',w:3},{e:'💎',w:1},{e:'7️⃣',w:1}];
 const PAY3={'🍒':5,'🍋':6,'🔔':10,'⭐':15,'💎':40,'7️⃣':100};
@@ -684,7 +756,10 @@ function autoLeft(){return C.autoDeadline?Math.max(0,Math.ceil((C.autoDeadline-D
 function autoNote(){const s=autoLeft();return s?`<div class="autonext"><div class="abar" style="width:${Math.min(100,s/15*100)}%"></div><span>Nächste Runde startet in ${s} s</span></div>`:'';}
 setInterval(()=>{if(C.mode==='local'&&C.code&&LOCAL.handoff===null&&!isArcade())localSync();},1000);
 setInterval(()=>{if(C.mode!=='online'||!C.isHost||!C.code||!C.pid)return;try{Engine.request('h'+(++OL.n),'/api/state',{code:C.code,pid:C.pid,token:C.token},(st,body)=>{if(st===200)applyRoom(body);});}catch(e){}},1000);
-const HOST_ACTIONS={backToLobby:1,nextRound:1,rematch:1,setGame:1,setVariant:1,setTurn:1,start:1,kick:1};
+const REC={schnauz:{classic:[2,6,'Zu sechst noch flüssig; darüber wird der Stapel knapp.'],blitz:[2,4,'Blitz lebt vom Tempo – mit mehr als 4 wartet man zu lange, und das 24er-Blatt reicht nur bis 6.']},kniffel:{classic:[1,8,'Kniffel geht in jeder Grösse, dauert aber pro Spieler rund 10 Minuten länger.']},uno:{classic:[2,8,'Bis 6 läuft es rund; bei 7–8 wird gefühlt ewig gewartet.'],extreme:[2,6,'Extrem mit vielen Leuten wird schnell zur Kartenflut.']},bj:{classic:[1,7,'Jeder spielt gegen die Bank, die Grösse ist egal – ab 7 dauert die Runde.']}};
+function recFor(r){const g=REC[r.game]||REC.kniffel;return g[r.variant]||g.classic;}
+function sizeSeg(r,enabled){const [lo,hi,txt]=recFor(r);const max=r.maxPlayers||4;const hard=(r.game==='schnauz'&&r.variant==='blitz')?6:8;return`<p class="eyebrow">Tischgrösse</p><div class="seg">${[2,3,4,5,6,7,8].map(n=>`<button class="seg-btn sm ${max===n?'is-on':''} ${n>hi?'warn':''}" data-a="setMax" data-n="${n}" ${enabled&&n<=hard?'':'disabled'}>${n}</button>`).join('')}</div><p class="hint">${max>hi?'⚠️ ':''}Empfohlen: ${lo===hi?lo:lo+'–'+hi} Spieler. ${txt}${max>hard?' Mehr als '+hard+' sind hier nicht möglich.':''}</p>`;}
+const HOST_ACTIONS={backToLobby:1,nextRound:1,rematch:1,setGame:1,setVariant:1,setTurn:1,setMax:1,start:1,kick:1};
 function act(action,data){const cred=(C.mode==='local'&&HOST_ACTIONS[action]&&LOCAL.seats[0])?LOCAL.seats[0]:{pid:C.pid,token:C.token};post('/api/action',{code:C.code,pid:cred.pid,token:cred.token,action,data:data||{}}).then(r=>{if(!r&&/Nicht mehr/.test(C.err))leave();if(C.mode==='local')localSync();});}
 function leave(){if(es)es.close();es=null;OL.closeAll();syncHosting(null);LOCAL.seats=[];LOCAL.active=0;LOCAL.handoff=null;C.handoffRoom=null;C.code=C.pid=C.token=null;C.isHost=false;C.room=null;C.roomKey=null;C.page='home';C.confirm=false;persist();render();}
 const newCid=()=>Array.from({length:16},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random()*31)]).join('');
@@ -710,7 +785,7 @@ function home(){
   ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy wird zum Server, sobald du einen Tisch eröffnest.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
   :`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!local?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div><p class="hint">${local?'Kein Netz nötig: alle spielen auf diesem Handy, es wandert reihum.':'Es reicht, wenn alle online sind. Der Gastgeber lässt diese Seite offen, solange gespielt wird.'}</p></section>`}
   ${INVITE&&!C.code&&C.codeIn?`<div class="notice"><b>Einladung zu Tisch ${esc(C.codeIn)}.</b> ${C.name?'Du bist gleich drin …':'Nur noch deinen Namen eintragen und auf Mitspielen tippen.'}</div>`:''}
-  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><div class="actions" style="gap:6px"><button class="btn btn-outline" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-outline" data-a="slotsOpen">🎰 Walzen</button></div></div><p class="hint">Taler gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
+  <section class="panel wallet"><div class="zone-head"><div><p class="eyebrow">Dein Geldbeutel</p><p class="coins">🪙 ${W.coins}</p></div><div class="actions" style="gap:6px;grid-template-columns:repeat(3,1fr)"><button class="btn btn-outline" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-outline" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-outline" data-a="solOpen">🃏 Solitär</button></div></div><p class="hint">Taler gibt es für jedes Spiel am Tisch – gewinnen bringt am meisten.</p></section>
   <section class="panel"><h2>Dein Name</h2><input class="field" id="name" data-f="name" value="${esc(C.name)}" placeholder="z. B. Jim" maxlength="14" autocomplete="off">
   ${C.err?`<p class="error">${esc(C.err)}</p>`:''}
   <button class="btn btn-primary btn-big" data-a="create" ${C.busy?'disabled':''}>${C.busy?'Verbinde …':local?'Tisch auf diesem Handy aufbauen':'Spiel eröffnen'}</button></section>
@@ -720,19 +795,20 @@ function home(){
 function lobby(){
   const r=C.room;const n=r.players.length;const min=r.game==='kniffel'?1:2;
   if(C.mode==='local')return`<header class="hero"><p class="eyebrow">Ein Gerät · reihum</p><h1>Wer spielt mit?</h1><p class="lede">Bis zu vier Leute an diesem Handy. Vor jedem Zug wird weitergegeben.</p><p class="verline">${verLabel()}</p></header>
-  <section class="panel"><h2>Am Tisch (${n} von 4)</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="who">${i+1}. ${esc(p.name)}</span>${n>1?`<button class="btn btn-ghost sm" data-a="localRemove" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div>
-  ${n<4?`<div class="addrow"><input class="field" id="lname" data-f="lname" value="${esc(LOCAL.nameIn)}" placeholder="Name von Spieler ${n+1}" maxlength="14" autocomplete="off"><button class="btn btn-outline" data-a="localAdd" ${LOCAL.nameIn.trim()?'':'disabled'}>Hinzufügen</button></div>`:''}</section>
+  <section class="panel"><h2>Am Tisch (${n} von ${r.maxPlayers||4})</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="who">${i+1}. ${esc(p.name)}</span>${n>1?`<button class="btn btn-ghost sm" data-a="localRemove" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div>
+  ${n<(r.maxPlayers||4)?`<div class="addrow"><input class="field" id="lname" data-f="lname" value="${esc(LOCAL.nameIn)}" placeholder="Name von Spieler ${n+1}" maxlength="14" autocomplete="off"><button class="btn btn-outline" data-a="localAdd" ${LOCAL.nameIn.trim()?'':'disabled'}>Hinzufügen</button></div>`:''}</section>
   <section class="panel"><h2>Spiel</h2>
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz">Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel">Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno">Vier Farben</button><button class="seg-btn ${r.game==='bj'?'is-on':''}" data-a="setGame" data-g="bj">17 und 4</button></div>
   ${r.game==='schnauz'?`<div class="seg"><button class="seg-btn ${r.variant!=='blitz'?'is-on':''}" data-a="setVariant" data-v="classic">Klassisch</button><button class="seg-btn ${r.variant==='blitz'?'is-on':''}" data-a="setVariant" data-v="blitz">Blitz</button></div>${r.variant==='blitz'?`<p class="eyebrow">Zeit pro Zug</p><div class="seg">${[[0,'Aus'],[15000,'15 s'],[30000,'30 s'],[60000,'60 s']].map(([ms,l])=>`<button class="seg-btn ${r.turnMs===ms?'is-on':''}" data-a="setTurn" data-ms="${ms}">${l}</button>`).join('')}</div>`:''}`:r.game==='uno'?`<div class="seg"><button class="seg-btn ${r.variant!=='extreme'?'is-on':''}" data-a="setVariant" data-v="classic">Klassisch</button><button class="seg-btn ${r.variant==='extreme'?'is-on':''}" data-a="setVariant" data-v="extreme">Extrem</button></div>`:''}
+  ${sizeSeg(r,true)}
   <button class="btn btn-primary btn-big" data-a="start" ${n<min||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>
   <div class="walletline"><span>🪙 ${W.coins} Taler (dieses Handy)</span><button class="btn btn-ghost" data-a="clawOpen">Greifautomat</button></div>
   <button class="btn btn-ghost" data-a="leaveLobby">Tisch auflösen</button></section>`;
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
   ${(()=>{const link=inviteLink(r);return link?`<div class="invite"><div class="qrbox">${qrSvg(link)}</div><p class="hint">Einladung scannen – landet direkt am Tisch</p>${r.online?'':'<p class="hint tip">Hotspot ohne Internet? Dann bei den Mitspielern <b>mobile Daten aus</b> oder „Trotzdem verbunden bleiben“ bestätigen – sonst springt ihr Handy aufs Mobilfunknetz.</p>'}<button class="btn btn-outline" data-a="copyInvite" data-link="${esc(link)}">${C.copied?'Link kopiert ✓':'Einladungslink kopieren'}</button></div>`:''})()}
   <p class="hint" style="text-align:center">Oder im Browser öffnen:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
-  <div class="walletline"><span>🪙 ${W.coins} Taler</span><span><button class="btn btn-ghost" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-ghost" data-a="slotsOpen">🎰 Walzen</button></span></div>
-  <section class="panel"><h2>Am Tisch (${n} von 4)</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}${r.isHost&&!p.host&&!p.connected?`<button class="btn btn-ghost sm" data-a="kick" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div></section>
+  <div class="walletline"><span>🪙 ${W.coins} Taler</span><span><button class="btn btn-ghost" data-a="clawOpen">🧸 Greifer</button><button class="btn btn-ghost" data-a="slotsOpen">🎰 Walzen</button><button class="btn btn-ghost" data-a="solOpen">🃏 Solitär</button></span></div>
+  <section class="panel"><h2>Am Tisch (${n} von ${r.maxPlayers||4})</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}${r.isHost&&!p.host&&!p.connected?`<button class="btn btn-ghost sm" data-a="kick" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>
   <div class="seg"><button class="seg-btn ${r.game==='schnauz'?'is-on':''}" data-a="setGame" data-g="schnauz" ${r.isHost?'':'disabled'}>Schnauz</button><button class="seg-btn ${r.game==='kniffel'?'is-on':''}" data-a="setGame" data-g="kniffel" ${r.isHost?'':'disabled'}>Kniffel</button><button class="seg-btn ${r.game==='uno'?'is-on':''}" data-a="setGame" data-g="uno" ${r.isHost?'':'disabled'}>Vier Farben</button><button class="seg-btn ${r.game==='bj'?'is-on':''}" data-a="setGame" data-g="bj" ${r.isHost?'':'disabled'}>17 und 4</button></div>
   <p class="hint">${r.game==='schnauz'?'2 bis 4 Spieler · drei Leben plus Schwimmen':r.game==='uno'?'2 bis 4 Spieler · Uno-Regeln, bis 500 Punkte':r.game==='bj'?'1 bis 4 Spieler · Spielgeld-Chips gegen die Bank, 17 und 4 zahlt 3:2':'1 bis 4 Spieler · 13 Züge'}</p>
@@ -741,7 +817,8 @@ function lobby(){
   ${r.variant==='blitz'?`<p class="eyebrow">Zeit pro Zug</p><div class="seg">${[[0,'Aus'],[15000,'15 s'],[30000,'30 s'],[60000,'60 s']].map(([ms,l])=>`<button class="seg-btn ${r.turnMs===ms?'is-on':''}" data-a="setTurn" data-ms="${ms}" ${r.isHost?'':'disabled'}>${l}</button>`).join('')}</div>`:''}`:''}
   ${r.game==='uno'?`<div class="seg"><button class="seg-btn ${r.variant!=='extreme'?'is-on':''}" data-a="setVariant" data-v="classic" ${r.isHost?'':'disabled'}>Klassisch</button><button class="seg-btn ${r.variant==='extreme'?'is-on':''}" data-a="setVariant" data-v="extreme" ${r.isHost?'':'disabled'}>Extrem</button></div>
   <p class="hint">${r.variant==='extreme'?'Kartenwerfer statt Nachziehstapel: Pro Druck kommen 0 bis 8 Karten raus, +2 heisst zweimal drücken, +4 viermal. Nach dem Drücken ist der Zug vorbei.':'Normales Nachziehen: eine Karte, passt sie, darfst du sie gleich spielen.'}</p>`:''}
-  ${r.isHost?`<button class="btn btn-primary btn-big" data-a="start" ${n<min||n>4||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>`:`<p class="notice soft">Warten, bis ${esc(r.players.find(p=>p.host)?.name||'der Gastgeber')} startet.</p>`}
+  ${sizeSeg(r,r.isHost)}
+  ${r.isHost?`<button class="btn btn-primary btn-big" data-a="start" ${n<min||n>(r.maxPlayers||4)||C.busy?'disabled':''}>${n<min?'Mindestens '+min+' Spieler nötig':'Spiel starten'}</button>`:`<p class="notice soft">Warten, bis ${esc(r.players.find(p=>p.host)?.name||'der Gastgeber')} startet.</p>`}
   <div class="actions">${C.mode==='online'&&C.isHost?'':'<button class="btn btn-ghost" data-a="reload">Neu laden</button>'}<button class="btn btn-ghost" data-a="leaveLobby">Tisch verlassen</button></div></section>`;
 }
 function topbar(title,meta,mini){
@@ -977,7 +1054,7 @@ function render(){
   if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
   let h=C.online||C.page==='home'||isArcade()?'':(C.mode==='lan'&&!C.isHost?`<div class="offline wide"><b>Keine Verbindung zum Gastgeber-Handy.</b><span>Dein Handy ist vermutlich auf mobile Daten gesprungen, weil der Hotspot kein Internet hat. Abhilfe: <b>mobile Daten kurz aus</b> – oder in der Meldung „WLAN ohne Internet“ auf <b>Trotzdem verbunden bleiben</b> tippen (iPhone: WLAN-Unterstützung aus).</span><button class="btn btn-primary" data-a="reload">Neu verbinden</button></div>`:'<div class="offline">Verbindung wird neu aufgebaut …</div>');
   h+=toastHtml();
-  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
+  if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
   $app.innerHTML=h;
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   if(C.page==='slots')slotsMount();
@@ -995,6 +1072,11 @@ $app.addEventListener('click',async e=>{
     case 'slotsOpen':if(C.slots&&C.slots.busy)break;if(!C.slots)C.slots={bet:10};C.page='slots';render();break;
     case 'slotsBet':if(C.slots&&C.slots.busy)break;C.slots=Object.assign(C.slots||{},{bet:+d.b});render();break;
     case 'slotsSpin':slotsSpin();break;
+    case 'solOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='solitaire';render();break;
+    case 'solTap':solTap(d.k,+d.i,+d.j);break;
+    case 'solUndo':solUndo();break;
+    case 'solNew':C.sol=solNew(C.sol&&C.sol.draw3);solSave();render();break;
+    case 'solDraw3':C.sol=solNew(!(C.sol&&C.sol.draw3));solSave();render();break;
     case 'clawBack':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page=C.room?(C.room.phase==='lobby'?'lobby':'game'):'home';render();break;
     case 'clawPlay':clawPlay();break;
     case 'sellDupes':sellDupes(d.k);render();break;
@@ -1032,6 +1114,7 @@ $app.addEventListener('click',async e=>{
     case 'setGame':act('setGame',{g:d.g});break;
     case 'setVariant':act('setVariant',{v:d.v});break;
     case 'setTurn':act('setTurn',{ms:+d.ms});break;
+    case 'setMax':act('setMax',{n:+d.n});break;
     case 'selH':C.sel.h=C.sel.h===+d.i?-1:+d.i;render();break;
     case 'selT':C.sel.t=C.sel.t===+d.i?-1:+d.i;render();break;
     case 'swap':act('swap',{h:C.sel.h,t:C.sel.t});C.sel={h:-1,t:-1};break;
@@ -1057,6 +1140,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local')){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
