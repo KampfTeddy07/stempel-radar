@@ -339,6 +339,10 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .solstock{position:relative;width:var(--sw)} .solstock .cnt{position:absolute;right:-2px;bottom:-6px;font-size:.65rem;background:var(--brass);color:var(--ink);border-radius:999px;padding:1px 6px;font-weight:700}
 .solwaste{display:flex;min-height:var(--sh)} .solwaste .card.sol{position:relative}
 .solfound{display:flex;gap:4px;justify-content:flex-end} .solfound .fs{font-size:1.3rem}
+.update{margin:0 0 14px;padding:12px 14px;border-radius:14px;border:1px solid var(--brass);background:linear-gradient(180deg,rgba(210,171,82,.22),rgba(210,171,82,.08));color:var(--cream);display:flex;flex-direction:column;gap:10px}
+.updrow{font-size:.95rem;line-height:1.35}.updbtns{display:flex;gap:8px;flex-wrap:wrap}.updbtns .btn{min-height:44px;flex:1}
+.updbar{height:8px;border-radius:4px;background:rgba(0,0,0,.35);overflow:hidden}.updbar i{display:block;height:100%;background:var(--brass);transition:width .2s}
+.linkbtn{background:none;border:0;padding:0;color:var(--brass);font:inherit;text-decoration:underline;cursor:pointer}.linkbtn:disabled{opacity:.6}
 /* Maulwurf */
 .molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
 .molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -453,6 +457,28 @@ try{const r=localStorage.getItem(LS);if(r)Object.assign(C,JSON.parse(r));}catch(
 if(!LAN_OK)C.mode='online';
 const BUILD=(window.STUBEN_BUILD&&window.STUBEN_BUILD.apk)?window.STUBEN_BUILD:{apk:0,sha:'dev',date:''};
 const verLabel=()=>BUILD.apk?`Version 1.${BUILD.apk} · ${BUILD.sha}`:'Entwicklungsstand';
+/* ---- Auto-Update der App: Versionsdatei der Webseite prüfen, APK laden, Installer öffnen ---- */
+const APK_URL='https://github.com/KampfTeddy07/stempel-radar/releases/download/stubenspiele-latest/Stubenspiele.apk';
+const UPD={avail:0,state:'idle',pct:0,msg:'',dismissed:0,checked:0,checking:false};
+const CAN_UPDATE=()=>!!(window.Bridge&&Bridge.update);
+async function checkUpdate(manual){if(!CAN_UPDATE()||UPD.checking)return;UPD.checking=true;if(manual){UPD.msg='';render();}
+  try{const r=await fetch('https://'+WEB_URL+'/version.js?t='+Date.now(),{cache:'no-store'});const m=(await r.text()).match(/apk:(\d+)/);const n=m?+m[1]:0;UPD.checked=Date.now();
+    if(n>(BUILD.apk||0)){UPD.avail=n;if(manual)UPD.dismissed=0;}else if(manual){UPD.msg='Du hast die neueste Version.';}}
+  catch(e){if(manual)UPD.msg='Keine Verbindung zur Versionsprüfung.';}
+  UPD.checking=false;render();}
+function startUpdate(){if(!CAN_UPDATE()||UPD.state==='downloading')return;UPD.state='downloading';UPD.pct=0;UPD.msg='';render();try{Bridge.update(APK_URL);}catch(e){UPD.state='error';UPD.msg=String(e);render();}}
+window.stubenUpdate=function(ev,val){if(ev==='progress'){UPD.pct=+val;const b=$app.querySelector('.updbar i'),t=$app.querySelector('.updpct');if(b&&UPD.pct>=0)b.style.width=UPD.pct+'%';if(t)t.textContent=UPD.pct>=0?UPD.pct+' %':'…';return;}
+  if(ev==='downloaded')UPD.state='downloaded';else if(ev==='needperm')UPD.state='needperm';else if(ev==='installing')UPD.state='installing';else if(ev==='error'){UPD.state='error';UPD.msg=val||'Fehler';}render();};
+function updateBanner(){if(!CAN_UPDATE()||!UPD.avail||UPD.dismissed===UPD.avail)return'';const v='1.'+UPD.avail;
+  let body;
+  if(UPD.state==='downloading')body=`<div class="updrow"><span>Lade ${v} herunter … <b class="updpct">${UPD.pct>=0?UPD.pct+' %':'…'}</b></span></div><div class="updbar"><i style="width:${Math.max(0,UPD.pct)}%"></i></div>`;
+  else if(UPD.state==='needperm')body=`<div class="updrow"><span>Erlaube im Android-Bildschirm, dass Stubenspiele Apps installieren darf – danach öffnet sich die Installation von selbst.</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updInstall">Installation öffnen</button></div>`;
+  else if(UPD.state==='installing'||UPD.state==='downloaded')body=`<div class="updrow"><span>Die Installation öffnet sich. Auf „Aktualisieren“ tippen – die App startet danach neu.</span></div><div class="updbtns"><button class="btn btn-outline" data-a="updInstall">Nochmal öffnen</button></div>`;
+  else if(UPD.state==='error')body=`<div class="updrow"><span>Update fehlgeschlagen: ${esc(UPD.msg)}</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updNow">Nochmal versuchen</button><button class="btn btn-ghost" data-a="updBrowser">Im Browser laden</button></div>`;
+  else body=`<div class="updrow"><span><b>Version ${v} ist da</b> – du hast 1.${BUILD.apk}.</span></div><div class="updbtns"><button class="btn btn-primary" data-a="updNow">Jetzt aktualisieren</button><button class="btn btn-ghost" data-a="updLater">Später</button></div>`;
+  return`<div class="update">${body}</div>`;}
+setTimeout(()=>checkUpdate(false),2500);setInterval(()=>checkUpdate(false),4*3600e3);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-UPD.checked>30*60e3)checkUpdate(false);});
 function inviteLink(r){
   if(C.mode==='local')return '';
   if(r.online)return 'https://'+WEB_URL+'/?join='+encodeURIComponent(r.code)+'&m=online';
@@ -1002,7 +1028,7 @@ function livesHtml(p){if(p.out)return'<span class="tag">raus</span>';let s='';fo
 
 function home(){
   const online=C.mode==='online';const local=C.mode==='local';const len=online?6:4;
-  return`<header class="hero"><p class="eyebrow">Stubenspiele</p><h1>Schnauz, Kniffel &amp; Vier Farben</h1><p class="lede">Jeder spielt auf dem eigenen Handy. Einer eröffnet, die anderen treten mit dem Code bei.</p><p class="verline">${verLabel()}${window.Bridge?' · App':' · Web'}</p></header>
+  return`<header class="hero"><p class="eyebrow">Stubenspiele</p><h1>Schnauz, Kniffel &amp; Vier Farben</h1><p class="lede">Jeder spielt auf dem eigenen Handy. Einer eröffnet, die anderen treten mit dem Code bei.</p><p class="verline">${verLabel()}${window.Bridge?' · App':' · Web'}${CAN_UPDATE()?` · <button class="linkbtn" data-a="updCheck" ${UPD.checking?'disabled':''}>${UPD.checking?'prüfe …':'nach Update suchen'}</button>`:''}</p>${UPD.msg&&UPD.state==='idle'?`<p class="hint" style="text-align:center">${esc(UPD.msg)}</p>`:''}</header>${updateBanner()}
   ${LAN_OK?`<section class="panel"><h2>Verbindung</h2><div class="seg"><button class="seg-btn ${!online?'is-on':''}" data-a="setMode" data-m="lan">WLAN / Hotspot</button><button class="seg-btn ${online?'is-on':''}" data-a="setMode" data-m="online">Internet</button><button class="seg-btn ${local?'is-on':''}" data-a="setMode" data-m="local">Ein Gerät</button></div>
   <p class="hint">${local?'Kein Netz nötig – ideal im Flugzeug. Alle spielen auf diesem Handy, es wandert reihum; vor jedem Zug kommt ein Weitergeben-Schirm, damit niemand fremde Karten sieht.':online?'Für Hotel-WLAN oder Mobilfunk: Läuft über einen öffentlichen Relay im Internet, alle brauchen nur Internet. Die anderen öffnen die Seite unter '+WEB_URL+'.':'Alle im gleichen WLAN oder am Hotspot dieses Handys. Die anderen tragen die unten gezeigte Adresse in ihrer App unter „Beitreten“ ein – oder öffnen sie im Browser.'}</p>
   ${!online&&window.Bridge?`<div class="notice"><b>Dieses Handy wird zum Server, sobald du einen Tisch eröffnest.</b> Adresse für die anderen:<div class="urls">${(()=>{try{return JSON.parse(Bridge.urls()).map(esc).join('<br>')||'Noch keine Netzadresse – WLAN oder Hotspot einschalten.'}catch(e){return ''}})()}</div></div>`:''}</section>`
@@ -1311,6 +1337,11 @@ $app.addEventListener('click',async e=>{
     case 'slotsSpin':slotsSpin();break;
     case 'solOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='solitaire';render();break;
     case 'solTap':solTap(d.k,+d.i,+d.j);break;
+    case 'updCheck':checkUpdate(true);break;
+    case 'updNow':startUpdate();break;
+    case 'updLater':UPD.dismissed=UPD.avail;render();break;
+    case 'updInstall':try{Bridge.installAgain();}catch(e){}break;
+    case 'updBrowser':window.open('https://github.com/KampfTeddy07/stempel-radar/releases/tag/stubenspiele-latest','_blank');break;
     case 'moleOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='mole';render();break;
     case 'moleStart':moleStart();break;
     case 'moleHit':break;
