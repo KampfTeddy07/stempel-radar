@@ -362,6 +362,8 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .zvbox{border-radius:14px;overflow:hidden;border:1px solid var(--felt-line);margin:10px 0 8px;box-shadow:0 4px 14px rgba(0,0,0,.4)}.zv{display:block;width:100%;height:225px;touch-action:manipulation}
 .vt small{font-size:.58rem;color:var(--brass);font-weight:700}.vt.on small{color:#7a5a12}
 .zrow.lvl{margin-top:10px;border-color:var(--brass);background:linear-gradient(180deg,rgba(210,171,82,.16),rgba(210,171,82,.05))}
+.zres{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.zres span{padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.25);border:1px solid var(--felt-line);font:700 .8rem var(--font-body);color:var(--cream)}
+.mats{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}.mats .mat{font-style:normal;font-size:.75rem;font-weight:700}.mats .mat.ok{color:#7fd18f}.mats .mat.miss{color:#ff8a8a}
 /* Maulwurf */
 .molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
 .molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -675,7 +677,7 @@ function zPullCost(){return ZW_PULL-Math.max(0,zLv('claw')-1);}
 function zStats(U){const w=ZW[U.weapon]||ZW.fork,wl=U.weapons[U.weapon]||1;return{w,wl,dmg:Math.round(w.dmg*(1+0.15*(wl-1)))+(U.dmg-1),cd:w.cd/(1+0.3*(U.rate-1)),rad:w.rad+(U.shot>1?18*(U.shot-1):0)+(w.rad&&U.shot>1?2:0)};}
 function zState(){if(!C.zomb)C.zomb={running:false,last:null,tab:'camp'};return C.zomb;}
 function zStart(){const Z=zState();const U=zUp();const lives=2+U.hp+U.wall;const pots=Object.assign({},U.potions);if(U.found.chapel)pots.heal=(pots.heal||0)+(zLv('chapel')>=4?2:1);
-  Object.assign(Z,{running:true,paused:null,wave:1,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
+  Object.assign(Z,{running:true,paused:null,wave:1,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,loot:{},zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
   if(U.luckNext){U.luckNext=false;saveW();}zWave(Z);render();requestAnimationFrame(zLoop);}
 function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z.spawnAt=performance.now()+700;Z.waveMsg=performance.now();
   const U=zUp();const ev=ZSTORY.find(s=>s.wave===Z.wave&&!U.found[s.key]);if(ev){U.found[ev.key]=1;saveW();Z.paused=ev;Z.spawnAt+=1e9;}}
@@ -684,13 +686,14 @@ function zSpawn(Z,cv){const g=zGeo(cv);const r=Math.random();const boss=Z.wave%5
   Z.zs.push({x:24+Math.random()*(g.W-48),y:-34,hp,maxHp:hp,sp,boss,fat,r:boss?30:fat?24:19,wob:Math.random()*6});}
 function zGeo(cv){return{W:cv.clientWidth,H:cv.clientHeight,wall:cv.clientHeight-64};}
 function zKill(Z,z,now){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind:'splat',big:z.boss||z.fat});const U=zUp();const luck=Z.luck?2:1;
-  const n=z.boss?5:z.fat?(Math.random()<0.5*luck?2:0):(Math.random()<(0.22+0.03*Math.max(0,zLv('chapel')-1))*luck?1:0);for(let i=0;i<n;i++)Z.coins.push({x:z.x+(Math.random()-0.5)*30,y:z.y,at:now,vy:12+Math.random()*10});}
+  const n=z.boss?5:z.fat?(Math.random()<0.5*luck?2:0):(Math.random()<(0.22+0.03*Math.max(0,zLv('chapel')-1))*luck?1:0);for(let i=0;i<n;i++)Z.coins.push({t:'zc',x:z.x+(Math.random()-0.5)*30,y:z.y,at:now,vy:12+Math.random()*10});
+  for(const q in ZMAT){const d=ZMAT[q];if(Z.wave<d.from)continue;const k=z.boss?(q==='wood'?3:q==='stone'?2:1):(Math.random()<d.p*(z.fat?1.6:1)*luck?1:0);for(let i=0;i<k;i++)Z.coins.push({t:q,x:z.x+(Math.random()-0.5)*34,y:z.y+6,at:now,vy:14+Math.random()*10});}}
 function zDamage(Z,z,dmg,now){z.hp-=dmg;z.hitAt=now;if(z.hp<=0&&!z.dead)zKill(Z,z,now);}
 function zHit(x,y){const Z=zState();if(!Z.running||Z.over)return;const now=performance.now();
   if(Z.paused){Z.paused=null;Z.spawnAt=now+700;Z.waveMsg=now;return;}
   // Münze einsammeln hat Vorrang und kostet keinen Schuss
   let ci=-1,cd=1e9;Z.coins.forEach((c,i)=>{const d=Math.hypot(c.x-x,c.y-y);if(d<26&&d<cd){cd=d;ci=i;}});
-  if(ci>=0){const c=Z.coins.splice(ci,1)[0];Z.zc++;Z.fx.push({x:c.x,y:c.y,at:now,kind:'text',s:'+1 ☠',small:true});if(navigator.vibrate)try{navigator.vibrate(6);}catch(e){}return;}
+  if(ci>=0){const c=Z.coins.splice(ci,1)[0];if(c.t&&c.t!=='zc'){Z.loot[c.t]=(Z.loot[c.t]||0)+1;Z.fx.push({x:c.x,y:c.y,at:now,kind:'text',s:'+1 '+ZMAT[c.t].e,small:true});}else{Z.zc++;Z.fx.push({x:c.x,y:c.y,at:now,kind:'text',s:'+1 ☠',small:true});}if(navigator.vibrate)try{navigator.vibrate(6);}catch(e){}return;}
   const U=zUp();const st=zStats(U);if(now-Z.lastShot<st.cd)return;Z.lastShot=now;
   const cv=$app.querySelector('.zcv');if(!cv)return;Z.flash={x,y,at:now,e:st.w.e};
   const aim=8;let target=null,best=1e9;for(const z of Z.zs){if(z.dead)continue;const d=Math.hypot(z.x-x,z.y-y);if(d<z.r+aim&&d<best){best=d;target=z;}}
@@ -723,7 +726,7 @@ function zLoop(ts){const Z=zState();if(!Z.running)return;const cv=$app.querySele
   }
   Z.fx=Z.fx.filter(f=>now-f.at<700);
   zDraw(cv,Z,g,now);requestAnimationFrame(zLoop);}
-function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;U.zc+=Z.zc;saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,zc:Z.zc,quit};Z.tab='camp';toast((quit?'Lauf beendet':'🧟 Überrannt in Welle '+Z.wave)+' · +'+Z.earned+' Taler · +'+Z.zc+' ☠','');render();}
+function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;U.zc+=Z.zc;const mat=zMat();for(const q in Z.loot)mat[q]=(mat[q]||0)+Z.loot[q];saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,zc:Z.zc,loot:Z.loot,quit};Z.tab='camp';toast((quit?'Lauf beendet':'🧟 Überrannt in Welle '+Z.wave)+' · +'+Z.earned+' Taler · +'+Z.zc+' ☠','');render();}
 function zWrap(x,text,maxW){const words=text.split(' '),lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}if(cur)lines.push(cur);return lines;}
 function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);const U=zUp();
   const grd=x.createLinearGradient(0,0,0,g.H);grd.addColorStop(0,now<Z.slowUntil?'#0b1230':'#0b1a12');grd.addColorStop(1,now<Z.slowUntil?'#1c2a52':'#1e3a2a');x.fillStyle=grd;x.fillRect(0,0,g.W,g.H);
@@ -731,7 +734,7 @@ function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(c
   x.fillStyle=U.wall?'#6b6b6b':'#5a3b1e';x.fillRect(0,g.wall,g.W,8);x.font='22px system-ui';x.textAlign='center';x.textBaseline='middle';for(let bx=16;bx<g.W;bx+=32)x.fillText(U.wall?'🪨':'🧱',bx,g.wall+26);
   x.font='30px system-ui';x.fillText('🧑‍🌾',g.W/2,g.H-22);x.font='18px system-ui';x.fillText(zStats(U).w.e,g.W/2+22,g.H-30);
   if(U.tower>0){x.font='30px system-ui';x.fillText('🗼',g.W-26,g.wall-22);}
-  for(const c of Z.coins){const age=now-c.at;const blink=age>4000&&Math.floor(age/150)%2===0;if(blink)continue;x.fillStyle='#39c46a';x.beginPath();x.arc(c.x,c.y,10,0,Math.PI*2);x.fill();x.strokeStyle='#1d6b3a';x.lineWidth=2;x.stroke();x.fillStyle='#0b1a12';x.font='800 12px system-ui';x.fillText('☠',c.x,c.y+1);}
+  for(const c of Z.coins){const age=now-c.at;const blink=age>4000&&Math.floor(age/150)%2===0;if(blink)continue;if(c.t&&c.t!=='zc'){x.fillStyle=ZMAT[c.t].col;x.beginPath();x.arc(c.x,c.y,11,0,Math.PI*2);x.fill();x.strokeStyle='rgba(255,255,255,.5)';x.lineWidth=1.5;x.stroke();x.font='13px system-ui';x.fillText(ZMAT[c.t].e,c.x,c.y+1);continue;}x.fillStyle='#39c46a';x.beginPath();x.arc(c.x,c.y,10,0,Math.PI*2);x.fill();x.strokeStyle='#1d6b3a';x.lineWidth=2;x.stroke();x.fillStyle='#0b1a12';x.font='800 12px system-ui';x.fillText('☠',c.x,c.y+1);}
   for(const z of Z.zs){const sz=z.boss?46:z.fat?36:28;x.font=sz+'px system-ui';const hit=z.hitAt&&now-z.hitAt<120;if(hit){x.save();x.filter='brightness(1.8)';}x.fillText(z.boss?'👹':z.fat?'🧟‍♂️':'🧟',z.x,z.y);if(hit)x.restore();
     if(z.maxHp>1){const w=sz,hpw=w*Math.max(0,z.hp)/z.maxHp;x.fillStyle='rgba(0,0,0,.5)';x.fillRect(z.x-w/2,z.y-sz*0.75,w,4);x.fillStyle=z.boss?'#ff5b5b':'#7fd18f';x.fillRect(z.x-w/2,z.y-sz*0.75,hpw,4);}}
   for(const f of Z.fx){const a=1-(now-f.at)/700;x.globalAlpha=Math.max(0,a);
@@ -744,14 +747,15 @@ function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(c
     else if(f.kind==='text'){x.fillStyle=f.small?'#39c46a':'#ffd76a';x.font='800 '+(f.small?14:17)+'px system-ui';x.fillText(f.s,f.x,f.y-(1-a)*20);}
     x.globalAlpha=1;}
   if(Z.flash&&now-Z.flash.at<90){x.strokeStyle='rgba(255,230,150,'+(1-(now-Z.flash.at)/90)+')';x.lineWidth=3;x.beginPath();x.moveTo(g.W/2,g.H-34);x.lineTo(Z.flash.x,Z.flash.y);x.stroke();}
-  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+' · '+Z.kills+' ☠ '+Z.zc,10,15);
+  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+' · '+Z.kills+' ☠'+Z.zc+(Z.loot.wood?' 🪵'+Z.loot.wood:'')+(Z.loot.stone?' 🪨'+Z.loot.stone:'')+(Z.loot.iron?' ⚙️'+Z.loot.iron:''),10,15);
   x.textAlign='right';x.fillText('🪙 '+Z.earned+'  '+'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)),g.W-10,15);
   if(Z.waveMsg&&now-Z.waveMsg<1200&&!Z.paused){x.globalAlpha=1-(now-Z.waveMsg)/1200;x.fillStyle='#fff';x.font='800 26px system-ui';x.textAlign='center';x.fillText('Welle '+Z.wave,g.W/2,g.H*0.4);x.globalAlpha=1;}
   const cdAll=zStats(U).cd,cdLeft=cdAll-(now-Z.lastShot);if(cdLeft>0){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(g.W/2-30,g.H-8,60,4);x.fillStyle='#ffd76a';x.fillRect(g.W/2-30,g.H-8,60*(1-cdLeft/cdAll),4);}
   if(Z.paused){const ev=Z.paused;x.fillStyle='rgba(5,12,8,.86)';x.fillRect(0,0,g.W,g.H);x.textAlign='center';x.font='44px system-ui';x.fillText(ev.e,g.W/2,g.H*0.22);x.fillStyle='#d2ab52';x.font='800 12px system-ui';x.fillText('NEU ENTDECKT',g.W/2,g.H*0.22+38);x.fillStyle='#f4ebd9';x.font='700 24px Georgia,serif';x.fillText(ev.title,g.W/2,g.H*0.22+66);
     x.font='15px system-ui';const lines=zWrap(x,ev.text,g.W-50);lines.forEach((l,i)=>x.fillText(l,g.W/2,g.H*0.22+104+i*22));x.fillStyle='#d2ab52';x.font='700 14px system-ui';x.fillText('Antippen, um weiterzukämpfen',g.W/2,g.H-40);}}
 /* Dorf: Gebäude */
-function zBuy(k){const U=zUp();const p=zPrice(k);if(U[k]>=ZUP[k].max){toast('Schon auf Höchststufe.','');return;}if(W.coins<p){toast('Nicht genug Taler ('+p+' nötig).','');return;}W.coins-=p;U[k]++;saveW();toast(ZUP[k].e+' '+ZUP[k].n+' auf Stufe '+U[k],'coin');render();}
+function zBuyIron(k){const l=zUp()[k];return l>=4?(l-3)*2:0;}
+function zBuy(k){const U=zUp();const p=zPrice(k);if(U[k]>=ZUP[k].max){toast('Schon auf Höchststufe.','');return;}if(W.coins<p){toast('Nicht genug Taler ('+p+' nötig).','');return;}const fe=zBuyIron(k);if(zMat().iron<fe){toast('Dafür braucht der Schmied '+fe+' ⚙️ Eisen.','');return;}W.coins-=p;zMat().iron-=fe;U[k]++;saveW();toast(ZUP[k].e+' '+ZUP[k].n+' auf Stufe '+U[k],'coin');render();}
 function zAward(k){const U=zUp();const tier=ZW[k].r;let msg;if(U.weapons[k]){if(U.weapons[k]>=5){U.zc+=Math.floor(ZW_PULL/2);msg=ZW[k].e+' '+ZW[k].n+' nochmal – schon Stufe 5, die Hälfte der Münzen gibt es zurück.';}else{U.weapons[k]++;msg=ZW[k].e+' '+ZW[k].n+' nochmal → Stufe '+U.weapons[k]+' (+15 % Schaden)';}}
   else{U.weapons[k]=1;U.weapon=k;msg='🎉 NEU: '+ZW[k].e+' '+ZW[k].n+' ('+ZW_RAR[tier]+') – gleich ausgerüstet!';}
   const Z=zState();Z.reveal={k,at:Date.now()};saveW();toast(msg,tier>=3?'coin':'');}
@@ -789,8 +793,8 @@ function zPull(){zClawHold();setTimeout(zClawRelease,400+Math.random()*1800);}
 function zEquip(k){const U=zUp();if(!U.weapons[k])return;U.weapon=k;saveW();render();}
 function zPotCost(p){return Math.round(ZPOT[p].cost*(1-0.08*Math.max(0,zLv('witch')-1)));}
 function zBuyPot(p){const U=zUp();const c=zPotCost(p);const cap=2+zLv('camp');if((U.potions[p]||0)>=cap){toast('Mehr als '+cap+' passen nicht in den Beutel.','');return;}if(W.coins<c){toast('Nicht genug Taler.','');return;}W.coins-=c;U.potions[p]=(U.potions[p]||0)+1;saveW();toast(ZPOT[p].e+' '+ZPOT[p].n+' eingepackt','coin');render();}
-function zBuild(k){const U=zUp();const lv=U[k],tab=k==='tower'?ZTOWER:ZWALL;if(lv>=tab.length-1){toast('Schon voll ausgebaut.','');return;}const c=tab[lv+1];if(W.coins<c){toast('Nicht genug Taler ('+c+' nötig).','');return;}W.coins-=c;U[k]++;saveW();toast((k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer')+' Stufe '+U[k],'coin');render();}
-function zTrade(dir){const U=zUp();const ml=zLv('market');if(dir==='sell'){if(U.zc<10){toast('Mindestens 10 ☠ nötig.','');return;}U.zc-=10;W.coins+=12+2*(ml-1);}else{if(W.coins<20){toast('20 Taler nötig.','');return;}W.coins-=20;U.zc+=5+(ml-1);}saveW();render();}
+function zBuild(k){const U=zUp();const lv=U[k],tab=k==='tower'?ZTOWER:ZWALL;if(lv>=tab.length-1){toast('Schon voll ausgebaut.','');return;}const c=tab[lv+1];const m=zLvMat(k);if(W.coins<c){toast('Nicht genug Taler ('+c+' nötig).','');return;}if(!zMatOk(m)){toast('Rohstoffe fehlen: '+Object.keys(m).map(q=>ZMAT[q].e+' '+m[q]).join(' '),'');return;}W.coins-=c;const have=zMat();for(const q in m)have[q]-=m[q];U[k]++;saveW();toast((k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer')+' Stufe '+U[k],'coin');render();}
+function zTrade(dir){const U=zUp();const ml=zLv('market');if(ZMAT[dir]){const cost={wood:5,stone:8,iron:12}[dir],amt={wood:3,stone:2,iron:1}[dir]+(ml>=3?1:0);if(U.zc<cost){toast(cost+' ☠ nötig.','');return;}U.zc-=cost;zMat()[dir]+=amt;saveW();render();return;}if(dir==='sell'){if(U.zc<10){toast('Mindestens 10 ☠ nötig.','');return;}U.zc-=10;W.coins+=12+2*(ml-1);}else{if(W.coins<20){toast('20 Taler nötig.','');return;}W.coins-=20;U.zc+=5+(ml-1);}saveW();render();}
 function zombies(){const Z=zState();const U=zUp();
   const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
   let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack" ${Z.running?'disabled':''}>‹ ${back}</button><span class="bar-title">Zombies</span><span class="bar-meta">🪙 ${W.coins} · ☠ ${U.zc}</span></div>`+(Z.running?'':arcadeNav('zomb'));
@@ -802,16 +806,16 @@ function zombies(){const Z=zState();const U=zUp();
   const found=ZSTORY.filter(s=>U.found[s.key]).length;
   const tabs=[['camp','🏚️','Lager',true],['smith','⚒️','Schmiede',!!U.found.smith],['claw','🎰','Automat',!!U.found.claw],['witch','🧙','Hexe',!!U.found.witch],['tower','🗼','Turm',!!U.found.tower],['market','🛒','Markt',!!U.found.market],['wall','🏰','Mauer',!!U.found.wall],['chapel','⛪','Kapelle',!!U.found.chapel]];
   if(!tabs.find(t=>t[0]===Z.tab&&t[3]))Z.tab='camp';
-  h+=`<div class="zvbox"><canvas class="zv" data-a="zVill"></canvas></div><div class="village">${tabs.map(([k,e,n,ok])=>`<button class="vt ${Z.tab===k?'on':''} ${ok?'':'locked'}" data-a="zTab" data-t="${k}" ${ok?'':'disabled'}><span class="ve">${ok?e:'❔'}</span><span>${ok?n:'?'}</span>${ok?`<small>Lv ${zLv(k)}</small>`:''}</button>`).join('')}</div>`;
+  h+=zMatBar()+`<div class="zvbox"><canvas class="zv" data-a="zVill"></canvas></div><div class="village">${tabs.map(([k,e,n,ok])=>`<button class="vt ${Z.tab===k?'on':''} ${ok?'':'locked'}" data-a="zTab" data-t="${k}" ${ok?'':'disabled'}><span class="ve">${ok?e:'❔'}</span><span>${ok?n:'?'}</span>${ok?`<small>Lv ${zLv(k)}</small>`:''}</button>`).join('')}</div>`;
   const st=zStats(U);
   if(Z.tab==='camp'){
-    if(Z.last)h+=`<div class="winner" style="padding-block:6px"><p class="eyebrow">${Z.last.quit?'Lauf beendet':'Überrannt'}</p><h2>${Z.last.wave} Welle${Z.last.wave===1?'':'n'}</h2><p class="hint">${Z.last.kills} Zombies · +${Z.last.earned} 🪙 · +${Z.last.zc} ☠${U.best?' · Rekord '+U.best+' Wellen':''}</p></div>`;
+    if(Z.last)h+=`<div class="winner" style="padding-block:6px"><p class="eyebrow">${Z.last.quit?'Lauf beendet':'Überrannt'}</p><h2>${Z.last.wave} Welle${Z.last.wave===1?'':'n'}</h2><p class="hint">${Z.last.kills} Zombies · +${Z.last.earned} 🪙 · +${Z.last.zc} ☠${Z.last.loot?Object.keys(Z.last.loot).map(q=>' · +'+Z.last.loot[q]+' '+ZMAT[q].e).join(''):''}${U.best?' · Rekord '+U.best+' Wellen':''}</p></div>`;
     h+=`<button class="btn btn-primary btn-big" data-a="zStart">${Z.last?'Neuer Lauf':'Lauf starten'}</button>
     ${zLvPanel('camp')}
     <div class="zcamp"><div><span class="eyebrow">Waffe</span><b>${st.w.e} ${st.w.n}${st.wl>1?' +'+(st.wl-1):''}</b><small>${st.dmg} Schaden · ${Math.round(st.cd)} ms${st.rad?' · Radius '+st.rad:''}${st.w.pierce?' · durchschlägt':''}${st.w.chain?' · Kettenblitz':''}</small></div><div><span class="eyebrow">Leben</span><b>${2+U.hp+U.wall} ❤️</b><small>Barrikade ${2+U.hp}${U.wall?' + Mauer '+U.wall:''}</small></div><div><span class="eyebrow">Tränke dabei</span><b>${Object.keys(ZPOT).map(p=>(U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)>0?ZPOT[p].e+'×'+((U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)):'').filter(Boolean).join(' ')||'–'}</b><small>${U.luckNext?'🍀 Glück aktiv':'aus dem Hexenhaus'}</small></div><div><span class="eyebrow">Dorf</span><b>${found} von ${ZSTORY.length} Orten</b><small>${found<ZSTORY.length?'Nächster ab Welle '+ZSTORY.find(s=>!U.found[s.key]).wave:'alles entdeckt'}</small></div></div>
-    <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede Welle zahlt Taler, manche Zombies lassen grüne ☠-Münzen fallen (antippen!). Je weiter du kommst, desto mehr vom Dorf entdeckst du: Schmied, Spielhalle, Hexe, Turm …${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies.`:''}</p>`;
+    <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede Welle zahlt Taler, manche Zombies lassen grüne ☠-Münzen und Rohstoffe fallen (antippen!): 🪵 Holz ab Welle 1, 🪨 Stein ab Welle 4, ⚙️ Eisen ab Welle 9 – Bosse lassen alles liegen. Gebäude-Ausbau braucht Taler plus Rohstoffe. Je weiter du kommst, desto mehr vom Dorf entdeckst du: Schmied, Spielhalle, Hexe, Turm …${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies.`:''}</p>`;
   }else if(Z.tab==='smith'){
-    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">⚒️ Schmiede</h3><span class="hint">gilt für jede Waffe</span></div><div class="zshop">${Object.keys(ZUP).map(k=>{const u=ZUP[k],l=U[k],max=l>=u.max,p=zPrice(k);return`<div class="zrow"><span class="ze">${u.e}</span><div class="zinfo"><b>${u.n} <small>Stufe ${l}${max?' (max)':''}</small></b><span>${u.d(l)}</span><i class="zlv">${'●'.repeat(l)}${'○'.repeat(u.max-l)}</i></div><button class="btn btn-outline" data-a="zBuy" data-k="${k}" ${max||W.coins<p?'disabled':''}>${max?'Max':p+' 🪙'}</button></div>`;}).join('')}</div>${zLvPanel('smith')}</section>`;
+    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">⚒️ Schmiede</h3><span class="hint">gilt für jede Waffe</span></div><div class="zshop">${Object.keys(ZUP).map(k=>{const u=ZUP[k],l=U[k],max=l>=u.max,p=zPrice(k);return`<div class="zrow"><span class="ze">${u.e}</span><div class="zinfo"><b>${u.n} <small>Stufe ${l}${max?' (max)':''}</small></b><span>${u.d(l)}</span><i class="zlv">${'●'.repeat(l)}${'○'.repeat(u.max-l)}</i></div><button class="btn btn-outline" data-a="zBuy" data-k="${k}" ${max||W.coins<p||zMat().iron<zBuyIron(k)?'disabled':''}>${max?'Max':p+' 🪙'+(zBuyIron(k)?' + '+zBuyIron(k)+' ⚙️':'')}</button></div>`;}).join('')}</div>${zLvPanel('smith')}</section>`;
   }else if(Z.tab==='claw'){
     const rv=Z.reveal&&Date.now()-Z.reveal.at<4000?Z.reveal.k:null;
     h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🎰 Waffenautomat</h3><span class="hint zclawcoins">☠ ${U.zc} Münzen</span></div>
@@ -825,13 +829,21 @@ function zombies(){const Z=zState();const U=zUp();
   }else if(Z.tab==='tower'||Z.tab==='wall'){
     const k=Z.tab;h+=`<section class="panel"><h3 style="margin:0">${k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer'}</h3><p class="hint">${k==='tower'?'Der Turm schießt von selbst auf den vordersten Zombie – je höher ausgebaut, desto schneller und härter.':'Jede Stufe der Mauer gibt ein Leben mehr pro Lauf; im Dorf wird sie sichtbar höher.'}</p>${zLvPanel(k)}</section>`;
   }else if(Z.tab==='market'){
-    h+=`<section class="panel"><h3 style="margin:0">🛒 Markt</h3><p class="hint">Der Händler tauscht – mit Aufschlag.</p><div class="actions"><button class="btn btn-outline" data-a="zTrade" data-d="sell" ${U.zc<10?'disabled':''}>10 ☠ → ${12+2*(zLv('market')-1)} 🪙</button><button class="btn btn-outline" data-a="zTrade" data-d="buy" ${W.coins<20?'disabled':''}>20 🪙 → ${5+zLv('market')-1} ☠</button></div>${zLvPanel('market')}</section>`;
+    h+=`<section class="panel"><h3 style="margin:0">🛒 Markt</h3><p class="hint">Der Händler tauscht – mit Aufschlag.</p><div class="actions"><button class="btn btn-outline" data-a="zTrade" data-d="sell" ${U.zc<10?'disabled':''}>10 ☠ → ${12+2*(zLv('market')-1)} 🪙</button><button class="btn btn-outline" data-a="zTrade" data-d="buy" ${W.coins<20?'disabled':''}>20 🪙 → ${5+zLv('market')-1} ☠</button></div><p class="hint" style="margin-top:8px">Rohstoffe gegen Zombie-Münzen${zLv('market')>=3?' (Stufe 3: je eins mehr)':''}:</p><div class="actions" style="grid-template-columns:repeat(3,1fr)"><button class="btn btn-outline" data-a="zTrade" data-d="wood" ${U.zc<5?'disabled':''}>5 ☠ → ${3+(zLv('market')>=3?1:0)} 🪵</button><button class="btn btn-outline" data-a="zTrade" data-d="stone" ${U.zc<8?'disabled':''}>8 ☠ → ${2+(zLv('market')>=3?1:0)} 🪨</button><button class="btn btn-outline" data-a="zTrade" data-d="iron" ${U.zc<12?'disabled':''}>12 ☠ → ${1+(zLv('market')>=3?1:0)} ⚙️</button></div>${zLvPanel('market')}</section>`;
   }else if(Z.tab==='chapel'){
     h+=`<section class="panel"><h3 style="margin:0">⛪ Kapelle</h3><p class="hint">Die Glocke läutet. Jeder Lauf beginnt mit Heiltrank gratis – unabhängig vom Beutel. Ihr Segen lässt Zombies öfter Münzen fallen.</p>${zLvPanel('chapel')}</section>`;
   }
   return h;}
 /* ---- Dorfansicht (isometrisch, Canvas) und Gebäudestufen ---- */
 const ZLVL=[0,60,120,220,360,540];
+/* Rohstoffe: fallen von Zombies, müssen wie Münzen angetippt werden. Holz ab Welle 1, Stein ab 4, Eisen ab 9. */
+const ZMAT={wood:{n:'Holz',e:'🪵',from:1,p:0.18,col:'#a0642e'},stone:{n:'Stein',e:'🪨',from:4,p:0.12,col:'#8a8a92'},iron:{n:'Eisen',e:'⚙️',from:9,p:0.08,col:'#4a5a6a'}};
+const ZMAT_LV=[null,null,{wood:6},{wood:10,stone:5},{wood:12,stone:10,iron:4},{wood:16,stone:14,iron:10}];
+function zMat(){const U=zUp();if(!U.mat)U.mat={wood:0,stone:0,iron:0};return U.mat;}
+function zLvMat(k){const lv=zLv(k);const next=lv+1;const base=ZMAT_LV[next];if(!base)return k==='wall'?{stone:4}:k==='tower'?{wood:8}:{};const m=Object.assign({},base);if(k==='wall'){m.stone=(m.stone||0)+4*next;m.wood=Math.ceil((m.wood||0)/2);}if(k==='tower'){m.iron=(m.iron||0)+2*Math.max(0,next-2);}for(const q in m)if(!m[q])delete m[q];return m;}
+function zMatOk(m){const have=zMat();return Object.keys(m).every(q=>have[q]>=m[q]);}
+function zMatHtml(m){const have=zMat();const ks=Object.keys(m);return ks.length?ks.map(q=>`<i class="mat ${have[q]>=m[q]?'ok':'miss'}">${ZMAT[q].e} ${have[q]}/${m[q]}</i>`).join(' '):'';}
+function zMatBar(){const h=zMat();return`<div class="zres">${Object.keys(ZMAT).map(q=>`<span>${ZMAT[q].e} ${h[q]}</span>`).join('')}<span>☠ ${zUp().zc}</span></div>`;}
 const ZB={camp:{n:'Lager',e:'🏚️',i:3,j:3,eff:l=>'+'+(5*(l-1))+' % Taler pro Welle · '+(2+l)+' Tränke pro Sorte'},
   smith:{n:'Schmiede',e:'⚒️',i:1,j:2,eff:l=>(5*(l-1))+' % Rabatt auf Verbesserungen'},
   claw:{n:'Spielhalle',e:'🎰',i:4,j:2,eff:l=>'Griff kostet '+(ZW_PULL-(l-1))+' ☠ · Griff '+(3*(l-1))+' % sicherer'},
@@ -842,8 +854,8 @@ const ZB={camp:{n:'Lager',e:'🏚️',i:3,j:3,eff:l=>'+'+(5*(l-1))+' % Taler pro
   chapel:{n:'Kapelle',e:'⛪',i:5,j:4,eff:l=>'+'+(3*(l-1))+' % Münz-Chance · '+(l>=4?2:1)+' Heiltrank gratis'}};
 function zLv(k){const U=zUp();if(k==='tower')return U.tower;if(k==='wall')return U.wall;if(!U.lv)U.lv={};return U.found[k]||k==='camp'?(U.lv[k]||1):0;}
 function zLvCost(k){const lv=zLv(k);const tab=k==='tower'?ZTOWER:k==='wall'?ZWALL:ZLVL;return lv>=tab.length-1?null:tab[lv+1];}
-function zLevelUp(k){const U=zUp();if(k==='tower'||k==='wall'){zBuild(k);return;}const c=zLvCost(k);if(c===null){toast('Schon voll ausgebaut.','');return;}if(W.coins<c){toast('Nicht genug Taler ('+c+' nötig).','');return;}W.coins-=c;if(!U.lv)U.lv={};U.lv[k]=(U.lv[k]||1)+1;saveW();toast(ZB[k].e+' '+ZB[k].n+' auf Stufe '+U.lv[k],'coin');render();}
-function zLvPanel(k){const lv=zLv(k),c=zLvCost(k),b=ZB[k];return`<div class="zrow lvl"><span class="ze">${b.e}</span><div class="zinfo"><b>${b.n} <small>Stufe ${lv}${c===null?' (max)':''}</small></b><span>${b.eff(lv)}${c!==null?' → danach: '+b.eff(lv+1):''}</span></div><button class="btn btn-primary" data-a="zLevel" data-k="${k}" ${c===null||W.coins<c?'disabled':''}>${c===null?'Max':'Ausbau '+c+' 🪙'}</button></div>`;}
+function zLevelUp(k){const U=zUp();if(k==='tower'||k==='wall'){zBuild(k);return;}const c=zLvCost(k);if(c===null){toast('Schon voll ausgebaut.','');return;}const m=zLvMat(k);if(W.coins<c){toast('Nicht genug Taler ('+c+' nötig).','');return;}if(!zMatOk(m)){toast('Rohstoffe fehlen: '+Object.keys(m).map(q=>ZMAT[q].e+' '+m[q]).join(' '),'');return;}W.coins-=c;const have=zMat();for(const q in m)have[q]-=m[q];if(!U.lv)U.lv={};U.lv[k]=(U.lv[k]||1)+1;saveW();toast(ZB[k].e+' '+ZB[k].n+' auf Stufe '+U.lv[k],'coin');render();}
+function zLvPanel(k){const lv=zLv(k),c=zLvCost(k),b=ZB[k];return`<div class="zrow lvl"><span class="ze">${b.e}</span><div class="zinfo"><b>${b.n} <small>Stufe ${lv}${c===null?' (max)':''}</small></b><span>${b.eff(lv)}${c!==null?' → danach: '+b.eff(lv+1):''}</span>${c!==null?`<span class="mats">${zMatHtml(zLvMat(k))}</span>`:''}</div><button class="btn btn-primary" data-a="zLevel" data-k="${k}" ${c===null||W.coins<c||!zMatOk(zLvMat(k))?'disabled':''}>${c===null?'Max':'Ausbau '+c+' 🪙'}</button></div>`;}
 /* Zeichnen */
 const ZISO={tw:54,th:27,n:6};
 function zIso(i,j,g){return{x:g.ox+(i-j)*ZISO.tw/2,y:g.oy+(i+j)*ZISO.th/2};}
@@ -1689,7 +1701,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local'||LAN_SELF())){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zPrice,zPull,zClaw,zClawHold,zClawRelease,zLv,zLevelUp,zVillageDraw,ZB,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zPrice,zPull,zClaw,zClawHold,zClawRelease,zLv,zLevelUp,zVillageDraw,ZB,zMat,zLvMat,ZMAT,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
