@@ -356,6 +356,9 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .zcamp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.zcamp>div{display:flex;flex-direction:column;gap:2px;padding:10px;border-radius:12px;background:rgba(0,0,0,.18);border:1px solid var(--felt-line);min-width:0}.zcamp b{font-size:.95rem;color:var(--cream);overflow-wrap:anywhere}.zcamp small{font-size:.72rem;color:var(--muted)}
 .zmachine{display:grid;place-items:center;min-height:120px;border-radius:14px;background:radial-gradient(circle at 50% 30%,rgba(210,171,82,.25),rgba(0,0,0,.3));border:2px solid var(--brass);margin-bottom:10px}.zreveal{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;padding:10px}.zreveal span{font-size:3rem;line-height:1;animation:tpop .4s ease-out}.zreveal b{font-size:1.1rem;color:var(--cream)}.zreveal small{font-size:.72rem;color:var(--muted)}.zreveal.dim span{opacity:.5;animation:none}
 .zrow.dim{opacity:.55}.zrow.eq{border-color:var(--brass)}
+.zclawbox{border-radius:14px;overflow:hidden;border:2px solid var(--brass);margin-bottom:10px;box-shadow:0 4px 14px rgba(0,0,0,.4)}.zclaw{display:block;width:100%;height:230px;touch-action:none}
+.zreveal.row{flex-direction:row;justify-content:center;gap:12px;padding:6px 0 10px}.zreveal.row span{font-size:2.2rem}.zreveal.row div{display:flex;flex-direction:column;text-align:left}
+.zgrab{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-size:.95rem}
 /* Maulwurf */
 .molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
 .molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -745,10 +748,40 @@ function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(c
     x.font='15px system-ui';const lines=zWrap(x,ev.text,g.W-50);lines.forEach((l,i)=>x.fillText(l,g.W/2,g.H*0.22+104+i*22));x.fillStyle='#d2ab52';x.font='700 14px system-ui';x.fillText('Antippen, um weiterzukämpfen',g.W/2,g.H-40);}}
 /* Dorf: Gebäude */
 function zBuy(k){const U=zUp();const p=zPrice(k);if(U[k]>=ZUP[k].max){toast('Schon auf Höchststufe.','');return;}if(W.coins<p){toast('Nicht genug Taler ('+p+' nötig).','');return;}W.coins-=p;U[k]++;saveW();toast(ZUP[k].e+' '+ZUP[k].n+' auf Stufe '+U[k],'coin');render();}
-function zPull(){const U=zUp();if(U.zc<ZW_PULL){toast('Nicht genug Zombie-Münzen ('+ZW_PULL+' ☠ nötig).','');return;}U.zc-=ZW_PULL;const r=Math.random();const tier=r<0.55?1:r<0.85?2:r<0.97?3:4;const pool=Object.keys(ZW).filter(k=>ZW[k].r===tier);const k=pool[Math.floor(Math.random()*pool.length)];
-  let msg;if(U.weapons[k]){if(U.weapons[k]>=5){U.zc+=Math.floor(ZW_PULL/2);msg=ZW[k].e+' '+ZW[k].n+' nochmal – schon Stufe 5, die Hälfte der Münzen gibt es zurück.';}else{U.weapons[k]++;msg=ZW[k].e+' '+ZW[k].n+' nochmal → Stufe '+U.weapons[k]+' (+15 % Schaden)';}}
+function zAward(k){const U=zUp();const tier=ZW[k].r;let msg;if(U.weapons[k]){if(U.weapons[k]>=5){U.zc+=Math.floor(ZW_PULL/2);msg=ZW[k].e+' '+ZW[k].n+' nochmal – schon Stufe 5, die Hälfte der Münzen gibt es zurück.';}else{U.weapons[k]++;msg=ZW[k].e+' '+ZW[k].n+' nochmal → Stufe '+U.weapons[k]+' (+15 % Schaden)';}}
   else{U.weapons[k]=1;U.weapon=k;msg='🎉 NEU: '+ZW[k].e+' '+ZW[k].n+' ('+ZW_RAR[tier]+') – gleich ausgerüstet!';}
-  const Z=zState();Z.reveal={k,at:Date.now()};saveW();toast(msg,tier>=3?'coin':'');render();}
+  const Z=zState();Z.reveal={k,at:Date.now()};saveW();toast(msg,tier>=3?'coin':'');}
+/* Steuerbarer Greifer: Knopf halten = Greifer fährt, loslassen = er fällt. Treffer hängt vom Zielen und der Seltenheit ab. */
+const ZC_GRIP={1:0.95,2:0.82,3:0.66,4:0.5};
+function zClaw(){const Z=zState();if(!Z.claw)Z.claw={phase:'idle',x:40,y:30,dir:1,open:1,crates:[],held:null,result:null,msg:''};if(!Z.claw.crates.length)zClawFill(Z.claw);return Z.claw;}
+function zClawFill(cl){const pick=t=>{const pool=Object.keys(ZW).filter(k=>ZW[k].r===t);return pool[Math.floor(Math.random()*pool.length)];};const ks=[pick(1),pick(1),pick(1),pick(2),pick(2),Math.random()<0.12?pick(4):pick(3)];
+  for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]];}cl.crates=ks.map((k,i)=>({k,slot:i}));}
+function zClawGeo(cv){const W=cv.clientWidth,H=cv.clientHeight;return{W,H,floor:H-26,chute:28,slotW:(W-56)/6,left:56};}
+function zClawHold(){const Z=zState(),cl=zClaw(),U=zUp();if(cl.phase!=='idle')return;if(U.zc<ZW_PULL){toast('Nicht genug Zombie-Münzen ('+ZW_PULL+' ☠ nötig).','');return;}U.zc-=ZW_PULL;saveW();cl.phase='move';cl.result=null;cl.msg='';cl.held=null;cl.open=1;cl.y=30;cl.lastTs=0;const m=$app.querySelector('.zclawcoins');if(m)m.textContent='☠ '+U.zc+' Münzen';requestAnimationFrame(zClawLoop);}
+function zClawRelease(){const cl=zClaw();if(cl.phase==='move')cl.phase='drop';}
+function zClawLoop(ts){const Z=zState(),cl=zClaw();const cv=$app.querySelector('.zclaw');if(!cv){cl.phase='idle';return;}const g=zClawGeo(cv);if(!cl.lastTs)cl.lastTs=ts;const dt=Math.min(50,ts-cl.lastTs)/1000;cl.lastTs=ts;
+  const crateX=i=>g.left+g.slotW*(i+0.5);
+  if(cl.phase==='move'){cl.x+=cl.dir*150*dt;if(cl.x>g.W-24){cl.x=g.W-24;cl.dir=-1;}if(cl.x<g.left+10){cl.x=g.left+10;cl.dir=1;}}
+  else if(cl.phase==='drop'){cl.y+=220*dt;if(cl.y>=g.floor-30){cl.y=g.floor-30;cl.phase='grab';cl.gt=0;}}
+  else if(cl.phase==='grab'){cl.gt+=dt;cl.open=Math.max(0,1-cl.gt*3);if(cl.gt>0.45){let best=null,bd=1e9;cl.crates.forEach(c=>{const d=Math.abs(crateX(c.slot)-cl.x);if(d<bd){bd=d;best=c;}});const aimOk=best&&bd<=26;const p=aimOk?ZC_GRIP[ZW[best.k].r]*(1-bd/40):0;cl.held=(aimOk&&Math.random()<p)?best:null;cl.missNear=aimOk&&!cl.held;cl.phase='lift';}}
+  else if(cl.phase==='lift'){cl.y-=160*dt;if(cl.held&&Math.random()<0.0015)cl.held=null;if(cl.y<=30){cl.y=30;cl.phase='travel';}}
+  else if(cl.phase==='travel'){cl.x-=170*dt;if(cl.x<=g.chute){cl.x=g.chute;cl.phase='release';cl.gt=0;}}
+  else if(cl.phase==='release'){cl.gt+=dt;cl.open=Math.min(1,cl.gt*3);if(cl.gt>0.6){const k=cl.held?cl.held.k:null;cl.phase='idle';if(k){cl.crates=cl.crates.filter(c=>c!==cl.held);zAward(k);}else{cl.msg=cl.missNear?'Abgerutscht – knapp daneben.':'Nichts gegriffen.';toast(cl.msg,'');}if(cl.crates.length<4)zClawFill(cl);cl.held=null;render();return;}}
+  zClawDraw(cv,cl,g,crateX);requestAnimationFrame(zClawLoop);}
+function zClawDraw(cv,cl,g,crateX){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);
+  const grd=x.createLinearGradient(0,0,0,g.H);grd.addColorStop(0,'#1a1430');grd.addColorStop(1,'#2a1f3f');x.fillStyle=grd;x.fillRect(0,0,g.W,g.H);
+  x.fillStyle='rgba(255,255,255,.06)';x.fillRect(0,g.floor,g.W,g.H-g.floor);x.fillStyle='#3a2f55';x.fillRect(0,g.floor,g.W,3);
+  // Schacht links
+  x.fillStyle='rgba(0,0,0,.45)';x.fillRect(4,g.floor-44,48,44);x.strokeStyle='#d2ab52';x.lineWidth=2;x.strokeRect(4,g.floor-44,48,44);x.fillStyle='#d2ab52';x.font='700 10px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText('AUSGABE',28,g.floor-8);x.font='18px system-ui';x.fillText('⬇️',28,g.floor-28);
+  // Kisten
+  x.textBaseline='middle';for(const c of cl.crates){if(c===cl.held)continue;const cx=crateX(c.slot),r=ZW[c.k].r;const col=r===4?'#d2ab52':r===3?'#b57bee':r===2?'#5fa8ff':'#9aa';x.fillStyle=col;x.globalAlpha=.9;x.fillRect(cx-18,g.floor-34,36,34);x.globalAlpha=1;x.strokeStyle='rgba(0,0,0,.4)';x.strokeRect(cx-18,g.floor-34,36,34);x.font='20px system-ui';x.fillText(ZW[c.k].e,cx,g.floor-17);if(r===4){x.strokeStyle='#fff3c4';x.lineWidth=1;x.strokeRect(cx-20,g.floor-36,40,38);}}
+  // Greifer
+  x.strokeStyle='#cfc7e6';x.lineWidth=2;x.beginPath();x.moveTo(cl.x,0);x.lineTo(cl.x,cl.y);x.stroke();x.fillStyle='#cfc7e6';x.fillRect(cl.x-10,cl.y-6,20,10);
+  const spread=10+cl.open*14;x.lineWidth=4;x.lineCap='round';[-1,1].forEach(sg=>{x.beginPath();x.moveTo(cl.x+sg*6,cl.y+4);x.lineTo(cl.x+sg*spread,cl.y+18);x.lineTo(cl.x+sg*(spread-6),cl.y+32);x.stroke();});
+  if(cl.held){const cx=cl.x,cy=cl.y+36;const r=ZW[cl.held.k].r;x.fillStyle=r===4?'#d2ab52':r===3?'#b57bee':r===2?'#5fa8ff':'#9aa';x.fillRect(cx-18,cy-16,36,34);x.font='20px system-ui';x.fillStyle='#000';x.fillText(ZW[cl.held.k].e,cx,cy+1);}
+  if(cl.phase==='move'){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(cl.x-1,cl.y+36,2,g.floor-cl.y-36);}
+}
+function zPull(){zClawHold();setTimeout(zClawRelease,400+Math.random()*1800);}
 function zEquip(k){const U=zUp();if(!U.weapons[k])return;U.weapon=k;saveW();render();}
 function zBuyPot(p){const U=zUp();const c=ZPOT[p].cost;if((U.potions[p]||0)>=3){toast('Mehr als drei passen nicht in den Beutel.','');return;}if(W.coins<c){toast('Nicht genug Taler.','');return;}W.coins-=c;U.potions[p]=(U.potions[p]||0)+1;saveW();toast(ZPOT[p].e+' '+ZPOT[p].n+' eingepackt','coin');render();}
 function zBuild(k){const U=zUp();const lv=U[k],tab=k==='tower'?ZTOWER:ZWALL;if(lv>=tab.length-1){toast('Schon voll ausgebaut.','');return;}const c=tab[lv+1];if(W.coins<c){toast('Nicht genug Taler ('+c+' nötig).','');return;}W.coins-=c;U[k]++;saveW();toast((k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer')+' Stufe '+U[k],'coin');render();}
@@ -775,10 +808,11 @@ function zombies(){const Z=zState();const U=zUp();
     h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">⚒️ Schmiede</h3><span class="hint">gilt für jede Waffe</span></div><div class="zshop">${Object.keys(ZUP).map(k=>{const u=ZUP[k],l=U[k],max=l>=u.max,p=zPrice(k);return`<div class="zrow"><span class="ze">${u.e}</span><div class="zinfo"><b>${u.n} <small>Stufe ${l}${max?' (max)':''}</small></b><span>${u.d(l)}</span><i class="zlv">${'●'.repeat(l)}${'○'.repeat(u.max-l)}</i></div><button class="btn btn-outline" data-a="zBuy" data-k="${k}" ${max||W.coins<p?'disabled':''}>${max?'Max':p+' 🪙'}</button></div>`;}).join('')}</div></section>`;
   }else if(Z.tab==='claw'){
     const rv=Z.reveal&&Date.now()-Z.reveal.at<4000?Z.reveal.k:null;
-    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🎰 Waffenautomat</h3><span class="hint">☠ ${U.zc} Münzen</span></div>
-    <div class="zmachine">${rv?`<div class="zreveal"><span>${ZW[rv].e}</span><b>${ZW[rv].n}</b><small>${ZW_RAR[ZW[rv].r]}</small></div>`:`<div class="zreveal dim"><span>🎁</span><small>Gewöhnlich 55 % · Selten 30 % · Episch 12 % · Legendär 3 %</small></div>`}</div>
-    <button class="btn btn-primary btn-big" data-a="zPull" ${U.zc<ZW_PULL?'disabled':''}>Ziehen · ${ZW_PULL} ☠</button>
-    <p class="hint">Doppelte Waffen steigen eine Stufe (+15 % Schaden, bis Stufe 5). Münzen gibt es nur im Kampf – die grünen Dinger antippen.</p>
+    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🎰 Waffenautomat</h3><span class="hint zclawcoins">☠ ${U.zc} Münzen</span></div>
+    <div class="zclawbox"><canvas class="zclaw"></canvas></div>
+    ${rv?`<div class="zreveal row"><span>${ZW[rv].e}</span><div><b>${ZW[rv].n}</b><small>${ZW_RAR[ZW[rv].r]}${U.weapons[rv]>1?' · Stufe '+U.weapons[rv]:''}</small></div></div>`:''}
+    <button class="btn btn-primary btn-big zgrab" data-a="zGrab" ${U.zc<ZW_PULL?'disabled':''}>Halten: Greifer fährt · Loslassen: greifen · ${ZW_PULL} ☠</button>
+    <p class="hint">Den Knopf gedrückt halten, der Greifer fährt hin und her; loslassen, wenn er über der gewünschten Kiste ist. Je genauer, desto sicherer der Griff – goldene Kisten rutschen gern ab. Gewöhnlich: grau · Selten: blau · Episch: lila · Legendär: gold. Doppelte Waffen steigen eine Stufe (+15 % Schaden, bis 5).</p>
     <div class="zshop">${Object.keys(ZW).map(k=>{const w=ZW[k],own=U.weapons[k];return`<div class="zrow ${own?'':'dim'} ${U.weapon===k?'eq':''}"><span class="ze">${own?w.e:'🔒'}</span><div class="zinfo"><b>${own?w.n:'???'} <small>${ZW_RAR[w.r]}${own>1?' · Stufe '+own:''}</small></b><span>${own?w.d+' · '+w.dmg+' Schaden · '+w.cd+' ms'+(w.rad?' · Radius '+w.rad:''):'noch nicht gezogen'}</span></div>${own?`<button class="btn ${U.weapon===k?'btn-primary':'btn-outline'}" data-a="zEquip" data-k="${k}" ${U.weapon===k?'disabled':''}>${U.weapon===k?'Aktiv':'Nehmen'}</button>`:'<span></span>'}</div>`;}).join('')}</div></section>`;
   }else if(Z.tab==='witch'){
     h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🧙 Hexenhaus</h3><span class="hint">max. 3 pro Sorte</span></div><div class="zshop">${Object.keys(ZPOT).map(p=>{const t=ZPOT[p],n=U.potions[p]||0;return`<div class="zrow"><span class="ze">${t.e}</span><div class="zinfo"><b>${t.n} <small>×${n}</small></b><span>${t.d}</span></div><button class="btn btn-outline" data-a="zBuyPot" data-p="${p}" ${n>=3||W.coins<t.cost?'disabled':''}>${t.cost} 🪙</button></div>`;}).join('')}</div><p class="hint">Im Lauf erscheinen die Tränke als Knöpfe unter dem Spielfeld. „Es ist alles nur Kräuterzeug“, sagt die Hexe.</p></section>`;
@@ -1454,7 +1488,7 @@ function bj(){
 function toastHtml(){return`<div class="toasts">${toasts.map(t=>`<div class="toast ${t.cls}">${t.text}</div>`).join('')}</div>`;}
 function render(){
   const active=document.activeElement;const keep=active&&active.dataset&&active.dataset.f?{f:active.dataset.f,s:active.selectionStart}:null;
-  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))||(C.page==='plinko'&&C.plk&&C.plk.busy&&$app.querySelector('.plkbox'))||(C.page==='mole'&&C.mole&&C.mole.busy&&$app.querySelector('.molegrid.live'))||(C.page==='zomb'&&C.zomb&&C.zomb.running&&$app.querySelector('.zbox'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
+  if((C.page==='claw'&&C.claw&&C.claw.busy&&$app.querySelector('.machine'))||(C.page==='slots'&&C.slots&&C.slots.busy&&$app.querySelector('.slotbox'))||(C.page==='plinko'&&C.plk&&C.plk.busy&&$app.querySelector('.plkbox'))||(C.page==='mole'&&C.mole&&C.mole.busy&&$app.querySelector('.molegrid.live'))||(C.page==='zomb'&&C.zomb&&C.zomb.running&&$app.querySelector('.zbox'))||(C.page==='zomb'&&C.zomb&&C.zomb.claw&&C.zomb.claw.phase!=='idle'&&$app.querySelector('.zclaw'))){const tb=$app.querySelector('.toasts');if(tb)tb.outerHTML=toastHtml();return;}
   let h=C.online||C.page==='home'||isArcade()?'':(C.mode==='lan'&&!C.isHost?`<div class="offline wide"><b>Keine Verbindung zum Gastgeber-Handy.</b><span>Dein Handy ist vermutlich auf mobile Daten gesprungen, weil der Hotspot kein Internet hat. Abhilfe: <b>mobile Daten kurz aus</b> – oder in der Meldung „WLAN ohne Internet“ auf <b>Trotzdem verbunden bleiben</b> tippen (iPhone: WLAN-Unterstützung aus).</span><button class="btn btn-primary" data-a="reload">Neu verbinden</button></div>`:'<div class="offline">Verbindung wird neu aufgebaut …</div>');
   h+=toastHtml();
   if(C.page==='claw')h+=claw();else if(C.page==='slots')h+=slots();else if(C.page==='solitaire')h+=solitaire();else if(C.page==='mines')h+=mines();else if(C.page==='t2048')h+=t2048();else if(C.page==='plinko')h+=plinko();else if(C.page==='mole')h+=mole();else if(C.page==='zomb')h+=zombies();else if(C.mode==='local'&&LOCAL.handoff!==null&&C.handoffRoom)h+=handoffView();else if(C.page==='home'||!C.room)h+=home();else if(C.page==='lobby')h+=lobby();else h+=C.room.view.game==='schnauz'?schnauz():C.room.view.game==='uno'?uno():C.room.view.game==='bj'?bj():kniffel();
@@ -1462,6 +1496,7 @@ function render(){
   $app.classList.toggle('game',!!(C.room&&C.page!=='home'&&C.page!=='lobby'));
   if(C.page==='slots')slotsMount();
   if(C.page==='plinko')plkDraw();
+  if(C.page==='zomb'&&!(C.zomb&&C.zomb.running)){const cv=$app.querySelector('.zclaw');if(cv){const cl=zClaw();const g=zClawGeo(cv);zClawDraw(cv,cl,g,i=>g.left+g.slotW*(i+0.5));}}
   if(isArcade()){const nav=$app.querySelector('.arcnav'),on=nav&&nav.querySelector('.is-on');if(on&&nav.scrollWidth>nav.clientWidth)nav.scrollLeft=Math.max(0,on.offsetLeft-(nav.clientWidth-on.offsetWidth)/2);}
   const kAge=Date.now()-C.knockAt;if(kAge<1500&&!$app.classList.contains('tableshake')){$app.classList.add('tableshake');setTimeout(()=>$app.classList.remove('tableshake'),1500-kAge);}
   if(keep){const el=$app.querySelector(`[data-f="${keep.f}"]`);if(el){el.focus();try{el.setSelectionRange(keep.s,keep.s);}catch(e){}}}
@@ -1473,9 +1508,11 @@ let minLP=null;
 $app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="minTap"]');C.mSkip=false;clearTimeout(minLP);if(!t||t.disabled)return;const i=+t.dataset.i;minLP=setTimeout(()=>{minLP=null;C.mSkip=true;minTap(i,true);},380);});
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>$app.addEventListener(ev,()=>{clearTimeout(minLP);minLP=null;}));
 $app.addEventListener('pointermove',e=>{if(minLP&&!e.target.closest('[data-a="minTap"]')){clearTimeout(minLP);minLP=null;}});
-$app.addEventListener('contextmenu',e=>{if(e.target.closest('.mingrid'))e.preventDefault();});
+$app.addEventListener('contextmenu',e=>{if(e.target.closest('.mingrid')||e.target.closest('.zgrab'))e.preventDefault();});
 $app.addEventListener('pointerdown',e=>{const t=e.target.closest('[data-a="moleHit"]');if(t){e.preventDefault();moleHit(+t.dataset.i);}});
 $app.addEventListener('pointerdown',e=>{const cv=e.target.closest('.zcv');if(!cv)return;e.preventDefault();const r=cv.getBoundingClientRect();zHit(e.clientX-r.left,e.clientY-r.top);});
+$app.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-a="zGrab"]');if(!b||b.disabled)return;e.preventDefault();zClawHold();});
+['pointerup','pointercancel'].forEach(ev=>document.addEventListener(ev,()=>{if(C.zomb&&C.zomb.claw&&C.zomb.claw.phase==='move')zClawRelease();}));
 let tSw=null;
 $app.addEventListener('pointerdown',e=>{const b=e.target.closest('.tboard');tSw=b?{x:e.clientX,y:e.clientY,id:e.pointerId}:null;},{passive:true});
 $app.addEventListener('pointerup',e=>{if(!tSw||e.pointerId!==tSw.id)return;const dx=e.clientX-tSw.x,dy=e.clientY-tSw.y;tSw=null;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;tSwipe(Math.abs(dx)>Math.abs(dy)?(dx>0?2:0):(dy>0?3:1));});
@@ -1499,6 +1536,7 @@ $app.addEventListener('click',async e=>{
     case 'zQuit':if(C.zomb&&C.zomb.running)zEnd(C.zomb,true);break;
     case 'zBuy':zBuy(d.k);break;
     case 'zPull':zPull();break;
+    case 'zGrab':break;
     case 'zEquip':zEquip(d.k);break;
     case 'zBuyPot':zBuyPot(d.p);break;
     case 'zBuild':zBuild(d.k);break;
@@ -1589,7 +1627,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local'||LAN_SELF())){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zPrice,zPull,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zPrice,zPull,zClaw,zClawHold,zClawRelease,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
