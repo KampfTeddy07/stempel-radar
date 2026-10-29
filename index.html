@@ -25,6 +25,7 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--paper);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px}
 .chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .chip.cat[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:#fff}
+.chip.when[aria-pressed="true"]{background:#1f8a5a;border-color:#1f8a5a;color:#fff}
 #map{flex:1 1 0;min-height:45vh}
 .bottom{max-height:40vh;overflow-y:auto;background:var(--bg);padding:6px max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
 .tools{display:flex;gap:6px;margin-bottom:6px}.tools input{flex:1;font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--fg);min-width:0}
@@ -36,7 +37,7 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 .sheet-in label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}.sheet-in input[type=text],.sheet-in select{font:inherit;font-size:15px;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--fg)}
 .sheet-in .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sheet-in label.status{flex-direction:row;align-items:center;gap:8px;font-size:13px}.sheet-in .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .item{display:grid;grid-template-columns:30px 1fr auto auto;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:5px}
-.item.done{opacity:.55}.item .mark{width:28px;height:28px;border-radius:50%;border:2px solid var(--c);color:var(--c);display:grid;place-items:center;font-size:12px;font-weight:700}
+.item.done{opacity:.55}.whenview .item.done{opacity:1}.item .mark{width:28px;height:28px;border-radius:50%;border:2px solid var(--c);color:var(--c);display:grid;place-items:center;font-size:12px;font-weight:700}
 .item.done .mark{background:var(--c);color:#fff}.item .nm{font-weight:700}.item .jp{font-size:12px;color:var(--muted)}
 .item .dist{text-align:right;font-weight:700;font-size:13px;white-space:nowrap}.item .dist small{display:block;font-weight:400;color:var(--muted);font-size:11px}
 .status{font-size:12px;color:var(--muted)}
@@ -56,6 +57,7 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
   <div class="row"><h1>Stempel-Radar Japan</h1><span class="cnt" id="count"></span></div>
   <div class="chips" id="regions"></div>
   <div class="chips" id="cats"></div>
+  <div class="chips" id="when"></div>
 </div>
 <div id="map" style="position:relative"></div>
 <div class="bottom">
@@ -267,7 +269,7 @@ const withCustom=base=>base.filter(e=>!e.custom).concat(CUSTOM);
 let ALL=withCustom(RAW.map(mk)),LINESX=LINES;
 const byId=id=>ALL.find(e=>e.id===id);
 const store={get(k,d){try{const v=localStorage.getItem("sr."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("sr."+k,JSON.stringify(v))}catch(e){}}};
-let done=new Set(store.get("done",[])),doneAt=store.get("doneAt",{}),region=store.get("region","all"),cat="",pos=null,hideDone=false,q="",follow=true;
+let done=new Set(store.get("done",[])),doneAt=store.get("doneAt",{}),region=store.get("region","all"),cat="",pos=null,hideDone=false,q="",follow=true,when="all";
 const fmtAt=ts=>{if(!ts)return"";const d=new Date(ts);const p=n=>String(n).padStart(2,"0");return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`};
 const fmtAtShort=ts=>{if(!ts)return"";const d=new Date(ts);const p=n=>String(n).padStart(2,"0");return `${p(d.getDate())}.${p(d.getMonth()+1)}. ${p(d.getHours())}:${p(d.getMinutes())}`};
 const $=id=>document.getElementById(id);
@@ -275,7 +277,9 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 function km(a,b){const R=6371,dL=(b.lat-a.lat)*Math.PI/180,dG=(b.lng-a.lng)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dG/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
 const fmtKm=d=>d<1?Math.round(d*1000)+" m":(d<10?d.toFixed(1).replace(".",","):Math.round(d))+" km";
 const walk=d=>{const m=Math.round(d/0.075);return m<60?m+" Min. zu Fuß":Math.round(m/60*10)/10+" Std. zu Fuß"};
-const visible=()=>ALL.filter(e=>(region==="all"||e.r===region)&&(!cat||e.c===cat)&&(!hideDone||!done.has(e.id))&&(!q||(e.n+" "+e.jp+" "+e.t).toLowerCase().includes(q)));
+const dayStart=off=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()-off*86400000};
+const inWhen=e=>{if(when==="all")return true;if(!done.has(e.id))return false;const ts=doneAt[e.id]||0;if(when==="done")return true;if(when==="today")return ts>=dayStart(0);if(when==="yesterday")return ts>=dayStart(1)&&ts<dayStart(0);if(when==="week")return ts>=dayStart(6);return true};
+const visible=()=>ALL.filter(e=>(region==="all"||e.r===region)&&(!cat||e.c===cat)&&inWhen(e)&&(when!=="all"||!hideDone||!done.has(e.id))&&(!q||(e.n+" "+e.jp+" "+e.t).toLowerCase().includes(q)));
 
 const map=L.map("map",{zoomControl:true}).setView([35.3,137.3],6);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
@@ -301,10 +305,12 @@ function drawMarkers(){layer.clearLayers();visible().forEach(e=>{const d=done.ha
 window.toggleDone=id=>{if(done.has(id)){done.delete(id);delete doneAt[id]}else{done.add(id);doneAt[id]=Date.now()}store.set("done",[...done]);store.set("doneAt",doneAt);render();bkShow();checkRadar();if(markers[id])markers[id].openPopup()};
 function fitRegion(){const set=ALL.filter(e=>region==="all"||e.r===region);follow=false;go(()=>map.fitBounds(L.latLngBounds(set.map(e=>[e.lat,e.lng])),{padding:[20,20]}))}
 function renderChips(){const r=$("regions");r.innerHTML="";[["all","Alle"],...Object.entries(REG)].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",region===k);b.onclick=()=>{region=k;store.set("region",k);render();fitRegion()};r.appendChild(b)});
-  const c=$("cats");c.innerHTML="";[["","Alle Arten"],...Object.entries(CATS).map(([k,v])=>[k,v.n])].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip"+(k?" cat":"");if(k)b.style.setProperty("--c",CATS[k].c);b.textContent=n;b.setAttribute("aria-pressed",cat===k);b.onclick=()=>{cat=k;render()};c.appendChild(b)})}
-function renderList(){let items=visible();if(pos)items=items.map(e=>({...e,d:km(pos,e)})).sort((a,b)=>a.d-b.d);else items.sort((a,b)=>a.n.localeCompare(b.n,"de"));
+  const c=$("cats");c.innerHTML="";[["","Alle Arten"],...Object.entries(CATS).map(([k,v])=>[k,v.n])].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip"+(k?" cat":"");if(k)b.style.setProperty("--c",CATS[k].c);b.textContent=n;b.setAttribute("aria-pressed",cat===k);b.onclick=()=>{cat=k;render()};c.appendChild(b)});
+  const w=$("when");w.innerHTML="";const base=ALL.filter(e=>(region==="all"||e.r===region)&&(!cat||e.c===cat));const cnt=k=>{const old=when;when=k;const n=base.filter(inWhen).length;when=old;return n};
+  [["all","Alle"],["today","Heute"],["yesterday","Gestern"],["week","Letzte 7 Tage"],["done","Gesammelt"]].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip when";const c=k==="all"?0:cnt(k);b.textContent=k==="all"?n:`${n} (${c})`;b.setAttribute("aria-pressed",when===k);b.onclick=()=>{when=k;render()};w.appendChild(b)})}
+function renderList(){document.body.classList.toggle("whenview",when!=="all");let items=visible();if(pos)items=items.map(e=>({...e,d:km(pos,e)}));if(when!=="all")items.sort((a,b)=>(doneAt[b.id]||0)-(doneAt[a.id]||0));else if(pos)items.sort((a,b)=>a.d-b.d);else items.sort((a,b)=>a.n.localeCompare(b.n,"de"));
   const inReg=ALL.filter(e=>region==="all"||e.r===region);$("count").textContent=inReg.filter(e=>done.has(e.id)).length+" / "+inReg.length;
-  $("list").innerHTML=items.map((e,i)=>`<div class="item${done.has(e.id)?" done":""}" style="--c:${CATS[e.c].c}" data-id="${e.id}"><div class="mark">${done.has(e.id)?"✓":(pos?i+1:"")}</div><div><div class="nm">${esc(e.n)}${e.custom?' <small class="own">eigener</small>':''}</div><div class="jp">${done.has(e.id)&&doneAt[e.id]?`✓ ${fmtAtShort(doneAt[e.id])} Uhr`:esc(e.jp?e.jp+" · ":"")+esc(e.t)}</div></div><div class="dist">${pos?fmtKm(e.d)+"<small>"+walk(e.d)+"</small>":""}</div>${photos[e.id]?`<img class="ph" src="${photos[e.id]}" alt="">`:"<span></span>"}</div>`).join("")||'<div class="status">Keine Stempelorte für diese Auswahl.</div>'}
+  $("list").innerHTML=items.map((e,i)=>`<div class="item${done.has(e.id)?" done":""}" style="--c:${CATS[e.c].c}" data-id="${e.id}"><div class="mark">${done.has(e.id)?"✓":(pos?i+1:"")}</div><div><div class="nm">${esc(e.n)}${e.custom?' <small class="own">eigener</small>':''}</div><div class="jp">${done.has(e.id)&&doneAt[e.id]?`✓ ${fmtAtShort(doneAt[e.id])} Uhr`:esc(e.jp?e.jp+" · ":"")+esc(e.t)}</div></div><div class="dist">${pos?fmtKm(e.d)+"<small>"+walk(e.d)+"</small>":""}</div>${photos[e.id]?`<img class="ph" src="${photos[e.id]}" alt="">`:"<span></span>"}</div>`).join("")||'<div class="status">'+(when==="today"?"Heute noch keinen Stempel gesammelt.":when==="yesterday"?"Gestern keinen Stempel gesammelt.":when==="week"?"In den letzten 7 Tagen nichts gesammelt.":when==="done"?"Noch nichts gesammelt.":"Keine Stempelorte für diese Auswahl.")+'</div>'}
 $("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=markers[it.dataset.id];if(m){follow=false;go(()=>map.setView(m.getLatLng(),Math.max(map.getZoom(),15)));m.openPopup()}};
 $("q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};$("hideDone").onchange=e=>{hideDone=e.target.checked;render()};
 function render(){renderChips();drawMarkers();renderList()}
