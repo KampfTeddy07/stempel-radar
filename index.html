@@ -29,6 +29,12 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 .bottom{max-height:40vh;overflow-y:auto;background:var(--bg);padding:6px max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
 .tools{display:flex;gap:6px;margin-bottom:6px}.tools input{flex:1;font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--fg);min-width:0}
 .btn{font:inherit;font-size:13px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--fg)}
+.btn.add{white-space:nowrap;font-weight:700}.btn.primary{background:var(--fg);color:var(--paper);border-color:var(--fg);width:100%;padding:11px;font-size:15px}.btn:disabled{opacity:.45}
+.pop .when{font-weight:700;color:#2f8f5b}.item .own{font-weight:400;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 6px;margin-left:4px}
+.sheet{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}.sheet[hidden]{display:none}
+.sheet-in{background:var(--paper);color:var(--fg);width:100%;max-width:560px;margin:0 auto;border-radius:16px 16px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;max-height:85vh;overflow:auto}
+.sheet-in label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}.sheet-in input[type=text],.sheet-in select{font:inherit;font-size:15px;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--fg)}
+.sheet-in .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sheet-in label.status{flex-direction:row;align-items:center;gap:8px;font-size:13px}.sheet-in .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .item{display:grid;grid-template-columns:30px 1fr auto auto;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:5px}
 .item.done{opacity:.55}.item .mark{width:28px;height:28px;border-radius:50%;border:2px solid var(--c);color:var(--c);display:grid;place-items:center;font-size:12px;font-weight:700}
 .item.done .mark{background:var(--c);color:#fff}.item .nm{font-weight:700}.item .jp{font-size:12px;color:var(--muted)}
@@ -56,13 +62,23 @@ h1{font-size:18px;margin:0;flex:1}.cnt{font-weight:700;color:var(--shu);font-var
 <details class="fx" id="fx"><summary>¥ Umrechner <small id="fxRate">Kurse laden …</small></summary>
     <div class="grid"><label>Yen ¥<input type="text" inputmode="decimal" autocomplete="off" id="fxJPY" placeholder="1'000"></label><label>Franken CHF<input type="text" inputmode="decimal" autocomplete="off" id="fxCHF" placeholder="5.20"></label><label>Euro €<input type="text" inputmode="decimal" autocomplete="off" id="fxEUR" placeholder="5,65"></label></div>
     <div class="rate"><span id="fxInfo"></span><button type="button" id="fxRefresh">Kurse aktualisieren</button></div></details>
-  <div class="tools"><input type="search" id="q" placeholder="Suchen …"><label class="status"><input type="checkbox" id="hideDone"> gesammelte ausblenden</label></div>
+  <div class="tools"><button type="button" class="btn add" id="addBtn">＋ Eigener Stempel</button><input type="search" id="q" placeholder="Suchen …"><label class="status"><input type="checkbox" id="hideDone"> gesammelte ausblenden</label></div>
   <details class="fx" id="bk"><summary>Sicherung der Häkchen <small id="bkInfo"></small></summary>
     <div class="bk"><button type="button" class="btn" id="bkCopy">Backup-Code kopieren</button><span style="font-size:12px;color:var(--muted)">Code irgendwo sichern (Notizen, Chat) oder an deinen Freund schicken.</span></div>
     <div class="bk"><input type="text" id="bkIn" placeholder="Backup-Code hier einfügen" autocomplete="off"><button type="button" class="btn" id="bkRestore">Wiederherstellen</button></div>
     <div id="bkOut" style="font-size:12px;color:var(--muted);margin-top:6px;word-break:break-all"></div></details>
   <div class="radar"><label><input type="checkbox" id="radarOn"> Radar: melden, wenn ein Stempel im Umkreis von</label><select id="radarR"><option value="300">300 m</option><option value="500">500 m</option><option value="700" selected>700 m</option><option value="1000">1 km</option></select><label><input type="checkbox" id="wake"> Bildschirm anlassen</label></div>
   <div class="alert" id="alert"></div>
+  <div class="sheet" id="addSheet" hidden><div class="sheet-in">
+    <div class="row" style="justify-content:space-between"><b>Eigenen Stempel hinzufügen</b><button type="button" class="btn" id="addClose">Schließen</button></div>
+    <label>Name<input type="text" id="addName" placeholder="z. B. Bahnhof Kamakura" maxlength="60" autocomplete="off"></label>
+    <div class="grid2"><label>Art<select id="addCat"></select></label><label>Region<select id="addReg"></select></label></div>
+    <label>Hinweis (wo ist der Stempel?)<input type="text" id="addTip" placeholder="z. B. am Infoschalter links" maxlength="90" autocomplete="off"></label>
+    <div class="row"><span class="status" id="addPos">Position: noch keine</span></div>
+    <div class="row"><button type="button" class="btn" id="addUseGps">📍 Mein Standort</button><button type="button" class="btn" id="addUseMap">🗺️ Kartenmitte</button><span style="font-size:12px;color:var(--muted)">oder Karte lange drücken</span></div>
+    <label class="status"><input type="checkbox" id="addDone" checked> gleich als gesammelt markieren (mit Datum/Uhrzeit)</label>
+    <button type="button" class="btn primary" id="addSave" disabled>Stempel speichern</button>
+  </div></div>
   <div class="status" id="status">GPS wird gesucht …</div>
   <div id="list"></div>
 </div>
@@ -246,10 +262,14 @@ const LINES=[
 const CATS={jr:{n:"JR-Bahnhof",c:"#2f8f5b",tip:"Stempel am Sperrenschalter – Personal fragen"},pb:{n:"Privatbahn / Metro",c:"#3b6fc9",tip:"Stempel im Stationsbüro hinter der Sperre"},sight:{n:"Sehenswürdigkeit",c:"#d98b1f",tip:"Stempel am Eingang, Info oder Shop"},go:{n:"Goshuin",c:"#b03a7a",tip:"Handgeschriebener Tempelstempel am Goshuin-Schalter (納経所), ca. ¥300–500"},ev:{n:"Aktion (befristet)",c:"#7a5cd6",tip:"Zeitlich begrenzte Stempelrallye"}};
 const REG={kyoto:"Kyoto",kansai:"Osaka · Nara · Uji",fuji:"Fuji",tokyo:"Tokio"};
 const mk=r=>({id:r[0],n:r[1],jp:r[2],r:r[3],c:r[4],lat:r[5],lng:r[6],t:r[7]||CATS[r[4]].tip});
-let ALL=RAW.map(mk),LINESX=LINES;
+let CUSTOM=[];try{CUSTOM=JSON.parse(localStorage.getItem('sr.custom')||'[]');if(!Array.isArray(CUSTOM))CUSTOM=[]}catch(e){CUSTOM=[]}
+const withCustom=base=>base.filter(e=>!e.custom).concat(CUSTOM);
+let ALL=withCustom(RAW.map(mk)),LINESX=LINES;
 const byId=id=>ALL.find(e=>e.id===id);
 const store={get(k,d){try{const v=localStorage.getItem("sr."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("sr."+k,JSON.stringify(v))}catch(e){}}};
-let done=new Set(store.get("done",[])),region=store.get("region","all"),cat="",pos=null,hideDone=false,q="",follow=true;
+let done=new Set(store.get("done",[])),doneAt=store.get("doneAt",{}),region=store.get("region","all"),cat="",pos=null,hideDone=false,q="",follow=true;
+const fmtAt=ts=>{if(!ts)return"";const d=new Date(ts);const p=n=>String(n).padStart(2,"0");return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`};
+const fmtAtShort=ts=>{if(!ts)return"";const d=new Date(ts);const p=n=>String(n).padStart(2,"0");return `${p(d.getDate())}.${p(d.getMonth()+1)}. ${p(d.getHours())}:${p(d.getMinutes())}`};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function km(a,b){const R=6371,dL=(b.lat-a.lat)*Math.PI/180,dG=(b.lng-a.lng)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dG/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
@@ -274,32 +294,49 @@ window.delPhoto=id=>{delete photos[id];pSave(id,null);renderList();if(markers[id
 function popup(e){const d=done.has(e.id),ph=photos[e.id];const q=encodeURIComponent((e.c==="jr"||e.c==="pb")?e.jp+" 駅スタンプ 設置場所":e.jp+" 記念スタンプ 設置場所");
   return `<div class="pop"><b>${esc(e.n)}</b><span class="jp">${esc(e.jp)} · ${esc(CATS[e.c].n)}</span><div class="tip">${esc(e.t)}</div>${pos?`<div class="tip">${fmtKm(km(pos,e))} · ${walk(km(pos,e))}</div>`:""}
   ${ph?`<img src="${ph}" alt="Eigenes Foto vom Stempelplatz">`:""}
-  <div class="row"><button type="button" onclick="toggleDone('${e.id}')">${d?"Gesammelt ✓":"Als gesammelt markieren"}</button><a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Route</a></div>
+  ${d&&doneAt[e.id]?`<div class="tip when">✓ Gesammelt am ${fmtAt(doneAt[e.id])}</div>`:""}${e.custom?`<div class="tip">Eigener Stempel</div>`:""}
+  <div class="row"><button type="button" onclick="toggleDone('${e.id}')">${d?"Gesammelt ✓":"Als gesammelt markieren"}</button>${e.custom?`<button type="button" onclick="delCustom('${e.id}')">Eigenen Stempel löschen</button>`:""}<a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=transit" target="_blank" rel="noopener">Route</a></div>
   <div class="row"><a href="https://www.google.com/search?tbm=isch&q=${q}" target="_blank" rel="noopener">📷 Fotos vom Stempelplatz suchen</a><label>📸 ${ph?"Neues Foto":"Eigenes Foto"}<input type="file" accept="image/*" capture="environment" hidden onchange="addPhoto('${e.id}',this)"></label>${ph?`<button type="button" onclick="delPhoto('${e.id}')">Foto löschen</button>`:""}</div></div>`}
 function drawMarkers(){layer.clearLayers();visible().forEach(e=>{const d=done.has(e.id);const m=L.circleMarker([e.lat,e.lng],{radius:8,color:CATS[e.c].c,weight:2.5,fillColor:d?CATS[e.c].c:"#fff",fillOpacity:1}).bindPopup(()=>popup(e));markers[e.id]=m;m.addTo(layer)})}
-window.toggleDone=id=>{done.has(id)?done.delete(id):done.add(id);store.set("done",[...done]);render();bkShow();checkRadar();if(markers[id])markers[id].openPopup()};
+window.toggleDone=id=>{if(done.has(id)){done.delete(id);delete doneAt[id]}else{done.add(id);doneAt[id]=Date.now()}store.set("done",[...done]);store.set("doneAt",doneAt);render();bkShow();checkRadar();if(markers[id])markers[id].openPopup()};
 function fitRegion(){const set=ALL.filter(e=>region==="all"||e.r===region);follow=false;go(()=>map.fitBounds(L.latLngBounds(set.map(e=>[e.lat,e.lng])),{padding:[20,20]}))}
 function renderChips(){const r=$("regions");r.innerHTML="";[["all","Alle"],...Object.entries(REG)].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",region===k);b.onclick=()=>{region=k;store.set("region",k);render();fitRegion()};r.appendChild(b)});
   const c=$("cats");c.innerHTML="";[["","Alle Arten"],...Object.entries(CATS).map(([k,v])=>[k,v.n])].forEach(([k,n])=>{const b=document.createElement("button");b.className="chip"+(k?" cat":"");if(k)b.style.setProperty("--c",CATS[k].c);b.textContent=n;b.setAttribute("aria-pressed",cat===k);b.onclick=()=>{cat=k;render()};c.appendChild(b)})}
 function renderList(){let items=visible();if(pos)items=items.map(e=>({...e,d:km(pos,e)})).sort((a,b)=>a.d-b.d);else items.sort((a,b)=>a.n.localeCompare(b.n,"de"));
   const inReg=ALL.filter(e=>region==="all"||e.r===region);$("count").textContent=inReg.filter(e=>done.has(e.id)).length+" / "+inReg.length;
-  $("list").innerHTML=items.map((e,i)=>`<div class="item${done.has(e.id)?" done":""}" style="--c:${CATS[e.c].c}" data-id="${e.id}"><div class="mark">${done.has(e.id)?"✓":(pos?i+1:"")}</div><div><div class="nm">${esc(e.n)}</div><div class="jp">${esc(e.jp)} · ${esc(e.t)}</div></div><div class="dist">${pos?fmtKm(e.d)+"<small>"+walk(e.d)+"</small>":""}</div>${photos[e.id]?`<img class="ph" src="${photos[e.id]}" alt="">`:"<span></span>"}</div>`).join("")||'<div class="status">Keine Stempelorte für diese Auswahl.</div>'}
+  $("list").innerHTML=items.map((e,i)=>`<div class="item${done.has(e.id)?" done":""}" style="--c:${CATS[e.c].c}" data-id="${e.id}"><div class="mark">${done.has(e.id)?"✓":(pos?i+1:"")}</div><div><div class="nm">${esc(e.n)}${e.custom?' <small class="own">eigener</small>':''}</div><div class="jp">${done.has(e.id)&&doneAt[e.id]?`✓ ${fmtAtShort(doneAt[e.id])} Uhr`:esc(e.jp?e.jp+" · ":"")+esc(e.t)}</div></div><div class="dist">${pos?fmtKm(e.d)+"<small>"+walk(e.d)+"</small>":""}</div>${photos[e.id]?`<img class="ph" src="${photos[e.id]}" alt="">`:"<span></span>"}</div>`).join("")||'<div class="status">Keine Stempelorte für diese Auswahl.</div>'}
 $("list").onclick=e=>{const it=e.target.closest(".item");if(!it)return;const m=markers[it.dataset.id];if(m){follow=false;go(()=>map.setView(m.getLatLng(),Math.max(map.getZoom(),15)));m.openPopup()}};
 $("q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};$("hideDone").onchange=e=>{hideDone=e.target.checked;render()};
 function render(){renderChips();drawMarkers();renderList()}
+// ---- Eigene Stempel ----
+let addLL=null;
+function addOpen(ll){addLL=ll||null;$("addSheet").hidden=false;$("addCat").innerHTML=Object.entries(CATS).map(([k,v])=>`<option value="${k}">${esc(v.n)}</option>`).join("");$("addReg").innerHTML=Object.entries(REG).map(([k,v])=>`<option value="${k}"${region===k?" selected":""}>${esc(v)}</option>`).join("");addPosShow();$("addName").focus()}
+function addPosShow(){$("addPos").textContent=addLL?`Position: ${addLL.lat.toFixed(5)}, ${addLL.lng.toFixed(5)}`:"Position: noch keine – Standort, Kartenmitte oder Karte lange drücken";$("addSave").disabled=!(addLL&&$("addName").value.trim())}
+$("addBtn").onclick=()=>addOpen(null);$("addClose").onclick=()=>{$("addSheet").hidden=true};
+$("addName").oninput=addPosShow;
+$("addUseGps").onclick=()=>{if(!pos){$("addPos").textContent="Kein GPS-Standort – kurz warten oder Kartenmitte nehmen";return}addLL={lat:pos.lat,lng:pos.lng};addPosShow()};
+$("addUseMap").onclick=()=>{const c=map.getCenter();addLL={lat:c.lat,lng:c.lng};addPosShow()};
+map.on("contextmenu",e=>{addOpen({lat:e.latlng.lat,lng:e.latlng.lng})});
+$("addSave").onclick=()=>{const n=$("addName").value.trim();if(!n||!addLL)return;const c=$("addCat").value,r=$("addReg").value,t=$("addTip").value.trim()||"Eigener Stempel";
+  const e={id:"c-"+Date.now().toString(36),n,jp:"",r,c,lat:+addLL.lat.toFixed(6),lng:+addLL.lng.toFixed(6),t,custom:true};
+  CUSTOM.push(e);localStorage.setItem("sr.custom",JSON.stringify(CUSTOM));ALL=withCustom(ALL);
+  if($("addDone").checked){done.add(e.id);doneAt[e.id]=Date.now();store.set("done",[...done]);store.set("doneAt",doneAt)}
+  $("addSheet").hidden=true;$("addName").value="";$("addTip").value="";addLL=null;render();bkShow();
+  if(markers[e.id]){follow=false;go(()=>map.setView([e.lat,e.lng],Math.max(map.getZoom(),15)));markers[e.id].openPopup()}};
+window.delCustom=id=>{CUSTOM=CUSTOM.filter(x=>x.id!==id);localStorage.setItem("sr.custom",JSON.stringify(CUSTOM));ALL=ALL.filter(x=>x.id!==id);done.delete(id);delete doneAt[id];store.set("done",[...done]);store.set("doneAt",doneAt);if(markers[id]){markers[id].closePopup();delete markers[id]}render();bkShow()};
 render();
 // Auto-Update: Stempeldaten von der Webseite, APK-Hinweis für die Android-App
 let dataVer=DATA_VER;
-function applyData(d){if(!d||!Array.isArray(d.raw))return;ALL=d.raw.map(mk);LINESX=d.lines||LINESX;dataVer=d.ver||dataVer;drawLines();render();if(pos)checkRadar()}
+function applyData(d){if(!d||!Array.isArray(d.raw))return;ALL=withCustom(d.raw.map(mk));LINESX=d.lines||LINESX;dataVer=d.ver||dataVer;drawLines();render();if(pos)checkRadar()}
 (function(){const st=store.get("data",null);if(st&&st.ver>DATA_VER)applyData(st)})();
 async function updateData(){try{const r=await fetch(BASE+"data.json?t="+Date.now(),{cache:"no-store"});const d=await r.json();if(d&&d.ver>dataVer){store.set("data",d);applyData(d);$("status").textContent="Stempelliste aktualisiert ("+ALL.length+" Einträge)"}}catch(e){}}
 async function updateApp(){if(!native)return;try{const r=await fetch(BASE+"version.json?t="+Date.now(),{cache:"no-store"});const v=await r.json();if(v&&v.apk>APP_BUILD){const b=document.createElement("div");b.className="alert on";b.style.background="var(--me)";b.innerHTML='Neue App-Version verfügbar (Build '+v.apk+', du hast '+APP_BUILD+'). <a href="'+v.url+'" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">Update laden</a> – danach „Installieren" bestätigen.';$("alert").parentNode.insertBefore(b,$("alert"))}}catch(e){}}
 updateData();updateApp();
 // Sicherung: gesammelte Stempel als Code kopieren / einfügen
-function bkCode(){return "SR1:"+btoa(unescape(encodeURIComponent([...done].join(","))))}
+function bkCode(){return "SR2:"+btoa(unescape(encodeURIComponent(JSON.stringify({d:[...done].map(i=>[i,doneAt[i]||0]),c:CUSTOM}))))}
 function bkShow(){$("bkInfo").textContent=done.size+" gesammelt"}
 $("bkCopy").onclick=async()=>{const c=bkCode();$("bkOut").textContent=c;try{await navigator.clipboard.writeText(c);$("bkInfo").textContent="Code kopiert ✓"}catch(e){$("bkInfo").textContent="Code unten markieren und kopieren"}};
-$("bkRestore").onclick=()=>{const t=$("bkIn").value.trim();if(!t.startsWith("SR1:")){$("bkInfo").textContent="Kein gültiger Code";return}try{const ids=decodeURIComponent(escape(atob(t.slice(4)))).split(",").filter(Boolean);ids.forEach(i=>done.add(i));store.set("done",[...done]);$("bkIn").value="";render();bkShow();$("bkInfo").textContent=ids.length+" Häkchen übernommen ✓"}catch(e){$("bkInfo").textContent="Code konnte nicht gelesen werden"}};
+$("bkRestore").onclick=()=>{const t=$("bkIn").value.trim();if(!t.startsWith("SR1:")&&!t.startsWith("SR2:")){$("bkInfo").textContent="Kein gültiger Code";return}try{const raw=decodeURIComponent(escape(atob(t.slice(4))));let ids=[];if(t.startsWith("SR2:")){const o=JSON.parse(raw);(o.d||[]).forEach(([i,ts])=>{ids.push(i);if(ts&&!doneAt[i])doneAt[i]=ts});(o.c||[]).forEach(c=>{if(c&&c.id&&!CUSTOM.some(x=>x.id===c.id))CUSTOM.push(c)});localStorage.setItem('sr.custom',JSON.stringify(CUSTOM));ALL=withCustom(ALL);store.set("doneAt",doneAt)}else ids=raw.split(",").filter(Boolean);ids.forEach(i=>done.add(i));store.set("done",[...done]);$("bkIn").value="";render();bkShow();$("bkInfo").textContent=ids.length+" Häkchen übernommen ✓"}catch(e){$("bkInfo").textContent="Code konnte nicht gelesen werden"}};
 bkShow();
 // Yen-Umrechner: Kurse von der EZB (frankfurter.app), Fallback = letzter gespeicherter Kurs
 let fx=store.get("fx",{CHF:191.75,EUR:177,date:"2026-10-22",src:"Schätzkurs"});
