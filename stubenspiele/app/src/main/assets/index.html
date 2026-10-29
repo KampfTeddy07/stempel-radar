@@ -351,6 +351,11 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .zrow.box{margin-top:10px;border-color:var(--brass);background:var(--brass-tint)}
 .zrow .ze{font-size:1.6rem;text-align:center}.zinfo{display:flex;flex-direction:column;gap:2px;min-width:0}.zinfo b{font-size:.95rem}.zinfo b small{font-weight:600;color:var(--muted);margin-left:4px}.zinfo span{font-size:.78rem;color:var(--muted)}.zlv{font-style:normal;font-size:.6rem;letter-spacing:2px;color:var(--brass)}
 .zrow .btn{min-height:42px;padding:0 12px;font-size:.9rem;white-space:nowrap}
+.zpots{display:flex;gap:8px;justify-content:center;margin-top:8px}.zpot{position:relative;width:56px;height:52px;border-radius:12px;border:2px solid var(--brass);background:var(--brass-tint);font-size:1.5rem;cursor:pointer;-webkit-tap-highlight-color:transparent}.zpot:disabled{opacity:.35;border-color:var(--felt-line)}.zpot .cnt{position:absolute;right:-6px;top:-8px;min-width:20px;height:20px;border-radius:10px;background:var(--brass);color:var(--ink);font:800 .75rem/20px var(--font-body);text-align:center}
+.village{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:10px 0 12px}.vt{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 6px;border-radius:12px;border:1px solid var(--felt-line);background:rgba(255,255,255,.05);color:var(--cream);font:700 .72rem var(--font-body);cursor:pointer;min-width:0}.vt .ve{font-size:1.4rem;line-height:1}.vt.on{background:var(--cream);color:var(--ink);border-color:var(--cream)}.vt.locked{opacity:.4}
+.zcamp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.zcamp>div{display:flex;flex-direction:column;gap:2px;padding:10px;border-radius:12px;background:rgba(0,0,0,.18);border:1px solid var(--felt-line);min-width:0}.zcamp b{font-size:.95rem;color:var(--cream);overflow-wrap:anywhere}.zcamp small{font-size:.72rem;color:var(--muted)}
+.zmachine{display:grid;place-items:center;min-height:120px;border-radius:14px;background:radial-gradient(circle at 50% 30%,rgba(210,171,82,.25),rgba(0,0,0,.3));border:2px solid var(--brass);margin-bottom:10px}.zreveal{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;padding:10px}.zreveal span{font-size:3rem;line-height:1;animation:tpop .4s ease-out}.zreveal b{font-size:1.1rem;color:var(--cream)}.zreveal small{font-size:.72rem;color:var(--muted)}.zreveal.dim span{opacity:.5;animation:none}
+.zrow.dim{opacity:.55}.zrow.eq{border-color:var(--brass)}
 /* Maulwurf */
 .molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
 .molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -643,80 +648,150 @@ const ARCADE=[['clawOpen','🧸','Greifer','Einsatz','pay'],['slotsOpen','🎰',
 function arcadeTiles(compact){return`<div class="arcade${compact?' compact':''}">${ARCADE.map(([a,ico,n,sub,cls])=>`<button class="atile" data-a="${a}"><span class="aico">${ico}</span><span>${n}</span><small class="${cls}">${sub}</small></button>`).join('')}</div>`;}
 const isArcade=()=>C.page==='claw'||C.page==='slots'||C.page==='solitaire'||C.page==='mines'||C.page==='t2048'||C.page==='plinko'||C.page==='mole'||C.page==='zomb';
 function arcadeNav(active){return`<div class="seg arcnav"><button class="seg-btn ${active==='claw'?'is-on':''}" data-a="clawOpen">🧸 Greifer</button><button class="seg-btn ${active==='slots'?'is-on':''}" data-a="slotsOpen">🎰 Walzen</button><button class="seg-btn ${active==='sol'?'is-on':''}" data-a="solOpen">🃏 Solitär</button><button class="seg-btn ${active==='mines'?'is-on':''}" data-a="minesOpen">💣 Minen</button><button class="seg-btn ${active==='t2048'?'is-on':''}" data-a="t2048Open">🔢 2048</button><button class="seg-btn ${active==='plinko'?'is-on':''}" data-a="plkOpen">⚪ Kugelfall</button><button class="seg-btn ${active==='mole'?'is-on':''}" data-a="moleOpen">🐭 Maulwurf</button><button class="seg-btn ${active==='zomb'?'is-on':''}" data-a="zombOpen">🧟 Zombies</button></div>`;}
-/* ---- Zombie-Abwehr: Zombies kommen von oben, antippen = schießen. Wellen überstehen bringt Taler, Upgrades kosten Taler. ---- */
-const ZUP={dmg:{n:'Schaden',e:'💥',base:40,max:8,d:l=>'Schuss macht '+l+' Schaden'},rate:{n:'Feuerrate',e:'⚡',base:40,max:8,d:l=>'alle '+Math.round(zCooldown(l))+' ms ein Schuss'},hp:{n:'Barrikade',e:'🧱',base:30,max:8,d:l=>(2+l)+' Leben pro Lauf'},shot:{n:'Schrot',e:'🎯',base:60,max:6,d:l=>l>1?'trifft alles im Umkreis von '+(20+18*(l-1))+' px':'nur Einzeltreffer'},gold:{n:'Beute',e:'🪙',base:50,max:6,d:l=>'+'+Math.round((zGoldMul(l)-1)*100)+' % Taler pro Welle'}};
-const ZBOX_COST=35;
-function zUp(){if(!W.zomb)W.zomb={dmg:1,rate:1,hp:1,shot:1,gold:1,best:0,runs:0,kills:0,boxes:0};return W.zomb;}
-function zCooldown(l){return 520/(1+0.3*(l-1));}
+/* ---- Zombie-Abwehr: Dorf aufbauen, Wellen überstehen, Waffen am Automaten ziehen, Tränke bei der Hexe. ---- */
+const ZUP={dmg:{n:'Schärfe',e:'💥',base:40,max:8,d:l=>'+'+(l-1)+' Schaden auf jede Waffe'},rate:{n:'Schnelligkeit',e:'⚡',base:40,max:8,d:l=>'Nachladen '+Math.round((1-1/(1+0.3*(l-1)))*100)+' % kürzer'},hp:{n:'Barrikade',e:'🧱',base:30,max:8,d:l=>(2+l)+' Leben aus der Barrikade'},shot:{n:'Streuung',e:'🎯',base:60,max:6,d:l=>l>1?'+'+(18*(l-1))+' px Wirkungsradius':'kein Bonus-Radius'},gold:{n:'Beute',e:'🪙',base:50,max:6,d:l=>'+'+Math.round((zGoldMul(l)-1)*100)+' % Taler pro Welle'}};
+const ZW={fork:{n:'Mistgabel',e:'🔱',dmg:1,cd:520,rad:0,r:0,d:'Der Anfang. Besser als nichts.'},pistol:{n:'Pistole',e:'🔫',dmg:2,cd:420,rad:0,r:1,d:'Solide, schnell, zuverlässig.'},bow:{n:'Armbrust',e:'🏹',dmg:4,cd:720,rad:0,pierce:true,r:1,d:'Bolzen durchschlägt alle Zombies dahinter.'},shotgun:{n:'Schrotflinte',e:'💣',dmg:2,cd:650,rad:46,r:2,d:'Trifft alles im Umkreis.'},smg:{n:'Maschinenpistole',e:'🔩',dmg:1,cd:150,rad:0,r:2,d:'Dauerfeuer – so schnell du tippen kannst.'},dyna:{n:'Dynamit',e:'🧨',dmg:5,cd:1100,rad:72,r:3,d:'Langsam, aber ein Krater.'},flame:{n:'Flammenwerfer',e:'🔥',dmg:1,cd:110,rad:34,r:3,d:'Brennt Gruppen schnell nieder.'},bolt:{n:'Blitzstab',e:'⚡',dmg:3,cd:480,rad:0,chain:3,r:4,d:'Der Blitz springt auf drei weitere Zombies über.'},cannon:{n:'Goldene Kanone',e:'🌟',dmg:8,cd:600,rad:52,r:4,d:'Das Beste, was der Automat hergibt.'}};
+const ZW_RAR=['Start','Gewöhnlich','Selten','Episch','Legendär'],ZW_PULL=15;
+const ZPOT={heal:{n:'Heiltrank',e:'🧪',cost:25,d:'+2 Leben, sofort im Lauf'},slow:{n:'Zeitlupe',e:'🐌',cost:30,d:'Zombies 7 s lang halb so schnell'},fire:{n:'Feuerregen',e:'☄️',cost:60,d:'Alle Zombies auf dem Feld sterben'},luck:{n:'Glückstrank',e:'🍀',cost:40,d:'Nächster Lauf: doppelt so viele Münzen'}};
+const ZSTORY=[
+ {wave:2,key:'smith',e:'⚒️',title:'Der Schmied',text:'Ein rußiger Mann klopft an die Barrikade: „Ich hab Werkzeug. Gebt mir ein Dach, dann schärfe ich euch alles.“ Die Schmiede ist eröffnet – Verbesserungen gegen Taler.'},
+ {wave:4,key:'claw',e:'🎰',title:'Die alte Spielhalle',text:'Hinter dem Dorfplatz steht ein verstaubter Greifautomat voller Waffen. Er schluckt nur die grünen Zombie-Münzen, die manche Zombies fallen lassen. Münzen im Lauf antippen, um sie einzusammeln!'},
+ {wave:7,key:'witch',e:'🧙',title:'Die Hexe im Wald',text:'Auf dem Weg zum Fluss steht eine Hütte auf Hühnerbeinen. Die Hexe lacht: „Tränke gegen Taler. Nehmt sie mit in den Kampf.“ Das Hexenhaus ist offen.'},
+ {wave:10,key:'tower',e:'🗼',title:'Der alte Turm',text:'Ein halb verfallener Wachturm am Dorfrand. Mit ein paar Talern kann dort jemand Wache schieben – und schießt dann von selbst.'},
+ {wave:13,key:'market',e:'🛒',title:'Der fahrende Händler',text:'Ein Händler mit einem Karren voller Krimskrams. Er tauscht Zombie-Münzen gegen Taler und umgekehrt – zu seinen Kursen, versteht sich.'},
+ {wave:16,key:'wall',e:'🏰',title:'Die Steinmetzin',text:'Eine Steinmetzin bietet an, eine echte Dorfmauer zu bauen. Jede Stufe gibt ein Leben mehr pro Lauf.'},
+ {wave:20,key:'chapel',e:'⛪',title:'Die Kapelle',text:'Die Glocke der alten Kapelle läutet wieder. Ab jetzt beginnt jeder Lauf mit einem Heiltrank gratis.'}];
+const ZTOWER=[0,80,140,220,320,450],ZWALL=[0,60,120,200,300,420];
+function zUp(){const U=W.zomb||(W.zomb={});for(const k in ZUP)if(!U[k])U[k]=1;if(!U.weapons)U.weapons={fork:1};if(!U.weapon||!U.weapons[U.weapon])U.weapon='fork';if(!U.potions)U.potions={};if(!U.found)U.found={};if(U.zc===undefined)U.zc=0;if(!U.tower)U.tower=0;if(!U.wall)U.wall=0;return U;}
 function zGoldMul(l){return 1+0.25*(l-1);}
 function zPrice(k){const l=zUp()[k];return Math.round(ZUP[k].base*Math.pow(1.6,l-1));}
-function zState(){if(!C.zomb)C.zomb={running:false,last:null};return C.zomb;}
-function zStart(){const Z=zState();const U=zUp();Object.assign(Z,{running:true,wave:1,hp:2+U.hp,maxHp:2+U.hp,kills:0,earned:0,zs:[],fx:[],toSpawn:0,spawnAt:0,lastShot:0,waveClear:0,t:performance.now(),lastTs:0,over:false,flash:null});zWave(Z);render();requestAnimationFrame(zLoop);}
-function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z.spawnAt=performance.now()+600;Z.waveMsg=performance.now();}
+function zStats(U){const w=ZW[U.weapon]||ZW.fork,wl=U.weapons[U.weapon]||1;return{w,wl,dmg:Math.round(w.dmg*(1+0.15*(wl-1)))+(U.dmg-1),cd:w.cd/(1+0.3*(U.rate-1)),rad:w.rad+(U.shot>1?18*(U.shot-1):0)+(w.rad&&U.shot>1?2:0)};}
+function zState(){if(!C.zomb)C.zomb={running:false,last:null,tab:'camp'};return C.zomb;}
+function zStart(){const Z=zState();const U=zUp();const lives=2+U.hp+U.wall;const pots=Object.assign({},U.potions);if(U.found.chapel)pots.heal=(pots.heal||0)+1;
+  Object.assign(Z,{running:true,paused:null,wave:1,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
+  if(U.luckNext){U.luckNext=false;saveW();}zWave(Z);render();requestAnimationFrame(zLoop);}
+function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z.spawnAt=performance.now()+700;Z.waveMsg=performance.now();
+  const U=zUp();const ev=ZSTORY.find(s=>s.wave===Z.wave&&!U.found[s.key]);if(ev){U.found[ev.key]=1;saveW();Z.paused=ev;Z.spawnAt+=1e9;}}
 function zSpawn(Z,cv){const g=zGeo(cv);const r=Math.random();const boss=Z.wave%5===0&&Z.toSpawn===1;const fat=!boss&&r<0.12+Z.wave*0.01;
   const hp=boss?8+Z.wave*2:fat?3+Math.floor(Z.wave/2):1+Math.floor(Z.wave/3);const sp=(26+Z.wave*3)*(boss?0.55:fat?0.7:1)*(0.85+Math.random()*0.3);
   Z.zs.push({x:24+Math.random()*(g.W-48),y:-34,hp,maxHp:hp,sp,boss,fat,r:boss?30:fat?24:19,wob:Math.random()*6});}
 function zGeo(cv){return{W:cv.clientWidth,H:cv.clientHeight,wall:cv.clientHeight-64};}
-function zHit(x,y){const Z=zState();if(!Z.running||Z.over)return;const now=performance.now();const U=zUp();if(now-Z.lastShot<zCooldown(U.rate))return;Z.lastShot=now;
-  const cv=$app.querySelector('.zcv');if(!cv)return;const g=zGeo(cv);Z.flash={x,y,at:now};
-  const aim=8;let target=null,best=1e9;for(const z of Z.zs){const d=Math.hypot(z.x-x,z.y-y);if(d<z.r+aim&&d<best){best=d;target=z;}}
+function zKill(Z,z,now){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind:'splat',big:z.boss||z.fat});const U=zUp();const luck=Z.luck?2:1;
+  const n=z.boss?5:z.fat?(Math.random()<0.5*luck?2:0):(Math.random()<0.22*luck?1:0);for(let i=0;i<n;i++)Z.coins.push({x:z.x+(Math.random()-0.5)*30,y:z.y,at:now,vy:12+Math.random()*10});}
+function zDamage(Z,z,dmg,now){z.hp-=dmg;z.hitAt=now;if(z.hp<=0&&!z.dead)zKill(Z,z,now);}
+function zHit(x,y){const Z=zState();if(!Z.running||Z.over)return;const now=performance.now();
+  if(Z.paused){Z.paused=null;Z.spawnAt=now+700;Z.waveMsg=now;return;}
+  // Münze einsammeln hat Vorrang und kostet keinen Schuss
+  let ci=-1,cd=1e9;Z.coins.forEach((c,i)=>{const d=Math.hypot(c.x-x,c.y-y);if(d<26&&d<cd){cd=d;ci=i;}});
+  if(ci>=0){const c=Z.coins.splice(ci,1)[0];Z.zc++;Z.fx.push({x:c.x,y:c.y,at:now,kind:'text',s:'+1 ☠',small:true});if(navigator.vibrate)try{navigator.vibrate(6);}catch(e){}return;}
+  const U=zUp();const st=zStats(U);if(now-Z.lastShot<st.cd)return;Z.lastShot=now;
+  const cv=$app.querySelector('.zcv');if(!cv)return;Z.flash={x,y,at:now,e:st.w.e};
+  const aim=8;let target=null,best=1e9;for(const z of Z.zs){if(z.dead)continue;const d=Math.hypot(z.x-x,z.y-y);if(d<z.r+aim&&d<best){best=d;target=z;}}
   if(!target){Z.fx.push({x,y,at:now,kind:'miss'});return;}
-  const dmg=U.dmg;const rad=U.shot>1?20+18*(U.shot-1):0;
-  for(const z of Z.zs){if(z===target||(rad&&Math.hypot(z.x-target.x,z.y-target.y)<=rad+z.r)){z.hp-=dmg;z.hitAt=now;if(z.hp<=0){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind:'splat',big:z.boss||z.fat});}}}
-  if(rad)Z.fx.push({x:target.x,y:target.y,at:now,kind:'ring',r:rad});
+  zDamage(Z,target,st.dmg,now);
+  if(st.rad){for(const z of Z.zs){if(z!==target&&!z.dead&&Math.hypot(z.x-target.x,z.y-target.y)<=st.rad+z.r)zDamage(Z,z,st.dmg,now);}Z.fx.push({x:target.x,y:target.y,at:now,kind:'ring',r:st.rad});}
+  if(st.w.pierce){for(const z of Z.zs){if(z!==target&&!z.dead&&Math.abs(z.x-target.x)<24&&z.y<=target.y)zDamage(Z,z,st.dmg,now);}Z.fx.push({x:target.x,y:target.y,at:now,kind:'line'});}
+  if(st.w.chain){let from=target;const hitSet=new Set([target]);for(let k=0;k<st.w.chain;k++){let nx=null,nd=1e9;for(const z of Z.zs){if(hitSet.has(z)||z.dead)continue;const d=Math.hypot(z.x-from.x,z.y-from.y);if(d<110&&d<nd){nd=d;nx=z;}}if(!nx)break;hitSet.add(nx);zDamage(Z,nx,Math.max(1,Math.round(st.dmg*0.7)),now);Z.fx.push({x:from.x,y:from.y,x2:nx.x,y2:nx.y,at:now,kind:'bolt'});from=nx;}}
   if(navigator.vibrate)try{navigator.vibrate(8);}catch(e){}}
+function zUsePotion(p){const Z=zState();if(!Z.running||Z.over||Z.paused)return;if(!(Z.pots[p]>0))return;const now=performance.now();const cv=$app.querySelector('.zcv');const g=cv?zGeo(cv):{W:300,H:400};
+  if(p==='heal'){if(Z.hp>=Z.maxHp){toast('Leben sind schon voll.','');return;}Z.hp=Math.min(Z.maxHp,Z.hp+2);}
+  else if(p==='slow')Z.slowUntil=now+7000;
+  else if(p==='fire'){for(const z of Z.zs)if(!z.dead)zKill(Z,z,now);Z.fx.push({x:g.W/2,y:g.H/2,at:now,kind:'text',s:'☄️ Feuerregen!'});}
+  else if(p==='luck'){zUp().luckNext=true;saveW();Z.luck=true;toast('🍀 Glück wirkt ab jetzt und im nächsten Lauf.','');}
+  const U=zUp();const freeHeal=p==='heal'&&U.found.chapel&&Z.pots.heal>(U.potions.heal||0);Z.pots[p]--;if(!freeHeal&&U.potions[p]>0)U.potions[p]--;saveW();
+  const b=$app.querySelector(`[data-a="zPot"][data-p="${p}"] .cnt`);if(b)b.textContent=Z.pots[p];const btn=$app.querySelector(`[data-a="zPot"][data-p="${p}"]`);if(btn)btn.disabled=!(Z.pots[p]>0);
+  if(navigator.vibrate)try{navigator.vibrate(15);}catch(e){}}
 function zLoop(ts){const Z=zState();if(!Z.running)return;const cv=$app.querySelector('.zcv');if(!cv){Z.running=false;return;}const g=zGeo(cv);
-  if(!Z.lastTs)Z.lastTs=ts;const dt=Math.min(50,ts-Z.lastTs)/1000;Z.lastTs=ts;const now=performance.now();
-  if(Z.toSpawn>0&&now>=Z.spawnAt){zSpawn(Z,cv);Z.toSpawn--;Z.spawnAt=now+Z.spawnGap*(0.7+Math.random()*0.6);}
-  for(const z of Z.zs){if(z.dead)continue;z.y+=z.sp*dt;z.x+=Math.sin(now/400+z.wob)*8*dt;if(z.y>=g.wall-z.r*0.4){z.dead=true;Z.hp-=z.boss?3:z.fat?2:1;Z.fx.push({x:z.x,y:g.wall,at:now,kind:'crash'});if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}}}
-  Z.zs=Z.zs.filter(z=>!z.dead);Z.fx=Z.fx.filter(f=>now-f.at<700);
-  if(Z.hp<=0){zEnd(Z,false);return;}
-  if(Z.toSpawn===0&&!Z.zs.length){const U=zUp();const pay=Math.round((3+Z.wave)*zGoldMul(U.gold));W.coins+=pay;Z.earned+=pay;W.zomb.kills=(W.zomb.kills||0)+0;saveW();Z.fx.push({x:g.W/2,y:g.H/2,at:now,kind:'text',s:'Welle '+Z.wave+' geschafft · +'+pay+' 🪙'});Z.wave++;zWave(Z);}
+  if(!Z.lastTs)Z.lastTs=ts;const dt=Math.min(50,ts-Z.lastTs)/1000;Z.lastTs=ts;const now=performance.now();const U=zUp();
+  if(!Z.paused){
+    if(Z.toSpawn>0&&now>=Z.spawnAt){zSpawn(Z,cv);Z.toSpawn--;Z.spawnAt=now+Z.spawnGap*(0.7+Math.random()*0.6);}
+    const slow=now<Z.slowUntil?0.5:1;
+    for(const z of Z.zs){if(z.dead)continue;z.y+=z.sp*slow*dt;z.x+=Math.sin(now/400+z.wob)*8*dt;if(z.y>=g.wall-z.r*0.4){z.dead=true;Z.hp-=z.boss?3:z.fat?2:1;Z.fx.push({x:z.x,y:g.wall,at:now,kind:'crash'});if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}}}
+    for(const c of Z.coins){c.y+=c.vy*dt;if(c.y>g.wall-6)c.y=g.wall-6;}
+    Z.coins=Z.coins.filter(c=>now-c.at<5500);
+    if(U.tower>0&&now-Z.towerAt>2200/U.tower){let t=null;for(const z of Z.zs)if(!z.dead&&(!t||z.y>t.y))t=z;if(t){Z.towerAt=now;zDamage(Z,t,1+Math.floor(U.tower/2),now);Z.fx.push({x:g.W-26,y:g.wall-30,x2:t.x,y2:t.y,at:now,kind:'tower'});}}
+    Z.zs=Z.zs.filter(z=>!z.dead);
+    if(Z.hp<=0){zEnd(Z,false);return;}
+    if(Z.toSpawn===0&&!Z.zs.length){const pay=Math.round((3+Z.wave)*zGoldMul(U.gold));W.coins+=pay;Z.earned+=pay;if(Z.wave>(U.maxWave||0))U.maxWave=Z.wave;saveW();Z.fx.push({x:g.W/2,y:g.H/2,at:now,kind:'text',s:'Welle '+Z.wave+' geschafft · +'+pay+' 🪙'});Z.wave++;zWave(Z);}
+  }
+  Z.fx=Z.fx.filter(f=>now-f.at<700);
   zDraw(cv,Z,g,now);requestAnimationFrame(zLoop);}
-function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,quit};toast(quit?'Lauf beendet · +'+Z.earned+' Taler':'🧟 Überrannt in Welle '+Z.wave+' · +'+Z.earned+' Taler','');render();}
-function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);
-  const grd=x.createLinearGradient(0,0,0,g.H);grd.addColorStop(0,'#0b1a12');grd.addColorStop(1,'#1e3a2a');x.fillStyle=grd;x.fillRect(0,0,g.W,g.H);
+function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;U.zc+=Z.zc;saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,zc:Z.zc,quit};Z.tab='camp';toast((quit?'Lauf beendet':'🧟 Überrannt in Welle '+Z.wave)+' · +'+Z.earned+' Taler · +'+Z.zc+' ☠','');render();}
+function zWrap(x,text,maxW){const words=text.split(' '),lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}if(cur)lines.push(cur);return lines;}
+function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);const U=zUp();
+  const grd=x.createLinearGradient(0,0,0,g.H);grd.addColorStop(0,now<Z.slowUntil?'#0b1230':'#0b1a12');grd.addColorStop(1,now<Z.slowUntil?'#1c2a52':'#1e3a2a');x.fillStyle=grd;x.fillRect(0,0,g.W,g.H);
   x.strokeStyle='rgba(255,255,255,.05)';x.lineWidth=1;for(let yy=40;yy<g.wall;yy+=40){x.beginPath();x.moveTo(0,yy);x.lineTo(g.W,yy);x.stroke();}
-  // Barrikade
-  x.fillStyle='#5a3b1e';x.fillRect(0,g.wall,g.W,8);x.font='22px system-ui';x.textAlign='center';x.textBaseline='middle';for(let bx=16;bx<g.W;bx+=32)x.fillText('🧱',bx,g.wall+26);
-  x.font='30px system-ui';x.fillText('🧑‍🌾',g.W/2,g.H-22);
-  // Zombies
+  x.fillStyle=U.wall?'#6b6b6b':'#5a3b1e';x.fillRect(0,g.wall,g.W,8);x.font='22px system-ui';x.textAlign='center';x.textBaseline='middle';for(let bx=16;bx<g.W;bx+=32)x.fillText(U.wall?'🪨':'🧱',bx,g.wall+26);
+  x.font='30px system-ui';x.fillText('🧑‍🌾',g.W/2,g.H-22);x.font='18px system-ui';x.fillText(zStats(U).w.e,g.W/2+22,g.H-30);
+  if(U.tower>0){x.font='30px system-ui';x.fillText('🗼',g.W-26,g.wall-22);}
+  for(const c of Z.coins){const age=now-c.at;const blink=age>4000&&Math.floor(age/150)%2===0;if(blink)continue;x.fillStyle='#39c46a';x.beginPath();x.arc(c.x,c.y,10,0,Math.PI*2);x.fill();x.strokeStyle='#1d6b3a';x.lineWidth=2;x.stroke();x.fillStyle='#0b1a12';x.font='800 12px system-ui';x.fillText('☠',c.x,c.y+1);}
   for(const z of Z.zs){const sz=z.boss?46:z.fat?36:28;x.font=sz+'px system-ui';const hit=z.hitAt&&now-z.hitAt<120;if(hit){x.save();x.filter='brightness(1.8)';}x.fillText(z.boss?'👹':z.fat?'🧟‍♂️':'🧟',z.x,z.y);if(hit)x.restore();
     if(z.maxHp>1){const w=sz,hpw=w*Math.max(0,z.hp)/z.maxHp;x.fillStyle='rgba(0,0,0,.5)';x.fillRect(z.x-w/2,z.y-sz*0.75,w,4);x.fillStyle=z.boss?'#ff5b5b':'#7fd18f';x.fillRect(z.x-w/2,z.y-sz*0.75,hpw,4);}}
-  // Effekte
   for(const f of Z.fx){const a=1-(now-f.at)/700;x.globalAlpha=Math.max(0,a);
     if(f.kind==='splat'){x.fillStyle='#4caf50';for(let i=0;i<6;i++){const ang=i*1.05+f.x*0.01,rr=(1-a)*(f.big?34:22);x.beginPath();x.arc(f.x+Math.cos(ang)*rr,f.y+Math.sin(ang)*rr,f.big?6:4,0,Math.PI*2);x.fill();}}
     else if(f.kind==='ring'){x.strokeStyle='#ffd76a';x.lineWidth=2;x.beginPath();x.arc(f.x,f.y,f.r*(1.2-a*0.2),0,Math.PI*2);x.stroke();}
+    else if(f.kind==='line'){x.strokeStyle='#ffe9a8';x.lineWidth=2;x.beginPath();x.moveTo(f.x,f.y);x.lineTo(f.x,-10);x.stroke();}
+    else if(f.kind==='bolt'||f.kind==='tower'){x.strokeStyle=f.kind==='bolt'?'#9fd8ff':'#ffd76a';x.lineWidth=f.kind==='bolt'?3:2;x.beginPath();x.moveTo(f.x,f.y);x.lineTo(f.x2,f.y2);x.stroke();}
     else if(f.kind==='miss'){x.fillStyle='#ccc';x.beginPath();x.arc(f.x,f.y,3+(1-a)*6,0,Math.PI*2);x.fill();}
     else if(f.kind==='crash'){x.fillStyle='#ff5b5b';x.font='800 18px system-ui';x.fillText('−1 ❤️',f.x,f.y-10-(1-a)*20);}
-    else if(f.kind==='text'){x.fillStyle='#ffd76a';x.font='800 17px system-ui';x.fillText(f.s,f.x,f.y-(1-a)*20);}
+    else if(f.kind==='text'){x.fillStyle=f.small?'#39c46a':'#ffd76a';x.font='800 '+(f.small?14:17)+'px system-ui';x.fillText(f.s,f.x,f.y-(1-a)*20);}
     x.globalAlpha=1;}
-  // Mündungsblitz
   if(Z.flash&&now-Z.flash.at<90){x.strokeStyle='rgba(255,230,150,'+(1-(now-Z.flash.at)/90)+')';x.lineWidth=3;x.beginPath();x.moveTo(g.W/2,g.H-34);x.lineTo(Z.flash.x,Z.flash.y);x.stroke();}
-  // HUD
-  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+'  ·  '+Z.kills+' erledigt',10,15);
-  x.textAlign='right';x.fillText('🪙 '+Z.earned+'   '+'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)),g.W-10,15);
-  if(Z.waveMsg&&now-Z.waveMsg<1200){x.globalAlpha=1-(now-Z.waveMsg)/1200;x.fillStyle='#fff';x.font='800 26px system-ui';x.textAlign='center';x.fillText('Welle '+Z.wave,g.W/2,g.H*0.4);x.globalAlpha=1;}
-  const cdLeft=zCooldown(zUp().rate)-(now-Z.lastShot);if(cdLeft>0){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(g.W/2-30,g.H-8,60,4);x.fillStyle='#ffd76a';x.fillRect(g.W/2-30,g.H-8,60*(1-cdLeft/zCooldown(zUp().rate)),4);}}
+  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+' · '+Z.kills+' ☠ '+Z.zc,10,15);
+  x.textAlign='right';x.fillText('🪙 '+Z.earned+'  '+'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)),g.W-10,15);
+  if(Z.waveMsg&&now-Z.waveMsg<1200&&!Z.paused){x.globalAlpha=1-(now-Z.waveMsg)/1200;x.fillStyle='#fff';x.font='800 26px system-ui';x.textAlign='center';x.fillText('Welle '+Z.wave,g.W/2,g.H*0.4);x.globalAlpha=1;}
+  const cdAll=zStats(U).cd,cdLeft=cdAll-(now-Z.lastShot);if(cdLeft>0){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(g.W/2-30,g.H-8,60,4);x.fillStyle='#ffd76a';x.fillRect(g.W/2-30,g.H-8,60*(1-cdLeft/cdAll),4);}
+  if(Z.paused){const ev=Z.paused;x.fillStyle='rgba(5,12,8,.86)';x.fillRect(0,0,g.W,g.H);x.textAlign='center';x.font='44px system-ui';x.fillText(ev.e,g.W/2,g.H*0.22);x.fillStyle='#d2ab52';x.font='800 12px system-ui';x.fillText('NEU ENTDECKT',g.W/2,g.H*0.22+38);x.fillStyle='#f4ebd9';x.font='700 24px Georgia,serif';x.fillText(ev.title,g.W/2,g.H*0.22+66);
+    x.font='15px system-ui';const lines=zWrap(x,ev.text,g.W-50);lines.forEach((l,i)=>x.fillText(l,g.W/2,g.H*0.22+104+i*22));x.fillStyle='#d2ab52';x.font='700 14px system-ui';x.fillText('Antippen, um weiterzukämpfen',g.W/2,g.H-40);}}
+/* Dorf: Gebäude */
 function zBuy(k){const U=zUp();const p=zPrice(k);if(U[k]>=ZUP[k].max){toast('Schon auf Höchststufe.','');return;}if(W.coins<p){toast('Nicht genug Taler ('+p+' nötig).','');return;}W.coins-=p;U[k]++;saveW();toast(ZUP[k].e+' '+ZUP[k].n+' auf Stufe '+U[k],'coin');render();}
-function zBox(){const U=zUp();if(W.coins<ZBOX_COST){toast('Nicht genug Taler.','');return;}W.coins-=ZBOX_COST;U.boxes=(U.boxes||0)+1;const r=Math.random();const open=Object.keys(ZUP).filter(k=>U[k]<ZUP[k].max);let msg;
-  if(r<0.45&&open.length){const k=open[Math.floor(Math.random()*open.length)];U[k]++;msg='🎁 '+ZUP[k].e+' '+ZUP[k].n+' +1 (Stufe '+U[k]+')';}
-  else if(r<0.5&&open.length){const k=open[Math.floor(Math.random()*open.length)];U[k]=Math.min(ZUP[k].max,U[k]+2);msg='🎁✨ Doppelt! '+ZUP[k].e+' '+ZUP[k].n+' +2 (Stufe '+U[k]+')';}
-  else if(r<0.8){const back=[10,15,20,25,40,70][Math.floor(Math.random()*6)];W.coins+=back;msg='🪙 Kiste mit '+back+' Talern';}
-  else msg='📦 Leere Kiste … Pech.';
-  saveW();toast(msg,r<0.5?'coin':'');render();}
+function zPull(){const U=zUp();if(U.zc<ZW_PULL){toast('Nicht genug Zombie-Münzen ('+ZW_PULL+' ☠ nötig).','');return;}U.zc-=ZW_PULL;const r=Math.random();const tier=r<0.55?1:r<0.85?2:r<0.97?3:4;const pool=Object.keys(ZW).filter(k=>ZW[k].r===tier);const k=pool[Math.floor(Math.random()*pool.length)];
+  let msg;if(U.weapons[k]){if(U.weapons[k]>=5){U.zc+=Math.floor(ZW_PULL/2);msg=ZW[k].e+' '+ZW[k].n+' nochmal – schon Stufe 5, die Hälfte der Münzen gibt es zurück.';}else{U.weapons[k]++;msg=ZW[k].e+' '+ZW[k].n+' nochmal → Stufe '+U.weapons[k]+' (+15 % Schaden)';}}
+  else{U.weapons[k]=1;U.weapon=k;msg='🎉 NEU: '+ZW[k].e+' '+ZW[k].n+' ('+ZW_RAR[tier]+') – gleich ausgerüstet!';}
+  const Z=zState();Z.reveal={k,at:Date.now()};saveW();toast(msg,tier>=3?'coin':'');render();}
+function zEquip(k){const U=zUp();if(!U.weapons[k])return;U.weapon=k;saveW();render();}
+function zBuyPot(p){const U=zUp();const c=ZPOT[p].cost;if((U.potions[p]||0)>=3){toast('Mehr als drei passen nicht in den Beutel.','');return;}if(W.coins<c){toast('Nicht genug Taler.','');return;}W.coins-=c;U.potions[p]=(U.potions[p]||0)+1;saveW();toast(ZPOT[p].e+' '+ZPOT[p].n+' eingepackt','coin');render();}
+function zBuild(k){const U=zUp();const lv=U[k],tab=k==='tower'?ZTOWER:ZWALL;if(lv>=tab.length-1){toast('Schon voll ausgebaut.','');return;}const c=tab[lv+1];if(W.coins<c){toast('Nicht genug Taler ('+c+' nötig).','');return;}W.coins-=c;U[k]++;saveW();toast((k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer')+' Stufe '+U[k],'coin');render();}
+function zTrade(dir){const U=zUp();if(dir==='sell'){if(U.zc<10){toast('Mindestens 10 ☠ nötig.','');return;}U.zc-=10;W.coins+=12;}else{if(W.coins<20){toast('20 Taler nötig.','');return;}W.coins-=20;U.zc+=5;}saveW();render();}
 function zombies(){const Z=zState();const U=zUp();
   const back=C.room?(C.room.phase==='lobby'?'Zur Lobby':'Zurück zum Tisch'):'Zum Menü';
-  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack" ${Z.running?'disabled':''}>‹ ${back}</button><span class="bar-title">Zombie-Abwehr</span><span class="bar-meta">🪙 ${W.coins}</span></div>`+(Z.running?'':arcadeNav('zomb'));
-  if(Z.running){h+=`<div class="zbox"><canvas class="zcv" data-a="zTap"></canvas></div><div class="actions"><button class="btn btn-outline wide" data-a="zQuit">Lauf beenden (Taler behalten)</button></div><p class="hint">Zombies antippen. Sie dürfen die Barrikade nicht erreichen.</p>`;return h;}
-  if(Z.last)h+=`<div class="winner"><p class="eyebrow">${Z.last.quit?'Lauf beendet':'Überrannt'}</p><h2>${Z.last.wave} Welle${Z.last.wave===1?'':'n'}</h2><p class="hint">${Z.last.kills} Zombies · +${Z.last.earned} Taler${U.best?' · Rekord '+U.best+' Wellen':''}</p></div>`;
-  h+=`<button class="btn btn-primary btn-big" data-a="zStart">${Z.last?'Neuer Lauf':'Lauf starten'}</button>
-  <section class="panel" style="margin-top:14px"><div class="zone-head"><h3 style="margin:0">Ausrüstung</h3><span class="hint">Kaufen oder würfeln</span></div>
-  <div class="zshop">${Object.keys(ZUP).map(k=>{const u=ZUP[k],l=U[k],max=l>=u.max,p=zPrice(k);return`<div class="zrow"><span class="ze">${u.e}</span><div class="zinfo"><b>${u.n} <small>Stufe ${l}${max?' (max)':''}</small></b><span>${u.d(l)}</span><i class="zlv">${'●'.repeat(l)}${'○'.repeat(u.max-l)}</i></div><button class="btn btn-outline" data-a="zBuy" data-k="${k}" ${max||W.coins<p?'disabled':''}>${max?'Max':p+' 🪙'}</button></div>`;}).join('')}</div>
-  <div class="zrow box"><span class="ze">🎁</span><div class="zinfo"><b>Überraschungskiste</b><span>45 % ein Upgrade, 5 % gleich zwei, 30 % Taler zurück (10–70), 20 % leer.</span></div><button class="btn btn-primary" data-a="zBox" ${W.coins<ZBOX_COST?'disabled':''}>${ZBOX_COST} 🪙</button></div></section>
-  <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede überstandene Welle zahlt sofort Taler (3 + Wellennummer, mit Beute-Bonus). Dicke Zombies brauchen mehr Treffer, alle fünf Wellen kommt ein Boss. Erreicht einer die Barrikade, kostet das Leben.${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies, Rekord ${U.best} Wellen.`:''}</p>`;
+  let h=`<div class="bar"><button class="btn btn-ghost" data-a="clawBack" ${Z.running?'disabled':''}>‹ ${back}</button><span class="bar-title">Zombies</span><span class="bar-meta">🪙 ${W.coins} · ☠ ${U.zc}</span></div>`+(Z.running?'':arcadeNav('zomb'));
+  if(Z.running){
+    const pots=Object.keys(ZPOT).filter(p=>Z.pots[p]>0||U.found.witch);
+    h+=`<div class="zbox"><canvas class="zcv" data-a="zTap"></canvas></div>`;
+    if(pots.length)h+=`<div class="zpots">${pots.map(p=>`<button class="zpot" data-a="zPot" data-p="${p}" ${Z.pots[p]>0?'':'disabled'} title="${ZPOT[p].n}">${ZPOT[p].e}<b class="cnt">${Z.pots[p]||0}</b></button>`).join('')}</div>`;
+    h+=`<div class="actions"><button class="btn btn-outline wide" data-a="zQuit">Lauf beenden (alles behalten)</button></div><p class="hint">Zombies antippen = schießen. Grüne ☠-Münzen antippen = einsammeln (verschwinden nach ein paar Sekunden).</p>`;return h;}
+  const found=ZSTORY.filter(s=>U.found[s.key]).length;
+  const tabs=[['camp','🏚️','Lager',true],['smith','⚒️','Schmiede',!!U.found.smith],['claw','🎰','Automat',!!U.found.claw],['witch','🧙','Hexe',!!U.found.witch],['tower','🗼','Turm',!!U.found.tower],['market','🛒','Markt',!!U.found.market],['wall','🏰','Mauer',!!U.found.wall],['chapel','⛪','Kapelle',!!U.found.chapel]];
+  if(!tabs.find(t=>t[0]===Z.tab&&t[3]))Z.tab='camp';
+  h+=`<div class="village">${tabs.map(([k,e,n,ok])=>`<button class="vt ${Z.tab===k?'on':''} ${ok?'':'locked'}" data-a="zTab" data-t="${k}" ${ok?'':'disabled'}><span class="ve">${ok?e:'❔'}</span><span>${ok?n:'?'}</span></button>`).join('')}</div>`;
+  const st=zStats(U);
+  if(Z.tab==='camp'){
+    if(Z.last)h+=`<div class="winner" style="padding-block:6px"><p class="eyebrow">${Z.last.quit?'Lauf beendet':'Überrannt'}</p><h2>${Z.last.wave} Welle${Z.last.wave===1?'':'n'}</h2><p class="hint">${Z.last.kills} Zombies · +${Z.last.earned} 🪙 · +${Z.last.zc} ☠${U.best?' · Rekord '+U.best+' Wellen':''}</p></div>`;
+    h+=`<button class="btn btn-primary btn-big" data-a="zStart">${Z.last?'Neuer Lauf':'Lauf starten'}</button>
+    <div class="zcamp"><div><span class="eyebrow">Waffe</span><b>${st.w.e} ${st.w.n}${st.wl>1?' +'+(st.wl-1):''}</b><small>${st.dmg} Schaden · ${Math.round(st.cd)} ms${st.rad?' · Radius '+st.rad:''}${st.w.pierce?' · durchschlägt':''}${st.w.chain?' · Kettenblitz':''}</small></div><div><span class="eyebrow">Leben</span><b>${2+U.hp+U.wall} ❤️</b><small>Barrikade ${2+U.hp}${U.wall?' + Mauer '+U.wall:''}</small></div><div><span class="eyebrow">Tränke dabei</span><b>${Object.keys(ZPOT).map(p=>(U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)>0?ZPOT[p].e+'×'+((U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)):'').filter(Boolean).join(' ')||'–'}</b><small>${U.luckNext?'🍀 Glück aktiv':'aus dem Hexenhaus'}</small></div><div><span class="eyebrow">Dorf</span><b>${found} von ${ZSTORY.length} Orten</b><small>${found<ZSTORY.length?'Nächster ab Welle '+ZSTORY.find(s=>!U.found[s.key]).wave:'alles entdeckt'}</small></div></div>
+    <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede Welle zahlt Taler, manche Zombies lassen grüne ☠-Münzen fallen (antippen!). Je weiter du kommst, desto mehr vom Dorf entdeckst du: Schmied, Spielhalle, Hexe, Turm …${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies.`:''}</p>`;
+  }else if(Z.tab==='smith'){
+    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">⚒️ Schmiede</h3><span class="hint">gilt für jede Waffe</span></div><div class="zshop">${Object.keys(ZUP).map(k=>{const u=ZUP[k],l=U[k],max=l>=u.max,p=zPrice(k);return`<div class="zrow"><span class="ze">${u.e}</span><div class="zinfo"><b>${u.n} <small>Stufe ${l}${max?' (max)':''}</small></b><span>${u.d(l)}</span><i class="zlv">${'●'.repeat(l)}${'○'.repeat(u.max-l)}</i></div><button class="btn btn-outline" data-a="zBuy" data-k="${k}" ${max||W.coins<p?'disabled':''}>${max?'Max':p+' 🪙'}</button></div>`;}).join('')}</div></section>`;
+  }else if(Z.tab==='claw'){
+    const rv=Z.reveal&&Date.now()-Z.reveal.at<4000?Z.reveal.k:null;
+    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🎰 Waffenautomat</h3><span class="hint">☠ ${U.zc} Münzen</span></div>
+    <div class="zmachine">${rv?`<div class="zreveal"><span>${ZW[rv].e}</span><b>${ZW[rv].n}</b><small>${ZW_RAR[ZW[rv].r]}</small></div>`:`<div class="zreveal dim"><span>🎁</span><small>Gewöhnlich 55 % · Selten 30 % · Episch 12 % · Legendär 3 %</small></div>`}</div>
+    <button class="btn btn-primary btn-big" data-a="zPull" ${U.zc<ZW_PULL?'disabled':''}>Ziehen · ${ZW_PULL} ☠</button>
+    <p class="hint">Doppelte Waffen steigen eine Stufe (+15 % Schaden, bis Stufe 5). Münzen gibt es nur im Kampf – die grünen Dinger antippen.</p>
+    <div class="zshop">${Object.keys(ZW).map(k=>{const w=ZW[k],own=U.weapons[k];return`<div class="zrow ${own?'':'dim'} ${U.weapon===k?'eq':''}"><span class="ze">${own?w.e:'🔒'}</span><div class="zinfo"><b>${own?w.n:'???'} <small>${ZW_RAR[w.r]}${own>1?' · Stufe '+own:''}</small></b><span>${own?w.d+' · '+w.dmg+' Schaden · '+w.cd+' ms'+(w.rad?' · Radius '+w.rad:''):'noch nicht gezogen'}</span></div>${own?`<button class="btn ${U.weapon===k?'btn-primary':'btn-outline'}" data-a="zEquip" data-k="${k}" ${U.weapon===k?'disabled':''}>${U.weapon===k?'Aktiv':'Nehmen'}</button>`:'<span></span>'}</div>`;}).join('')}</div></section>`;
+  }else if(Z.tab==='witch'){
+    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🧙 Hexenhaus</h3><span class="hint">max. 3 pro Sorte</span></div><div class="zshop">${Object.keys(ZPOT).map(p=>{const t=ZPOT[p],n=U.potions[p]||0;return`<div class="zrow"><span class="ze">${t.e}</span><div class="zinfo"><b>${t.n} <small>×${n}</small></b><span>${t.d}</span></div><button class="btn btn-outline" data-a="zBuyPot" data-p="${p}" ${n>=3||W.coins<t.cost?'disabled':''}>${t.cost} 🪙</button></div>`;}).join('')}</div><p class="hint">Im Lauf erscheinen die Tränke als Knöpfe unter dem Spielfeld. „Es ist alles nur Kräuterzeug“, sagt die Hexe.</p></section>`;
+  }else if(Z.tab==='tower'||Z.tab==='wall'){
+    const k=Z.tab,tab=k==='tower'?ZTOWER:ZWALL,lv=U[k],next=tab[lv+1];
+    h+=`<section class="panel"><h3 style="margin:0">${k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer'} <small class="hint">Stufe ${lv} von ${tab.length-1}</small></h3><p class="hint">${k==='tower'?(lv?'Schießt alle '+Math.round(2200/lv)+' ms von selbst auf den vordersten Zombie, '+(1+Math.floor(lv/2))+' Schaden.':'Noch unbemannt. Ab Stufe 1 schießt der Turm von selbst.'):(lv?'+'+lv+' Leben pro Lauf.':'Noch keine Mauer – jede Stufe gibt ein Leben mehr.')}</p>
+    <button class="btn btn-primary btn-big" data-a="zBuild" data-k="${k}" ${next===undefined||W.coins<next?'disabled':''}>${next===undefined?'Voll ausgebaut':'Ausbauen · '+next+' 🪙'}</button></section>`;
+  }else if(Z.tab==='market'){
+    h+=`<section class="panel"><h3 style="margin:0">🛒 Markt</h3><p class="hint">Der Händler tauscht – mit Aufschlag.</p><div class="actions"><button class="btn btn-outline" data-a="zTrade" data-d="sell" ${U.zc<10?'disabled':''}>10 ☠ → 12 🪙</button><button class="btn btn-outline" data-a="zTrade" data-d="buy" ${W.coins<20?'disabled':''}>20 🪙 → 5 ☠</button></div></section>`;
+  }else if(Z.tab==='chapel'){
+    h+=`<section class="panel"><h3 style="margin:0">⛪ Kapelle</h3><p class="hint">Die Glocke läutet. Jeder Lauf beginnt mit einem Heiltrank gratis – unabhängig vom Beutel.</p></section>`;
+  }
   return h;}
-
 /* ---- Maulwurf-Klopfen: 30 Sekunden tippen, jeder Treffer gibt Taler. Kostet nichts. ---- */
 const MOLE_MS=30000,MOLE_CAP=40;
 function moleState(){if(!C.mole)C.mole={busy:false,score:0,hits:0,miss:0,left:MOLE_MS,holes:Array(9).fill(null),lastEnd:null};return C.mole;}
@@ -1423,7 +1498,13 @@ $app.addEventListener('click',async e=>{
     case 'zStart':zStart();break;
     case 'zQuit':if(C.zomb&&C.zomb.running)zEnd(C.zomb,true);break;
     case 'zBuy':zBuy(d.k);break;
-    case 'zBox':zBox();break;
+    case 'zPull':zPull();break;
+    case 'zEquip':zEquip(d.k);break;
+    case 'zBuyPot':zBuyPot(d.p);break;
+    case 'zBuild':zBuild(d.k);break;
+    case 'zTrade':zTrade(d.d);break;
+    case 'zTab':C.zomb.tab=d.t;render();break;
+    case 'zPot':zUsePotion(d.p);break;
     case 'zTap':break;
     case 'moleOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='mole';render();break;
     case 'moleStart':moleStart();break;
@@ -1508,7 +1589,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local'||LAN_SELF())){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zBox,zPrice};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zPrice,zPull,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
