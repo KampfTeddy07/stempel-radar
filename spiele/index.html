@@ -642,7 +642,7 @@ const PRIZES=[
   {k:'back_sakura',e:'🌸',n:'Rücken: Sakura',r:3,skin:['back','sakura']},{k:'back_nachtkatze',e:'🐈‍⬛',n:'Rücken: Nachtkatze',r:3,skin:['back','nachtkatze']},
   {k:'felt_sakura',e:'🌸',n:'Tisch: Sakura',r:2,skin:['felt','sakura']},{k:'felt_lavendel',e:'💜',n:'Tisch: Lavendel',r:3,skin:['felt','lavendel']}];
 if(!W.style)W.style={back:'klassisch',felt:'gruen'};
-function applyStyle(){try{const r=document.documentElement;r.dataset.back=W.style.back||'klassisch';r.dataset.felt=W.style.felt||'gruen';}catch(e){}}
+function applyStyle(){try{const r=document.documentElement;r.dataset.back=W.style.back||'klassisch';r.dataset.felt=W.style.felt||'gruen';const deep=getComputedStyle(r).getPropertyValue('--felt-deep').trim()||'#153527';let m=document.querySelector('meta[name=theme-color]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m);}m.content=deep;if(window.Bridge&&Bridge.setBars)Bridge.setBars(deep);}catch(e){}}
 applyStyle();
 const RAR={1:['Gewöhnlich','#9fb8a8'],2:['Selten','#8fc9e8'],3:['Episch','#c89cf0'],4:['Legendär','#ffd76a']};
 const CLAW_COST=20;

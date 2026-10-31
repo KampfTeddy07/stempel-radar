@@ -144,6 +144,12 @@ public class MainActivity extends Activity {
             } });
         }
         @JavascriptInterface public boolean isPublic() { return server != null; }
+        /** Statusleiste, Navigationsleiste und Hintergrund an den gewählten Tischfilz anpassen. */
+        @JavascriptInterface public void setBars(final String hex) {
+            runOnUiThread(new Runnable() { public void run() {
+                try { int c = android.graphics.Color.parseColor(hex); getWindow().setStatusBarColor(c); getWindow().setNavigationBarColor(c); if (web != null) web.setBackgroundColor(c); } catch (Exception ignored) {}
+            } });
+        }
         /** Liefert eine wartende Einladung (einmalig) – aus QR-Scan oder angetipptem Link. */
         @JavascriptInterface public String invite() { String u = pendingInvite; pendingInvite = null; return u == null ? "" : u; }
         /** Öffnet eine Adresse im System-Browser (z. B. den Download einer neuen Version). */
