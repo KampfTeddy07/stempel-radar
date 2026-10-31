@@ -250,7 +250,17 @@ const RAW=[
 ["to-zojoji","Zōjō-ji","増上寺","tokyo","go",35.6575,139.7483,"Direkt unter dem Tokyo Tower"],
 ["to-kanda-myojin","Kanda Myōjin","神田明神","tokyo","go",35.7019,139.7678],
 ["to-nezu","Nezu-Schrein","根津神社","tokyo","go",35.7284,139.7612],
-["to-hiejinja","Hie-Schrein","日枝神社","tokyo","go",35.6745,139.7398]
+["to-hiejinja","Hie-Schrein","日枝神社","tokyo","go",35.6745,139.7398],
+ ["yh-yokohama","Yokohama","横浜駅","yokohama","jr",35.4657,139.6223,"Außerhalb der Zentral-Sperre (中央改札外) vor dem Stationsleiterbüro – Motiv Bay Bridge & Seabass"],
+ ["yh-sakuragicho","Sakuragichō","桜木町駅","yokohama","jr",35.4509,139.6312,"Nordsperre (北改札) außen am Schalter – Personal fragen; Motiv Minato Mirai & Akarenga"],
+ ["yh-shinyokohama","Shin-Yokohama","新横浜駅","yokohama","jr",35.5068,139.6175,"JR-Ost: außerhalb der Sperre am Shinohara-Ausgang (篠原口); Shinkansen-Stempel nur bei Rallyes"],
+ ["yh-kawasaki","Kawasaki","川崎駅","yokohama","jr",35.5318,139.6970,"Innerhalb der Sperre, Büro der Bahnhofsaufsicht an Gleis 6 (Nambu-Linie), 7–23 Uhr"],
+ ["yh-higashikanagawa","Higashi-Kanagawa","東神奈川駅","yokohama","jr",35.4777,139.6333,"Sperrenschalter – Personal fragen (nicht geprüft)"],
+ ["yh-hodogaya","Hodogaya","保土ケ谷駅","yokohama","jr",35.4440,139.5957,"Sperrenschalter – Personal fragen (nicht geprüft)"],
+ ["yh-totsuka","Totsuka","戸塚駅","yokohama","jr",35.4002,139.5341,"Sperrenschalter – Personal fragen (nicht geprüft)"],
+ ["yh-shinkawasaki","Shin-Kawasaki","新川崎駅","yokohama","jr",35.5525,139.6727,"Sperrenschalter – Personal fragen (nicht geprüft)"],
+ ["yh-minatomirai","Minatomirai","みなとみらい駅","yokohama","pb",35.4578,139.6326,"Minatomirai-Linie: 3 Motive, beim Bahnpersonal fragen (Stempel evtl. nur zu Aktionen – zusätzlich digitaler Ekitag-Stempel)"],
+ ["yh-motomachi","Motomachi-Chūkagai","元町・中華街駅","yokohama","pb",35.4428,139.6504,"Minatomirai-Linie: 3 Motive, beim Bahnpersonal fragen (Stempel evtl. nur zu Aktionen – zusätzlich digitaler Ekitag-Stempel)"]
 ];
 const LINES=[
  ["ky-kameoka","ky-umahori","ky-saga","ky-uzumasa","ky-hanazono","ky-enmachi","ky-nijo","ky-tambaguchi","ky-umekoji","ky-kyoto","ky-tofukuji","ky-inari","ky-fujinomori","ka-kohata","ka-obaku","ka-uji"],
@@ -259,10 +269,11 @@ const LINES=[
  ["fu-otsuki","fu-shimoyoshida","fu-fujisan","fu-kawaguchiko"],["fu-mishima","fu-shinfuji"],["fu-shinfuji","fu-fujinomiya"],
  ["to-tokyo","to-kanda","to-akihabara","to-okachimachi","to-ueno","to-uguisudani","to-nippori","to-nishinippori","to-tabata","to-komagome","to-sugamo","to-otsuka","to-ikebukuro","to-mejiro","to-takadanobaba","to-shinokubo","to-shinjuku","to-yoyogi","to-harajuku","to-shibuya","to-ebisu","to-meguro","to-gotanda","to-osaki","to-shinagawa","to-takanawa","to-tamachi","to-hamamatsucho","to-shimbashi","to-yurakucho","to-tokyo"],
  ["to-tokyo","to-kanda","to-ochanomizu","to-suidobashi","to-iidabashi","to-ichigaya","to-yotsuya","to-shinanomachi","to-sendagaya","to-yoyogi","to-shinjuku","to-okubo","to-higashinakano","to-nakano","to-koenji","to-asagaya","to-ogikubo","to-nishiogikubo","to-kichijoji","to-mitaka"],
- ["to-kamata","to-omori","to-oimachi","to-shinagawa"],["to-tabata","to-kaminakazato","to-oji","to-higashijujo","to-akabane"],["to-ikebukuro","to-itabashi","to-jujo","to-akabane","to-kitaakabane","to-ukimafunado"],["to-nippori","to-mikawashima","to-minamisenju","to-kitasenju"]
+ ["to-kamata","to-omori","to-oimachi","to-shinagawa"],["to-tabata","to-kaminakazato","to-oji","to-higashijujo","to-akabane"],["to-ikebukuro","to-itabashi","to-jujo","to-akabane","to-kitaakabane","to-ukimafunado"],["to-nippori","to-mikawashima","to-minamisenju","to-kitasenju"],
+ ["to-shinagawa","yh-kawasaki","yh-higashikanagawa","yh-yokohama","yh-sakuragicho"],["yh-yokohama","yh-hodogaya","yh-totsuka"],["yh-minatomirai","yh-motomachi"]
 ];
 const CATS={jr:{n:"JR-Bahnhof",c:"#2f8f5b",tip:"Stempel am Sperrenschalter – Personal fragen"},pb:{n:"Privatbahn / Metro",c:"#3b6fc9",tip:"Stempel im Stationsbüro hinter der Sperre"},sight:{n:"Sehenswürdigkeit",c:"#d98b1f",tip:"Stempel am Eingang, Info oder Shop"},go:{n:"Goshuin",c:"#b03a7a",tip:"Handgeschriebener Tempelstempel am Goshuin-Schalter (納経所), ca. ¥300–500"},ev:{n:"Aktion (befristet)",c:"#7a5cd6",tip:"Zeitlich begrenzte Stempelrallye"}};
-const REG={kyoto:"Kyoto",kansai:"Osaka · Nara · Uji",fuji:"Fuji",tokyo:"Tokio"};
+const REG={kyoto:"Kyoto",kansai:"Osaka · Nara · Uji",fuji:"Fuji",tokyo:"Tokio",yokohama:"Yokohama · Kawasaki"};
 const mk=r=>({id:r[0],n:r[1],jp:r[2],r:r[3],c:r[4],lat:r[5],lng:r[6],t:r[7]||CATS[r[4]].tip});
 let CUSTOM=[];try{CUSTOM=JSON.parse(localStorage.getItem('sr.custom')||'[]');if(!Array.isArray(CUSTOM))CUSTOM=[]}catch(e){CUSTOM=[]}
 const withCustom=base=>base.filter(e=>!e.custom).concat(CUSTOM);
