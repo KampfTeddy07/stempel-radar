@@ -364,6 +364,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .zrow.lvl{margin-top:10px;border-color:var(--brass);background:linear-gradient(180deg,rgba(210,171,82,.16),rgba(210,171,82,.05))}
 .zres{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.zres span{padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.25);border:1px solid var(--felt-line);font:700 .8rem var(--font-body);color:var(--cream)}
 .mats{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}.mats .mat{font-style:normal;font-size:.75rem;font-weight:700}.mats .mat.ok{color:#7fd18f}.mats .mat.miss{color:#ff8a8a}
+.zjump{margin:10px 0 8px}.zjump .seg{margin-top:6px;flex-wrap:wrap}.zjump .seg-btn{flex:1 1 60px;display:flex;flex-direction:column;line-height:1.1;padding:6px 0}.zjump .seg-btn small{font-size:.62rem;font-weight:600;opacity:.8}
 /* Maulwurf */
 .molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
 .molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -677,8 +678,11 @@ function zPrice(k){const l=zUp()[k];return Math.round(ZUP[k].base*Math.pow(1.6,l
 function zPullCost(){return ZW_PULL-Math.max(0,zLv('claw')-1);}
 function zStats(U){const w=ZW[U.weapon]||ZW.fork,wl=U.weapons[U.weapon]||1;return{w,wl,dmg:Math.round(w.dmg*(1+0.15*(wl-1)))+(U.dmg-1),cd:w.cd/(1+0.3*(U.rate-1)),rad:w.rad+(U.shot>1?18*(U.shot-1):0)+(w.rad&&U.shot>1?2:0)};}
 function zState(){if(!C.zomb)C.zomb={running:false,last:null,tab:'camp'};return C.zomb;}
-function zStart(){const Z=zState();const U=zUp();const lives=2+U.hp+U.wall;const pots=Object.assign({},U.potions);if(U.found.chapel)pots.heal=(pots.heal||0)+(zLv('chapel')>=4?2:1);
-  Object.assign(Z,{running:true,paused:null,wave:1,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,loot:{},zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,freezeUntil:0,helpAt:{},dog:U.found.stall?{x:60,y:0,tgt:null,busyUntil:0}:null,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
+/* Sprungtränke: ab 5 Wellen über der Startwelle freigeschaltet, Preis steigt mit der Welle */
+function zJumpOptions(){const U=zUp();const best=U.maxWave||0;const out=[];for(let n=5;n+5<=best;n+=5)out.push({wave:n,cost:12*n});return out;}
+function zStart(){const Z=zState();const U=zUp();const lives=2+U.hp+U.wall;
+  const sw=Z.startWave||1;if(sw>1){const o=zJumpOptions().find(o=>o.wave===sw);if(!o){Z.startWave=1;toast('Dieser Sprungtrank ist noch nicht freigeschaltet.','');render();return;}if(W.coins<o.cost){toast('Sprungtrank kostet '+o.cost+' Taler.','');return;}W.coins-=o.cost;saveW();toast('🧪 Sprungtrank – Start bei Welle '+sw,'coin');}const pots=Object.assign({},U.potions);if(U.found.chapel)pots.heal=(pots.heal||0)+(zLv('chapel')>=4?2:1);
+  Object.assign(Z,{running:true,paused:null,userPaused:false,wave:sw,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,loot:{},zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,freezeUntil:0,helpAt:{},dog:U.found.stall?{x:60,y:0,tgt:null,busyUntil:0}:null,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
   if(U.luckNext){U.luckNext=false;saveW();}zWave(Z);render();requestAnimationFrame(zLoop);}
 function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z.spawnAt=performance.now()+700;Z.waveMsg=performance.now();
   const U=zUp();const ev=ZSTORY.find(s=>s.wave===Z.wave&&!U.found[s.key]);if(ev){U.found[ev.key]=1;saveW();Z.paused=ev;Z.spawnAt+=1e9;}}
@@ -694,6 +698,7 @@ function zKill(Z,z,now){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind
   for(const q in ZMAT){const d=ZMAT[q];if(Z.wave<d.from)continue;const k=z.boss?(q==='wood'?3:q==='stone'?2:1):z.kind==='tank'&&q==='stone'?1:(Math.random()<d.p*(z.fat?1.6:1)*luck?1:0);for(let i=0;i<k;i++)Z.coins.push({t:q,x:z.x+(Math.random()-0.5)*34,y:z.y+6,at:now,vy:14+Math.random()*10});}}
 function zDamage(Z,z,dmg,now){z.hp-=dmg;z.hitAt=now;if(z.hp<=0&&!z.dead)zKill(Z,z,now);}
 function zHit(x,y){const Z=zState();if(!Z.running||Z.over)return;const now=performance.now();
+  if(Z.userPaused)return;
   if(Z.paused){Z.paused=null;Z.spawnAt=now+700;Z.waveMsg=now;return;}
   // Münze einsammeln hat Vorrang und kostet keinen Schuss
   let ci=-1,cd=1e9;Z.coins.forEach((c,i)=>{const d=Math.hypot(c.x-x,c.y-y);if(d<26&&d<cd){cd=d;ci=i;}});
@@ -717,7 +722,8 @@ function zUsePotion(p){const Z=zState();if(!Z.running||Z.over||Z.paused)return;i
   if(navigator.vibrate)try{navigator.vibrate(15);}catch(e){}}
 function zLoop(ts){const Z=zState();if(!Z.running)return;const cv=$app.querySelector('.zcv');if(!cv){Z.running=false;return;}const g=zGeo(cv);
   if(!Z.lastTs)Z.lastTs=ts;const dt=Math.min(50,ts-Z.lastTs)/1000;Z.lastTs=ts;const now=performance.now();const U=zUp();
-  if(!Z.paused){
+  if(Z.userPaused){Z.pauseDrift=(Z.pauseDrift||0)+dt*1000;}
+  if(!Z.paused&&!Z.userPaused){
     if(Z.toSpawn>0&&now>=Z.spawnAt){zSpawn(Z,cv);Z.toSpawn--;Z.spawnAt=now+Z.spawnGap*(0.7+Math.random()*0.6);}
     const slow=(now<Z.slowUntil?0.5:1)*(now<Z.freezeUntil?0:1);
     for(const z of Z.zs){if(z.dead)continue;if(z.summoner&&now-z.lastCall>4000&&Z.zs.length<18){z.lastCall=now;zSpawn(Z,cv,'runner',z.x,z.y+10);Z.fx.push({x:z.x,y:z.y-30,at:now,kind:'text',s:'📣 Kommt!',small:true});}z.y+=z.sp*slow*dt;z.x+=Math.sin(now/400+z.wob)*8*dt;if(z.y>=g.wall-z.r*0.4){z.dead=true;Z.hp-=z.boss?3:(z.fat||z.kind==='tank')?2:1;Z.fx.push({x:z.x,y:g.wall,at:now,kind:'crash'});if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}}}
@@ -744,6 +750,10 @@ function zDog(Z,g,now,dt,U){const d=Z.dog;if(!d)return;const lv=Math.max(1,zLv('
   if(d.tgt){const sp=90+35*lv;const dx=d.tgt.x-d.x,dy=d.tgt.y-d.y,dist=Math.hypot(dx,dy);if(dist<14){const c=d.tgt;Z.coins.splice(Z.coins.indexOf(c),1);if(c.t&&c.t!=='zc'){Z.loot[c.t]=(Z.loot[c.t]||0)+1;}else Z.zc++;Z.fx.push({x:c.x,y:c.y,at:now,kind:'text',s:'🐕 +1 '+(c.t&&c.t!=='zc'?ZMAT[c.t].e:'☠'),small:true});d.tgt=null;d.busyUntil=now+Math.max(300,2600-450*lv);}
     else{d.x+=dx/dist*sp*dt;d.y+=dy/dist*sp*dt;d.dir=dx<0?-1:1;}}
   else{const hy=g.wall-16;d.y+=(hy-d.y)*Math.min(1,dt*3);d.x+=Math.sin(now/1300)*20*dt;}}
+function zPause(on){const Z=zState();if(!Z.running||Z.over)return;const now=performance.now();if(on===undefined)on=!Z.userPaused;if(on===Z.userPaused)return;
+  if(on){Z.userPaused=true;Z.pausedAt=now;}else{const d=now-(Z.pausedAt||now);Z.userPaused=false;for(const k of ['spawnAt','lastShot','towerAt','slowUntil','freezeUntil','waveMsg'])if(Z[k])Z[k]+=d;for(const k in Z.helpAt)Z.helpAt[k]+=d;for(const c of Z.coins)c.at+=d;for(const f of Z.fx)f.at+=d;if(Z.dog)Z.dog.busyUntil+=d;}
+  const b=$app.querySelector('[data-a="zPause"]');if(b)b.textContent=Z.userPaused?'▶ Weiter':'⏸ Pause';$app.querySelectorAll('[data-a="zPot"]').forEach(x=>x.disabled=Z.userPaused||!(Z.pots[x.dataset.p]>0));}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&C.zomb&&C.zomb.running)zPause(true);});
 function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;U.zc+=Z.zc;const mat=zMat();for(const q in Z.loot)mat[q]=(mat[q]||0)+Z.loot[q];saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,zc:Z.zc,loot:Z.loot,quit};Z.tab='camp';toast((quit?'Lauf beendet':'🧟 Überrannt in Welle '+Z.wave)+' · +'+Z.earned+' Taler · +'+Z.zc+' ☠','');render();}
 function zWrap(x,text,maxW){const words=text.split(' '),lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}if(cur)lines.push(cur);return lines;}
 function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);const U=zUp();
@@ -775,7 +785,8 @@ function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(c
   x.textAlign='right';x.fillText('🪙 '+Z.earned+'  '+'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)),g.W-10,15);
   if(Z.waveMsg&&now-Z.waveMsg<1200&&!Z.paused){x.globalAlpha=1-(now-Z.waveMsg)/1200;x.fillStyle='#fff';x.font='800 26px system-ui';x.textAlign='center';x.fillText('Welle '+Z.wave,g.W/2,g.H*0.4);x.globalAlpha=1;}
   const cdAll=zStats(U).cd,cdLeft=cdAll-(now-Z.lastShot);if(cdLeft>0){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(g.W/2-30,g.H-8,60,4);x.fillStyle='#ffd76a';x.fillRect(g.W/2-30,g.H-8,60*(1-cdLeft/cdAll),4);}
-  if(Z.paused){const ev=Z.paused;x.fillStyle='rgba(5,12,8,.86)';x.fillRect(0,0,g.W,g.H);x.textAlign='center';x.font='44px system-ui';x.fillText(ev.e,g.W/2,g.H*0.22);x.fillStyle='#d2ab52';x.font='800 12px system-ui';x.fillText('NEU ENTDECKT',g.W/2,g.H*0.22+38);x.fillStyle='#f4ebd9';x.font='700 24px Georgia,serif';x.fillText(ev.title,g.W/2,g.H*0.22+66);
+  if(Z.userPaused){x.fillStyle='rgba(5,12,8,.78)';x.fillRect(0,0,g.W,g.H);x.textAlign='center';x.fillStyle='#f4ebd9';x.font='800 30px system-ui';x.fillText('⏸ Pause',g.W/2,g.H*0.42);x.font='14px system-ui';x.fillStyle='#d2ab52';x.fillText('Weiter mit dem Knopf unter dem Feld',g.W/2,g.H*0.42+32);}
+  else if(Z.paused){const ev=Z.paused;x.fillStyle='rgba(5,12,8,.86)';x.fillRect(0,0,g.W,g.H);x.textAlign='center';x.font='44px system-ui';x.fillText(ev.e,g.W/2,g.H*0.22);x.fillStyle='#d2ab52';x.font='800 12px system-ui';x.fillText('NEU ENTDECKT',g.W/2,g.H*0.22+38);x.fillStyle='#f4ebd9';x.font='700 24px Georgia,serif';x.fillText(ev.title,g.W/2,g.H*0.22+66);
     x.font='15px system-ui';const lines=zWrap(x,ev.text,g.W-50);lines.forEach((l,i)=>x.fillText(l,g.W/2,g.H*0.22+104+i*22));x.fillStyle='#d2ab52';x.font='700 14px system-ui';x.fillText('Antippen, um weiterzukämpfen',g.W/2,g.H-40);}}
 /* Dorf: Gebäude */
 function zBuyIron(k){const l=zUp()[k];return l>=4?(l-3)*2:0;}
@@ -827,7 +838,7 @@ function zombies(){const Z=zState();const U=zUp();
     const pots=Object.keys(ZPOT).filter(p=>Z.pots[p]>0||U.found.witch);
     h+=`<div class="zbox"><canvas class="zcv" data-a="zTap"></canvas></div>`;
     if(pots.length)h+=`<div class="zpots">${pots.map(p=>`<button class="zpot" data-a="zPot" data-p="${p}" ${Z.pots[p]>0?'':'disabled'} title="${ZPOT[p].n}">${ZPOT[p].e}<b class="cnt">${Z.pots[p]||0}</b></button>`).join('')}</div>`;
-    h+=`<div class="actions"><button class="btn btn-outline wide" data-a="zQuit">Lauf beenden (alles behalten)</button></div><p class="hint">Zombies antippen = schießen. Grüne ☠-Münzen antippen = einsammeln (verschwinden nach ein paar Sekunden).</p>`;return h;}
+    h+=`<div class="actions"><button class="btn btn-primary" data-a="zPause">${Z.userPaused?'▶ Weiter':'⏸ Pause'}</button><button class="btn btn-outline" data-a="zQuit">Lauf beenden</button></div><p class="hint">Zombies antippen = schießen. Grüne ☠-Münzen antippen = einsammeln (verschwinden nach ein paar Sekunden).</p>`;return h;}
   const found=ZSTORY.filter(s=>U.found[s.key]).length;
   const tabs=[['camp','🏚️','Lager',true],['smith','⚒️','Schmiede',!!U.found.smith],['claw','🎰','Automat',!!U.found.claw],['witch','🧙','Hexe',!!U.found.witch],['tower','🗼','Turm',!!U.found.tower],['market','🛒','Markt',!!U.found.market],['wall','🏰','Mauer',!!U.found.wall],['chapel','⛪','Kapelle',!!U.found.chapel],['stall','🐕','Stall',!!U.found.stall]];
   if(!tabs.find(t=>t[0]===Z.tab&&t[3]))Z.tab='camp';
@@ -835,7 +846,10 @@ function zombies(){const Z=zState();const U=zUp();
   const st=zStats(U);
   if(Z.tab==='camp'){
     if(Z.last)h+=`<div class="winner" style="padding-block:6px"><p class="eyebrow">${Z.last.quit?'Lauf beendet':'Überrannt'}</p><h2>${Z.last.wave} Welle${Z.last.wave===1?'':'n'}</h2><p class="hint">${Z.last.kills} Zombies · +${Z.last.earned} 🪙 · +${Z.last.zc} ☠${Z.last.loot?Object.keys(Z.last.loot).map(q=>' · +'+Z.last.loot[q]+' '+ZMAT[q].e).join(''):''}${U.best?' · Rekord '+U.best+' Wellen':''}</p></div>`;
-    h+=`<button class="btn btn-primary btn-big" data-a="zStart">${Z.last?'Neuer Lauf':'Lauf starten'}</button>
+    const jumps=zJumpOptions();if(!jumps.find(o=>o.wave===Z.startWave))Z.startWave=1;const jc=Z.startWave>1?jumps.find(o=>o.wave===Z.startWave).cost:0;
+    if(jumps.length)h+=`<div class="zjump"><span class="eyebrow">Sprungtrank · Start bei Welle</span><div class="seg"><button class="seg-btn sm ${Z.startWave===1?'is-on':''}" data-a="zJump" data-w="1">1<small>gratis</small></button>${jumps.map(o=>`<button class="seg-btn sm ${Z.startWave===o.wave?'is-on':''}" data-a="zJump" data-w="${o.wave}">${o.wave}<small>${o.cost} 🪙</small></button>`).join('')}</div><p class="hint">Freigeschaltet, sobald dein Rekord 5 Wellen weiter ist (Rekord: ${U.maxWave||0}). Der Trank wird beim Start verbraucht.</p></div>`;
+    else if((U.maxWave||0)>=5)h+=`<p class="hint">Sprungtränke: Erreiche Welle 10, dann kannst du künftig bei Welle 5 starten.</p>`;
+    h+=`<button class="btn btn-primary btn-big" data-a="zStart" ${jc&&W.coins<jc?'disabled':''}>${Z.startWave>1?'Lauf ab Welle '+Z.startWave+' · '+jc+' 🪙':(Z.last?'Neuer Lauf':'Lauf starten')}</button>
     ${zLvPanel('camp')}
     <div class="zcamp"><div><span class="eyebrow">Waffe</span><b>${st.w.e} ${st.w.n}${st.wl>1?' +'+(st.wl-1):''}</b><small>${st.dmg} Schaden · ${Math.round(st.cd)} ms${st.rad?' · Radius '+st.rad:''}${st.w.pierce?' · durchschlägt':''}${st.w.chain?' · Kettenblitz':''}</small></div><div><span class="eyebrow">Leben</span><b>${2+U.hp+U.wall} ❤️</b><small>Barrikade ${2+U.hp}${U.wall?' + Mauer '+U.wall:''}</small></div><div><span class="eyebrow">Tränke dabei</span><b>${Object.keys(ZPOT).map(p=>(U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)>0?ZPOT[p].e+'×'+((U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)):'').filter(Boolean).join(' ')||'–'}</b><small>${U.luckNext?'🍀 Glück aktiv':'aus dem Hexenhaus'}</small></div><div><span class="eyebrow">Dorf</span><b>${found} von ${ZSTORY.length} Orten</b><small>${found<ZSTORY.length?'Nächster ab Welle '+ZSTORY.find(s=>!U.found[s.key]).wave:'alles entdeckt'}</small></div></div>
     <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede Welle zahlt Taler, manche Zombies lassen grüne ☠-Münzen und Rohstoffe fallen (antippen!): 🪵 Holz ab Welle 1, 🪨 Stein ab Welle 4, ⚙️ Eisen ab Welle 9 – Bosse lassen alles liegen. Gebäude-Ausbau braucht Taler plus Rohstoffe. Je weiter du kommst, desto mehr vom Dorf entdeckst du: Schmied, Spielhalle, Hexe, Turm, Stall … Ab Stufe 3 helfen die Gebäude im Kampf mit (Schmied wirft Hämmer, Hexenfrosch bremst, Händler wirft Münzen, Glocke lässt alles erstarren). Neue Gegner: 🏃 Sprinter ab Welle 3, 🧟‍♀️ Spalter ab 5, 🛡️ Panzer ab 6 (nur Flächen-, Durchschlag- oder Blitzwaffen knacken den Schild), alle 10 Wellen ein Rufer-Boss.${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies.`:''}</p>`;
@@ -1672,6 +1686,8 @@ $app.addEventListener('click',async e=>{
     case 'updLater':UPD.dismissed=UPD.avail;render();break;
     case 'zombOpen':if((C.claw&&C.claw.busy)||(C.slots&&C.slots.busy))break;C.page='zomb';render();break;
     case 'zStart':zStart();break;
+    case 'zPause':zPause();break;
+    case 'zJump':C.zomb.startWave=+d.w;render();break;
     case 'zQuit':if(C.zomb&&C.zomb.running)zEnd(C.zomb,true);break;
     case 'zBuy':zBuy(d.k);break;
     case 'zPull':zPull();break;
@@ -1768,7 +1784,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local'||LAN_SELF())){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zBuy,zPrice,zPull,zClaw,zClawHold,zClawRelease,zLv,zLevelUp,zVillageDraw,ZB,zMat,zLvMat,ZMAT,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zPause,zJumpOptions,zBuy,zPrice,zPull,zClaw,zClawHold,zClawRelease,zLv,zLevelUp,zVillageDraw,ZB,zMat,zLvMat,ZMAT,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
