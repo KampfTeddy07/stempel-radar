@@ -679,12 +679,38 @@ function zPullCost(){return ZW_PULL-Math.max(0,zLv('claw')-1);}
 function zStats(U){const w=ZW[U.weapon]||ZW.fork,wl=U.weapons[U.weapon]||1;return{w,wl,dmg:Math.round(w.dmg*(1+0.15*(wl-1)))+(U.dmg-1),cd:w.cd/(1+0.3*(U.rate-1)),rad:w.rad+(U.shot>1?18*(U.shot-1):0)+(w.rad&&U.shot>1?2:0)};}
 function zState(){if(!C.zomb)C.zomb={running:false,last:null,tab:'camp'};return C.zomb;}
 /* Sprungtränke: ab 5 Wellen über der Startwelle freigeschaltet, Preis steigt mit der Welle */
-function zJumpOptions(){const U=zUp();const best=U.maxWave||0;const out=[];for(let n=5;n+5<=best;n+=5)out.push({wave:n,cost:12*n});return out;}
+function zJumpOptions(){const U=zUp();const best=U.maxWave||0;const out=[];for(let n=5;n+5<=best;n+=5)out.push({wave:n,cost:12*n,have:(U.jumps||{})[n]||0});return out;}
+function zBuyJump(n){const U=zUp();const o=zJumpOptions().find(o=>o.wave===n);if(!o){toast('Noch nicht freigeschaltet.','');return;}if(W.coins<o.cost){toast('Sprungtrank kostet '+o.cost+' Taler.','');return;}if(!U.jumps)U.jumps={};if((U.jumps[n]||0)>=3){toast('Mehr als drei passen nicht in den Beutel.','');return;}W.coins-=o.cost;U.jumps[n]=(U.jumps[n]||0)+1;saveW();toast('🧪 Sprungtrank Welle '+n+' eingepackt','coin');render();}
 function zStart(){const Z=zState();const U=zUp();const lives=2+U.hp+U.wall;
-  const sw=Z.startWave||1;if(sw>1){const o=zJumpOptions().find(o=>o.wave===sw);if(!o){Z.startWave=1;toast('Dieser Sprungtrank ist noch nicht freigeschaltet.','');render();return;}if(W.coins<o.cost){toast('Sprungtrank kostet '+o.cost+' Taler.','');return;}W.coins-=o.cost;saveW();toast('🧪 Sprungtrank – Start bei Welle '+sw,'coin');}const pots=Object.assign({},U.potions);if(U.found.chapel)pots.heal=(pots.heal||0)+(zLv('chapel')>=4?2:1);
-  Object.assign(Z,{running:true,paused:null,userPaused:false,wave:sw,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,loot:{},zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,freezeUntil:0,helpAt:{},dog:U.found.stall?{x:60,y:0,tgt:null,busyUntil:0}:null,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
+  const sw=Z.startWave||1;if(sw>1){if(!((U.jumps||{})[sw]>0)){Z.startWave=1;toast('Kein Sprungtrank für Welle '+sw+' im Beutel – gibt es im Hexenhaus.','');render();return;}U.jumps[sw]--;saveW();toast('🧪 Sprungtrank getrunken – Start bei Welle '+sw,'');}const pots=Object.assign({},U.potions);if(U.found.chapel)pots.heal=(pots.heal||0)+(zLv('chapel')>=4?2:1);
+  Object.assign(Z,{running:true,paused:null,userPaused:false,wave:sw,deco:null,prevSky:null,wx:null,hp:lives,maxHp:lives,kills:0,earned:0,zc:0,loot:{},zs:[],fx:[],coins:[],toSpawn:0,spawnAt:0,lastShot:0,towerAt:0,slowUntil:0,freezeUntil:0,helpAt:{},dog:U.found.stall?{x:60,y:0,tgt:null,busyUntil:0}:null,luck:!!U.luckNext,pots,t:performance.now(),lastTs:0,over:false,flash:null});
   if(U.luckNext){U.luckNext=false;saveW();}zWave(Z);render();requestAnimationFrame(zLoop);}
+/* Tageszeit nach Welle (Zyklus 10), Wetter pro Welle */
+const ZSKY=[['#7fb7e0','#9fd08a'],['#e39a5a','#8aa860'],['#0e1630','#182a22'],['#5a6b9a','#5f8a5a']]; // Tag, Abend, Nacht, Morgen
+function zPhase(Z){const p=((Z.wave-1)%10)/10;return p<0.4?0:p<0.6?1:p<0.9?2:3;}
+function zMix(a,b,t){const pa=a.match(/\w\w/g).map(h=>parseInt(h,16)),pb=b.match(/\w\w/g).map(h=>parseInt(h,16));return '#'+pa.map((v,i)=>Math.round(v+(pb[i]-v)*t).toString(16).padStart(2,'0')).join('');}
+function zBg(x,Z,g,now){const ph=zPhase(Z);const nxt=(ph+1)%4;const t=Math.min(1,(now-(Z.phaseAt||now))/2500);const sky=zMix(Z.prevSky?Z.prevSky[0]:ZSKY[ph][0],ZSKY[ph][0],t),ground=zMix(Z.prevSky?Z.prevSky[1]:ZSKY[ph][1],ZSKY[ph][1],t);
+  const grd=x.createLinearGradient(0,0,0,g.H);grd.addColorStop(0,sky);grd.addColorStop(0.45,zMix(sky,ground,0.6));grd.addColorStop(1,zMix(ground,'#000000',0.35));x.fillStyle=grd;x.fillRect(0,0,g.W,g.H);
+  x.textAlign='center';x.textBaseline='middle';
+  if(ph===2){for(const st of Z.deco.stars){x.fillStyle='rgba(255,255,255,'+(0.4+0.5*Math.abs(Math.sin(now/900+st.p)))+')';x.fillRect(st.x,st.y,1.5,1.5);}x.font='26px system-ui';x.fillText('🌕',g.W-40,40);}
+  if(ph===1){x.fillStyle='rgba(255,160,60,.6)';x.beginPath();x.arc(g.W-50,60,16,0,Math.PI*2);x.fill();}
+  if(ph===0||ph===3){for(const c of Z.deco.clouds){const cx=((c.x+now*c.v)%(g.W+120))-60;x.fillStyle='rgba(255,255,255,'+(ph===0?0.7:0.45)+')';x.beginPath();x.arc(cx,c.y,12,0,Math.PI*2);x.arc(cx+14,c.y-5,15,0,Math.PI*2);x.arc(cx+30,c.y,12,0,Math.PI*2);x.fill();}}
+  // Friedhofsdeko (feste Positionen pro Lauf)
+  x.globalAlpha=0.9;for(const d of Z.deco.items){x.font=d.s+'px system-ui';x.fillText(d.e,d.x,d.y);}x.globalAlpha=1;
+  if(ph===2){for(const f of Z.deco.flies){const a=0.3+0.7*Math.abs(Math.sin(now/700+f.p));x.fillStyle='rgba(200,255,120,'+a+')';x.beginPath();x.arc(f.x+Math.sin(now/1300+f.p)*12,f.y+Math.cos(now/1100+f.p)*8,1.8,0,Math.PI*2);x.fill();}}
+  // Wetter
+  const wx=Z.wx||{type:'clear'};
+  if(wx.type==='rain'){x.strokeStyle='rgba(180,200,255,.45)';x.lineWidth=1;for(const r of wx.parts){const y=(r.y+now*0.35*r.v)%(g.H+20)-10;x.beginPath();x.moveTo(r.x,y);x.lineTo(r.x-2,y+10);x.stroke();}if(Math.floor(now/100)%97===0){x.fillStyle='rgba(255,255,255,.35)';x.fillRect(0,0,g.W,g.H);}}
+  if(wx.type==='fog'){for(const f of wx.parts){const fx=((f.x+now*f.v)%(g.W+200))-100;const gr=x.createRadialGradient(fx,f.y,0,fx,f.y,90);gr.addColorStop(0,'rgba(220,230,230,.28)');gr.addColorStop(1,'rgba(220,230,230,0)');x.fillStyle=gr;x.fillRect(fx-90,f.y-60,180,120);}}
+  if(wx.type==='leaves'){for(const l of wx.parts){const y=(l.y+now*0.05*l.v)%(g.H+20)-10;x.font='12px system-ui';x.fillText('🍂',l.x+Math.sin(now/600+l.p)*14,y);}}
+  x.strokeStyle='rgba(0,0,0,.08)';x.lineWidth=1;for(let yy=40;yy<g.wall;yy+=40){x.beginPath();x.moveTo(0,yy);x.lineTo(g.W,yy);x.stroke();}}
+function zDeco(cv){const g=zGeo(cv);const R=()=>Math.random();const items=[];const pool=['🪦','🪦','🪦','🌿','🌾','🪨','🍄','🌳','🪵','🕸️'];for(let i=0;i<9;i++){items.push({e:pool[Math.floor(R()*pool.length)],x:20+R()*(g.W-40),y:50+R()*(g.wall-110),s:14+Math.floor(R()*10)});}
+  return{items:items.sort((a,b)=>a.y-b.y),stars:Array.from({length:22},()=>({x:R()*g.W,y:R()*g.H*0.4,p:R()*6})),flies:Array.from({length:7},()=>({x:20+R()*(g.W-40),y:60+R()*(g.wall-120),p:R()*6})),clouds:Array.from({length:3},(_,i)=>({x:R()*g.W,y:20+i*22,v:0.008+R()*0.008}))};}
+function zWeather(Z,g){const w=Z.wave;const r=Math.random();let type='clear';if(w>=3&&r<0.25)type='rain';else if(w>=6&&r<0.4)type='fog';else if(r<0.55)type='leaves';
+  const R=()=>Math.random();const parts=type==='rain'?Array.from({length:55},()=>({x:R()*g.W,y:R()*g.H,v:0.8+R()*0.6})):type==='fog'?Array.from({length:5},(_,i)=>({x:R()*g.W,y:40+i*55,v:0.01+R()*0.01})):type==='leaves'?Array.from({length:8},()=>({x:R()*g.W,y:R()*g.H,v:0.7+R()*0.6,p:R()*6})):[];
+  Z.wx={type,parts};}
 function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z.spawnAt=performance.now()+700;Z.waveMsg=performance.now();
+  {const cv=$app.querySelector('.zcv');const g=cv?zGeo(cv):{W:340,H:420,wall:356};if(!Z.deco)Z.deco=zDeco(cv||{clientWidth:340,clientHeight:420});const old=zPhase({wave:Math.max(1,Z.wave-1)}),nw=zPhase(Z);if(old!==nw||!Z.prevSky){Z.prevSky=ZSKY[old];Z.phaseAt=performance.now();}zWeather(Z,g);}
   const U=zUp();const ev=ZSTORY.find(s=>s.wave===Z.wave&&!U.found[s.key]);if(ev){U.found[ev.key]=1;saveW();Z.paused=ev;Z.spawnAt+=1e9;}}
 /* Gegnerarten: normal, fat (dick), runner (Sprinter, ab 3), splitter (Spalter, ab 5), tank (Panzer, ab 6), mini (aus Spalter), boss (alle 5), Rufer-Boss (alle 10) */
 function zSpawn(Z,cv,kind,px,py){const g=zGeo(cv);const w=Z.wave;if(!kind){const r=Math.random();if(w%5===0&&Z.toSpawn===1)kind='boss';else if(w>=6&&r<0.09)kind='tank';else if(w>=5&&r<0.19)kind='splitter';else if(w>=3&&r<0.34)kind='runner';else if(r<0.46+w*0.01)kind='fat';else kind='normal';}
@@ -725,7 +751,7 @@ function zLoop(ts){const Z=zState();if(!Z.running)return;const cv=$app.querySele
   if(Z.userPaused){Z.pauseDrift=(Z.pauseDrift||0)+dt*1000;}
   if(!Z.paused&&!Z.userPaused){
     if(Z.toSpawn>0&&now>=Z.spawnAt){zSpawn(Z,cv);Z.toSpawn--;Z.spawnAt=now+Z.spawnGap*(0.7+Math.random()*0.6);}
-    const slow=(now<Z.slowUntil?0.5:1)*(now<Z.freezeUntil?0:1);
+    const slow=(now<Z.slowUntil?0.5:1)*(now<Z.freezeUntil?0:1)*(Z.wx&&Z.wx.type==='rain'?0.9:1);
     for(const z of Z.zs){if(z.dead)continue;if(z.summoner&&now-z.lastCall>4000&&Z.zs.length<18){z.lastCall=now;zSpawn(Z,cv,'runner',z.x,z.y+10);Z.fx.push({x:z.x,y:z.y-30,at:now,kind:'text',s:'📣 Kommt!',small:true});}z.y+=z.sp*slow*dt;z.x+=Math.sin(now/400+z.wob)*8*dt;if(z.y>=g.wall-z.r*0.4){z.dead=true;Z.hp-=z.boss?3:(z.fat||z.kind==='tank')?2:1;Z.fx.push({x:z.x,y:g.wall,at:now,kind:'crash'});if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}}}
     for(const c of Z.coins){c.y+=c.vy*dt;if(c.y>g.wall-6)c.y=g.wall-6;}
     Z.coins=Z.coins.filter(c=>now-c.at<5500);
@@ -757,8 +783,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&C.zomb&&C.
 function zEnd(Z,quit){Z.running=false;Z.over=true;const U=zUp();U.runs=(U.runs||0)+1;U.kills=(U.kills||0)+Z.kills;if(Z.wave-1>(U.best||0))U.best=Z.wave-1;U.zc+=Z.zc;const mat=zMat();for(const q in Z.loot)mat[q]=(mat[q]||0)+Z.loot[q];saveW();Z.last={wave:Z.wave-1,kills:Z.kills,earned:Z.earned,zc:Z.zc,loot:Z.loot,quit};Z.tab='camp';toast((quit?'Lauf beendet':'🧟 Überrannt in Welle '+Z.wave)+' · +'+Z.earned+' Taler · +'+Z.zc+' ☠','');render();}
 function zWrap(x,text,maxW){const words=text.split(' '),lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}if(cur)lines.push(cur);return lines;}
 function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(g.W*dpr)){cv.width=Math.round(g.W*dpr);cv.height=Math.round(g.H*dpr);}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);const U=zUp();
-  const grd=x.createLinearGradient(0,0,0,g.H);grd.addColorStop(0,now<Z.slowUntil?'#0b1230':'#0b1a12');grd.addColorStop(1,now<Z.slowUntil?'#1c2a52':'#1e3a2a');x.fillStyle=grd;x.fillRect(0,0,g.W,g.H);
-  x.strokeStyle='rgba(255,255,255,.05)';x.lineWidth=1;for(let yy=40;yy<g.wall;yy+=40){x.beginPath();x.moveTo(0,yy);x.lineTo(g.W,yy);x.stroke();}
+  zBg(x,Z,g,now);if(now<Z.slowUntil){x.fillStyle='rgba(60,90,200,.18)';x.fillRect(0,0,g.W,g.H);}
   x.fillStyle=U.wall?'#6b6b6b':'#5a3b1e';x.fillRect(0,g.wall,g.W,8);x.font='22px system-ui';x.textAlign='center';x.textBaseline='middle';for(let bx=16;bx<g.W;bx+=32)x.fillText(U.wall?'🪨':'🧱',bx,g.wall+26);
   x.font='30px system-ui';x.fillText('🧑‍🌾',g.W/2,g.H-22);x.font='18px system-ui';x.fillText(zStats(U).w.e,g.W/2+22,g.H-30);
   if(U.tower>0){x.font='30px system-ui';x.fillText('🗼',g.W-26,g.wall-22);}
@@ -781,7 +806,7 @@ function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(c
     else if(f.kind==='text'){x.fillStyle=f.small?'#39c46a':'#ffd76a';x.font='800 '+(f.small?14:17)+'px system-ui';x.fillText(f.s,f.x,f.y-(1-a)*20);}
     x.globalAlpha=1;}
   if(Z.flash&&now-Z.flash.at<90){x.strokeStyle='rgba(255,230,150,'+(1-(now-Z.flash.at)/90)+')';x.lineWidth=3;x.beginPath();x.moveTo(g.W/2,g.H-34);x.lineTo(Z.flash.x,Z.flash.y);x.stroke();}
-  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+' · '+Z.kills+' ☠'+Z.zc+(Z.loot.wood?' 🪵'+Z.loot.wood:'')+(Z.loot.stone?' 🪨'+Z.loot.stone:'')+(Z.loot.iron?' ⚙️'+Z.loot.iron:''),10,15);
+  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+' '+(['☀️','🌇','🌙','🌄'][zPhase(Z)])+(Z.wx&&Z.wx.type==='rain'?'🌧️':Z.wx&&Z.wx.type==='fog'?'🌫️':'')+' · '+Z.kills+' ☠'+Z.zc+(Z.loot.wood?' 🪵'+Z.loot.wood:'')+(Z.loot.stone?' 🪨'+Z.loot.stone:'')+(Z.loot.iron?' ⚙️'+Z.loot.iron:''),10,15);
   x.textAlign='right';x.fillText('🪙 '+Z.earned+'  '+'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)),g.W-10,15);
   if(Z.waveMsg&&now-Z.waveMsg<1200&&!Z.paused){x.globalAlpha=1-(now-Z.waveMsg)/1200;x.fillStyle='#fff';x.font='800 26px system-ui';x.textAlign='center';x.fillText('Welle '+Z.wave,g.W/2,g.H*0.4);x.globalAlpha=1;}
   const cdAll=zStats(U).cd,cdLeft=cdAll-(now-Z.lastShot);if(cdLeft>0){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(g.W/2-30,g.H-8,60,4);x.fillStyle='#ffd76a';x.fillRect(g.W/2-30,g.H-8,60*(1-cdLeft/cdAll),4);}
@@ -846,10 +871,11 @@ function zombies(){const Z=zState();const U=zUp();
   const st=zStats(U);
   if(Z.tab==='camp'){
     if(Z.last)h+=`<div class="winner" style="padding-block:6px"><p class="eyebrow">${Z.last.quit?'Lauf beendet':'Überrannt'}</p><h2>${Z.last.wave} Welle${Z.last.wave===1?'':'n'}</h2><p class="hint">${Z.last.kills} Zombies · +${Z.last.earned} 🪙 · +${Z.last.zc} ☠${Z.last.loot?Object.keys(Z.last.loot).map(q=>' · +'+Z.last.loot[q]+' '+ZMAT[q].e).join(''):''}${U.best?' · Rekord '+U.best+' Wellen':''}</p></div>`;
-    const jumps=zJumpOptions();if(!jumps.find(o=>o.wave===Z.startWave))Z.startWave=1;const jc=Z.startWave>1?jumps.find(o=>o.wave===Z.startWave).cost:0;
-    if(jumps.length)h+=`<div class="zjump"><span class="eyebrow">Sprungtrank · Start bei Welle</span><div class="seg"><button class="seg-btn sm ${Z.startWave===1?'is-on':''}" data-a="zJump" data-w="1">1<small>gratis</small></button>${jumps.map(o=>`<button class="seg-btn sm ${Z.startWave===o.wave?'is-on':''}" data-a="zJump" data-w="${o.wave}">${o.wave}<small>${o.cost} 🪙</small></button>`).join('')}</div><p class="hint">Freigeschaltet, sobald dein Rekord 5 Wellen weiter ist (Rekord: ${U.maxWave||0}). Der Trank wird beim Start verbraucht.</p></div>`;
-    else if((U.maxWave||0)>=5)h+=`<p class="hint">Sprungtränke: Erreiche Welle 10, dann kannst du künftig bei Welle 5 starten.</p>`;
-    h+=`<button class="btn btn-primary btn-big" data-a="zStart" ${jc&&W.coins<jc?'disabled':''}>${Z.startWave>1?'Lauf ab Welle '+Z.startWave+' · '+jc+' 🪙':(Z.last?'Neuer Lauf':'Lauf starten')}</button>
+    const jumps=zJumpOptions().filter(o=>o.have>0);if(!jumps.find(o=>o.wave===Z.startWave))Z.startWave=1;
+    if(jumps.length)h+=`<div class="zjump"><span class="eyebrow">Sprungtrank · Start bei Welle</span><div class="seg"><button class="seg-btn sm ${Z.startWave===1?'is-on':''}" data-a="zJump" data-w="1">1<small>ohne Trank</small></button>${jumps.map(o=>`<button class="seg-btn sm ${Z.startWave===o.wave?'is-on':''}" data-a="zJump" data-w="${o.wave}">${o.wave}<small>×${o.have} im Beutel</small></button>`).join('')}</div></div>`;
+    else if(zJumpOptions().length)h+=`<p class="hint">🧪 Sprungtränke (Start bei Welle ${zJumpOptions().map(o=>o.wave).join('/')}) gibt es im Hexenhaus.</p>`;
+    else if((U.maxWave||0)>=5)h+=`<p class="hint">Sprungtränke: Erreiche Welle 10, dann verkauft die Hexe einen Trank für den Start bei Welle 5.</p>`;
+    h+=`<button class="btn btn-primary btn-big" data-a="zStart">${Z.startWave>1?'Lauf ab Welle '+Z.startWave+' (Trank wird getrunken)':(Z.last?'Neuer Lauf':'Lauf starten')}</button>
     ${zLvPanel('camp')}
     <div class="zcamp"><div><span class="eyebrow">Waffe</span><b>${st.w.e} ${st.w.n}${st.wl>1?' +'+(st.wl-1):''}</b><small>${st.dmg} Schaden · ${Math.round(st.cd)} ms${st.rad?' · Radius '+st.rad:''}${st.w.pierce?' · durchschlägt':''}${st.w.chain?' · Kettenblitz':''}</small></div><div><span class="eyebrow">Leben</span><b>${2+U.hp+U.wall} ❤️</b><small>Barrikade ${2+U.hp}${U.wall?' + Mauer '+U.wall:''}</small></div><div><span class="eyebrow">Tränke dabei</span><b>${Object.keys(ZPOT).map(p=>(U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)>0?ZPOT[p].e+'×'+((U.potions[p]||0)+(p==='heal'&&U.found.chapel?1:0)):'').filter(Boolean).join(' ')||'–'}</b><small>${U.luckNext?'🍀 Glück aktiv':'aus dem Hexenhaus'}</small></div><div><span class="eyebrow">Dorf</span><b>${found} von ${ZSTORY.length} Orten</b><small>${found<ZSTORY.length?'Nächster ab Welle '+ZSTORY.find(s=>!U.found[s.key]).wave:'alles entdeckt'}</small></div></div>
     <p class="hint">Zombies kommen von oben – antippen heißt schießen. Jede Welle zahlt Taler, manche Zombies lassen grüne ☠-Münzen und Rohstoffe fallen (antippen!): 🪵 Holz ab Welle 1, 🪨 Stein ab Welle 4, ⚙️ Eisen ab Welle 9 – Bosse lassen alles liegen. Gebäude-Ausbau braucht Taler plus Rohstoffe. Je weiter du kommst, desto mehr vom Dorf entdeckst du: Schmied, Spielhalle, Hexe, Turm, Stall … Ab Stufe 3 helfen die Gebäude im Kampf mit (Schmied wirft Hämmer, Hexenfrosch bremst, Händler wirft Münzen, Glocke lässt alles erstarren). Neue Gegner: 🏃 Sprinter ab Welle 3, 🧟‍♀️ Spalter ab 5, 🛡️ Panzer ab 6 (nur Flächen-, Durchschlag- oder Blitzwaffen knacken den Schild), alle 10 Wellen ein Rufer-Boss.${U.runs?` Bisher ${U.runs} Läufe, ${U.kills} Zombies.`:''}</p>`;
@@ -864,7 +890,9 @@ function zombies(){const Z=zState();const U=zUp();
     <p class="hint">Einmal tippen: der Greifer fährt hin und her. Nochmal tippen (Knopf oder Automat), wenn er über der gewünschten Kiste ist – dann fällt er. Je genauer, desto sicherer der Griff – goldene Kisten rutschen gern ab. Gewöhnlich: grau · Selten: blau · Episch: lila · Legendär: gold. Doppelte Waffen steigen eine Stufe (+15 % Schaden, bis 5).</p>${zLvPanel('claw')}
     <div class="zshop">${Object.keys(ZW).map(k=>{const w=ZW[k],own=U.weapons[k];return`<div class="zrow ${own?'':'dim'} ${U.weapon===k?'eq':''}"><span class="ze">${own?w.e:'🔒'}</span><div class="zinfo"><b>${own?w.n:'???'} <small>${ZW_RAR[w.r]}${own>1?' · Stufe '+own:''}</small></b><span>${own?w.d+' · '+w.dmg+' Schaden · '+w.cd+' ms'+(w.rad?' · Radius '+w.rad:''):'noch nicht gezogen'}</span></div>${own?`<button class="btn ${U.weapon===k?'btn-primary':'btn-outline'}" data-a="zEquip" data-k="${k}" ${U.weapon===k?'disabled':''}>${U.weapon===k?'Aktiv':'Nehmen'}</button>`:'<span></span>'}</div>`;}).join('')}</div></section>`;
   }else if(Z.tab==='witch'){
-    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🧙 Hexenhaus</h3><span class="hint">max. ${2+zLv('camp')} pro Sorte</span></div><div class="zshop">${Object.keys(ZPOT).map(p=>{const t=ZPOT[p],n=U.potions[p]||0,c=zPotCost(p);return`<div class="zrow"><span class="ze">${t.e}</span><div class="zinfo"><b>${t.n} <small>×${n}</small></b><span>${t.d}</span></div><button class="btn btn-outline" data-a="zBuyPot" data-p="${p}" ${n>=2+zLv('camp')||W.coins<c?'disabled':''}>${c} 🪙</button></div>`;}).join('')}</div>${zLvPanel('witch')}<p class="hint">Im Lauf erscheinen die Tränke als Knöpfe unter dem Spielfeld. „Es ist alles nur Kräuterzeug“, sagt die Hexe.</p></section>`;
+    h+=`<section class="panel"><div class="zone-head"><h3 style="margin:0">🧙 Hexenhaus</h3><span class="hint">max. ${2+zLv('camp')} pro Sorte</span></div><div class="zshop">${Object.keys(ZPOT).map(p=>{const t=ZPOT[p],n=U.potions[p]||0,c=zPotCost(p);return`<div class="zrow"><span class="ze">${t.e}</span><div class="zinfo"><b>${t.n} <small>×${n}</small></b><span>${t.d}</span></div><button class="btn btn-outline" data-a="zBuyPot" data-p="${p}" ${n>=2+zLv('camp')||W.coins<c?'disabled':''}>${c} 🪙</button></div>`;}).join('')}</div>${zLvPanel('witch')}<p class="hint">Im Lauf erscheinen die Tränke als Knöpfe unter dem Spielfeld. „Es ist alles nur Kräuterzeug“, sagt die Hexe.</p>
+    <div class="zone-head" style="margin-top:10px"><h3 style="margin:0">🧪 Sprungtränke</h3><span class="hint">Rekord: Welle ${U.maxWave||0}</span></div>
+    ${zJumpOptions().length?`<div class="zshop">${zJumpOptions().map(o=>`<div class="zrow"><span class="ze">🧪</span><div class="zinfo"><b>Start bei Welle ${o.wave} <small>×${o.have}</small></b><span>Lauf beginnt direkt bei Welle ${o.wave} – Wellen-Taler ab dort</span></div><button class="btn btn-outline" data-a="zBuyJump" data-w="${o.wave}" ${o.have>=3||W.coins<o.cost?'disabled':''}>${o.cost} 🪙</button></div>`).join('')}</div>`:`<p class="hint">„Komm wieder, wenn du Welle 10 überlebt hast“, sagt die Hexe. Jede 5er-Welle wird freigeschaltet, sobald dein Rekord 5 Wellen darüber liegt.</p>`}</section>`;
   }else if(Z.tab==='tower'||Z.tab==='wall'){
     const k=Z.tab;h+=`<section class="panel"><h3 style="margin:0">${k==='tower'?'🗼 Wachturm':'🏰 Dorfmauer'}</h3><p class="hint">${k==='tower'?'Der Turm schießt von selbst auf den vordersten Zombie – je höher ausgebaut, desto schneller und härter.':'Jede Stufe der Mauer gibt ein Leben mehr pro Lauf; im Dorf wird sie sichtbar höher.'}</p>${zLvPanel(k)}</section>`;
   }else if(Z.tab==='market'){
@@ -1688,6 +1716,7 @@ $app.addEventListener('click',async e=>{
     case 'zStart':zStart();break;
     case 'zPause':zPause();break;
     case 'zJump':C.zomb.startWave=+d.w;render();break;
+    case 'zBuyJump':zBuyJump(+d.w);break;
     case 'zQuit':if(C.zomb&&C.zomb.running)zEnd(C.zomb,true);break;
     case 'zBuy':zBuy(d.k);break;
     case 'zPull':zPull();break;
@@ -1784,7 +1813,7 @@ $app.addEventListener('click',async e=>{
 });
 if(C.code&&C.pid&&C.token&&((C.mode==='online'&&C.isHost)||C.mode==='local'||LAN_SELF())){C.code=C.pid=C.token=null;C.isHost=false;persist();}
 if(C.code&&C.pid&&C.token){if(C.mode==='online'){C.cid=tabCid();OL.brokerIdx=brokerFromCode(C.code);}connect();}else render();
-if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zPause,zJumpOptions,zBuy,zPrice,zPull,zClaw,zClawHold,zClawRelease,zLv,zLevelUp,zVillageDraw,ZB,zMat,zLvMat,ZMAT,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
+if(location.hash==='#dbg')window.__stuben={get C(){return C},get W(){return W},render,solAuto,solTryMove,solDraw,solUndo,solCheckWin,SOL_SUITS,SOL_RANKS,minTap,minNew,MIN_LV,tMove,tNew,tCanMove,tSwipe,tAfterMove,plkDrop,plkState,PLK_MULT,moleStart,moleState,moleHit,moleEnd,zState,zUp,zStart,zHit,zEnd,zPause,zJumpOptions,zBuyJump,zPhase,zBuy,zPrice,zPull,zClaw,zClawHold,zClawRelease,zLv,zLevelUp,zVillageDraw,ZB,zMat,zLvMat,ZMAT,zBuyPot,zUsePotion,zBuild,zTrade,ZW,ZSTORY};
 if(INVITE&&!C.code&&C.name&&C.codeIn.length>=4){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},300);}
 })();
 </script>
