@@ -507,6 +507,15 @@ function qrSvg(text){try{if(typeof qrcode!=='function')return'';const q=qrcode(0
 // Einladung per Link/QR: ?join=CODE[&m=online]
 const INVITE=(()=>{try{const u=new URL(location.href);const j=(u.searchParams.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!j)return null;return{code:j,mode:u.searchParams.get('m')==='online'||!LAN_OK?'online':'lan'};}catch(e){return null;}})();
 if(INVITE){C.mode=INVITE.mode;C.codeIn=INVITE.code;C.code=null;C.pid=null;C.token=null;C.isHost=false;try{history.replaceState(null,'',location.pathname);}catch(e){}}
+/* Einladung, die Android an die App weitergereicht hat (QR gescannt oder Link angetippt) */
+function appInvite(url){try{const u=new URL(url);const code=(u.searchParams.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!code)return false;
+  const online=u.searchParams.get('m')==='online'||/github\.io$/.test(u.hostname);
+  if(C.code&&C.pid){if(C.code===code){toast('Du bist schon an diesem Tisch.','');return true;}toast('Erst den aktuellen Tisch verlassen, dann die Einladung nochmal öffnen.','');return true;}
+  C.mode=online?'online':'lan';C.codeIn=code;C.isHost=false;C.err='';if(!online)C.lanHost=normHost(u.host);persist();C.page='home';render();
+  if(C.name){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},250);}else toast('Noch kurz deinen Namen eintragen, dann „Mitspielen“.','');
+  return true;}catch(e){return false;}}
+window.stubenInvite=function(url){appInvite(url);};
+if(IN_APP&&Bridge.invite){try{const inv=Bridge.invite();if(inv)setTimeout(()=>appInvite(inv),50);}catch(e){}}
 function persist(){try{localStorage.setItem(LS,JSON.stringify({name:C.name,code:C.code,pid:C.pid,token:C.token,mode:C.mode,isHost:C.isHost,lanHost:C.lanHost||''}));}catch(e){}}
 function tabCid(){try{let c=sessionStorage.getItem('stuben-cid');if(!c){c=newCid();sessionStorage.setItem('stuben-cid',c);}return c;}catch(e){return newCid();}}
 
@@ -1424,7 +1433,7 @@ function lobby(){
   <button class="btn btn-ghost" data-a="leaveLobby">Tisch auflösen</button></section>`;
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
   ${(()=>{const link=inviteLink(r);return link?`<div class="invite"><div class="qrbox">${qrSvg(link)}</div><p class="hint">Einladung scannen – landet direkt am Tisch</p>${r.online?'':'<p class="hint tip">Hotspot ohne Internet? Dann bei den Mitspielern <b>mobile Daten aus</b> oder „Trotzdem verbunden bleiben“ bestätigen – sonst springt ihr Handy aufs Mobilfunknetz.</p>'}<button class="btn btn-outline" data-a="copyInvite" data-link="${esc(link)}">${C.copied?'Link kopiert ✓':'Einladungslink kopieren'}</button></div>`:''})()}
-  <p class="hint" style="text-align:center">Oder im Browser öffnen:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
+  <p class="hint" style="text-align:center">Mit der App: QR scannen oder Link antippen → „Mit Stubenspiele öffnen“. Ohne App im Browser:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
   <div class="walletline"><span>🪙 ${W.coins} Taler</span><span class="hint">Spielhalle, solange ihr wartet</span></div>${arcadeTiles(true)}
   <section class="panel"><h2>Am Tisch (${n} von ${r.maxPlayers||4})</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}${r.isHost&&!p.host&&!p.connected?`<button class="btn btn-ghost sm" data-a="kick" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>

@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
     private static final String APP_HOST = "stubenspiele.local";
     private WebView web;
     private LocalServer server; // nur gesetzt, während ein WLAN-Tisch gehostet wird
+    private volatile String pendingInvite; // Einladungslink, den Android an die App übergeben hat
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -73,10 +74,26 @@ public class MainActivity extends Activity {
         });
         web.setBackgroundColor(0xFF153527);
         web.addJavascriptInterface(new Bridge(), "Bridge");
+        pendingInvite = inviteFrom(getIntent());
         setContentView(web);
         web.loadUrl("http://" + APP_HOST + "/");
     }
 
+
+    private static String inviteFrom(Intent i) {
+        if (i == null || i.getData() == null) return null;
+        String u = i.getData().toString();
+        return u.contains("join=") ? u : null;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        final String u = inviteFrom(intent);
+        if (u == null) return;
+        pendingInvite = u;
+        runOnUiThread(new Runnable() { public void run() { if (web != null) web.evaluateJavascript("window.stubenInvite&&stubenInvite(" + org.json.JSONObject.quote(u) + ")", null); } });
+    }
 
     @Override
     public void onBackPressed() {
@@ -127,6 +144,8 @@ public class MainActivity extends Activity {
             } });
         }
         @JavascriptInterface public boolean isPublic() { return server != null; }
+        /** Liefert eine wartende Einladung (einmalig) – aus QR-Scan oder angetipptem Link. */
+        @JavascriptInterface public String invite() { String u = pendingInvite; pendingInvite = null; return u == null ? "" : u; }
         /** Öffnet eine Adresse im System-Browser (z. B. den Download einer neuen Version). */
         @JavascriptInterface public void openUrl(final String url) {
             if (!url.startsWith("https://github.com/KampfTeddy07/") && !url.startsWith("https://kampfteddy07.github.io/")) return;

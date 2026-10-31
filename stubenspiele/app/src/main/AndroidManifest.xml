@@ -24,6 +24,29 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Einladungen: WLAN-Tisch (http://<IP>:3000/?join=CODE) und Internet-Tisch (Webseite) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" android:host="*" android:port="3000" />
+                <data android:scheme="http" android:host="*" android:port="3001" />
+                <data android:scheme="http" android:host="*" android:port="3002" />
+                <data android:scheme="http" android:host="*" android:port="3003" />
+                <data android:scheme="http" android:host="*" android:port="3004" />
+                <data android:scheme="http" android:host="*" android:port="3005" />
+                <data android:scheme="http" android:host="*" android:port="3006" />
+                <data android:scheme="http" android:host="*" android:port="3007" />
+                <data android:scheme="http" android:host="*" android:port="3008" />
+                <data android:scheme="http" android:host="*" android:port="3009" />
+                <data android:scheme="http" android:host="*" android:port="3010" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="kampfteddy07.github.io" android:pathPrefix="/stempel-radar/spiele" />
+            </intent-filter>
         </activity>
         <service
             android:name=".KeepAliveService"
