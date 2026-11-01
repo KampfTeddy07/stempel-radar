@@ -724,7 +724,7 @@ function zWave(Z){Z.toSpawn=4+Z.wave*2;Z.spawnGap=Math.max(380,1100-Z.wave*60);Z
 /* Gegnerarten: normal, fat (dick), runner (Sprinter, ab 3), splitter (Spalter, ab 5), tank (Panzer, ab 6), mini (aus Spalter), boss (alle 5), Rufer-Boss (alle 10) */
 function zSpawn(Z,cv,kind,px,py){const g=zGeo(cv);const w=Z.wave;if(!kind){const r=Math.random();if(w%5===0&&Z.toSpawn===1)kind='boss';else if(w>=6&&r<0.09)kind='tank';else if(w>=5&&r<0.19)kind='splitter';else if(w>=3&&r<0.34)kind='runner';else if(r<0.46+w*0.01)kind='fat';else kind='normal';}
   const base=26+w*3;const K={normal:{hp:1+Math.floor(w/3),sp:1,r:19},fat:{hp:3+Math.floor(w/2),sp:0.7,r:24},runner:{hp:1+Math.floor(w/5),sp:1.9,r:16},splitter:{hp:2+Math.floor(w/3),sp:0.9,r:21},mini:{hp:1,sp:1.4,r:14},tank:{hp:4+w,sp:0.6,r:24},boss:{hp:8+w*2,sp:0.55,r:30}}[kind];
-  Z.zs.push({kind,x:px!==undefined?px:24+Math.random()*(g.W-48),y:py!==undefined?py:-34,hp:K.hp,maxHp:K.hp,sp:base*K.sp*(0.85+Math.random()*0.3),boss:kind==='boss',fat:kind==='fat',r:K.r,wob:Math.random()*6,summoner:kind==='boss'&&w%10===0,lastCall:performance.now()});}
+  Z.zs.push({kind,x:px!==undefined?px:24+Math.random()*(g.W-48),y:py!==undefined?py:-40,hp:K.hp,maxHp:K.hp,sp:base*K.sp*(0.85+Math.random()*0.3),boss:kind==='boss',fat:kind==='fat',r:K.r,wob:Math.random()*6,summoner:kind==='boss'&&w%10===0,lastCall:performance.now()});}
 function zGeo(cv){return{W:cv.clientWidth,H:cv.clientHeight,wall:cv.clientHeight-64};}
 function zKill(Z,z,now){z.dead=true;Z.kills++;Z.fx.push({x:z.x,y:z.y,at:now,kind:'splat',big:z.boss||z.fat||z.kind==='tank'});const U=zUp();const luck=Z.luck?2:1;
   if(z.kind==='splitter'){const cv=$app.querySelector('.zcv');if(cv){zSpawn(Z,cv,'mini',z.x-14,z.y);zSpawn(Z,cv,'mini',z.x+14,z.y);}}
@@ -815,8 +815,11 @@ function zDraw(cv,Z,g,now){const dpr=Math.min(2,window.devicePixelRatio||1);if(c
     else if(f.kind==='text'){x.fillStyle=f.small?'#39c46a':'#ffd76a';x.font='800 '+(f.small?14:17)+'px system-ui';x.fillText(f.s,f.x,f.y-(1-a)*20);}
     x.globalAlpha=1;}
   if(Z.flash&&now-Z.flash.at<90){x.strokeStyle='rgba(255,230,150,'+(1-(now-Z.flash.at)/90)+')';x.lineWidth=3;x.beginPath();x.moveTo(g.W/2,g.H-34);x.lineTo(Z.flash.x,Z.flash.y);x.stroke();}
-  x.fillStyle='rgba(0,0,0,.7)';x.fillRect(0,0,g.W,30);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.fillText('Welle '+Z.wave+' '+(['☀️','🌇','🌙','🌄'][zPhase(Z)])+(Z.wx&&Z.wx.type==='rain'?'🌧️':Z.wx&&Z.wx.type==='fog'?'🌫️':'')+' · '+Z.kills+' ☠'+Z.zc+(Z.loot.wood?' 🪵'+Z.loot.wood:'')+(Z.loot.stone?' 🪨'+Z.loot.stone:'')+(Z.loot.iron?' ⚙️'+Z.loot.iron:''),10,15);
-  x.textAlign='right';x.fillText('🪙 '+Z.earned+'  '+'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)),g.W-10,15);
+  x.fillStyle='rgba(0,0,0,.72)';x.fillRect(0,0,g.W,46);x.fillStyle='#f4ebd9';x.font='700 14px system-ui';x.textAlign='left';x.textBaseline='middle';
+  x.fillText('Welle '+Z.wave+' '+(['☀️','🌇','🌙','🌄'][zPhase(Z)])+(Z.wx&&Z.wx.type==='rain'?'🌧️':Z.wx&&Z.wx.type==='fog'?'🌫️':'')+' · '+Z.kills+' erledigt',10,13);
+  x.font='600 13px system-ui';x.fillStyle='#d8d0bd';x.fillText('☠ '+Z.zc+(Z.loot.wood?'   🪵 '+Z.loot.wood:'')+(Z.loot.stone?'   🪨 '+Z.loot.stone:'')+(Z.loot.iron?'   ⚙️ '+Z.loot.iron:''),10,33);
+  x.textAlign='right';x.fillStyle='#ffd76a';x.font='700 14px system-ui';x.fillText('🪙 '+Z.earned,g.W-10,13);
+  x.fillStyle='#f4ebd9';x.font='700 13px system-ui';x.fillText(Z.maxHp<=6?'❤️'.repeat(Math.max(0,Z.hp))+'🖤'.repeat(Math.max(0,Z.maxHp-Z.hp)):'❤️ '+Math.max(0,Z.hp)+' / '+Z.maxHp,g.W-10,33);
   if(Z.waveMsg&&now-Z.waveMsg<1200&&!Z.paused){x.globalAlpha=1-(now-Z.waveMsg)/1200;x.fillStyle='#fff';x.font='800 26px system-ui';x.textAlign='center';x.fillText('Welle '+Z.wave,g.W/2,g.H*0.4);x.globalAlpha=1;}
   const cdAll=zStats(U).cd,cdLeft=cdAll-(now-Z.lastShot);if(cdLeft>0){x.fillStyle='rgba(255,255,255,.25)';x.fillRect(g.W/2-30,g.H-8,60,4);x.fillStyle='#ffd76a';x.fillRect(g.W/2-30,g.H-8,60*(1-cdLeft/cdAll),4);}
   if(Z.userPaused){x.fillStyle='rgba(5,12,8,.78)';x.fillRect(0,0,g.W,g.H);x.textAlign='center';x.fillStyle='#f4ebd9';x.font='800 30px system-ui';x.fillText('⏸ Pause',g.W/2,g.H*0.42);x.font='14px system-ui';x.fillStyle='#d2ab52';x.fillText('Weiter mit dem Knopf unter dem Feld',g.W/2,g.H*0.42+32);}
