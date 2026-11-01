@@ -1,1 +1,1 @@
-window.STUBEN_BUILD={apk:63,sha:'2231b4e',date:'2026-11-01'};
+window.STUBEN_BUILD={apk:64,sha:'2b3cb3a',date:'2026-11-01'};
