@@ -83,7 +83,7 @@ public class MainActivity extends Activity {
     private static String inviteFrom(Intent i) {
         if (i == null || i.getData() == null) return null;
         String u = i.getData().toString();
-        return u.contains("join=") ? u : null;
+        return (u.contains("join=") || u.startsWith("stubenspiele:")) ? u : null;
     }
 
     @Override

@@ -365,6 +365,7 @@ table.sheet{width:100%;border-collapse:collapse;font-variant-numeric:tabular-num
 .zres{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.zres span{padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.25);border:1px solid var(--felt-line);font:700 .8rem var(--font-body);color:var(--cream)}
 .mats{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}.mats .mat{font-style:normal;font-size:.75rem;font-weight:700}.mats .mat.ok{color:#7fd18f}.mats .mat.miss{color:#ff8a8a}
 .zjump{margin:10px 0 8px}.zjump .seg{margin-top:6px;flex-wrap:wrap}.zjump .seg-btn{flex:1 1 60px;display:flex;flex-direction:column;line-height:1.1;padding:6px 0}.zjump .seg-btn small{font-size:.62rem;font-weight:600;opacity:.8}
+.qrseg{margin-bottom:10px}
 /* Maulwurf */
 .molebar{height:6px;border-radius:3px;background:rgba(0,0,0,.35);margin:8px 0 4px;overflow:hidden}.molebar i{display:block;height:100%;background:var(--brass);transition:width .1s linear}
 .molegrid{--hs:min(108px,calc((100vw - 32px - 20px)/3));display:grid;grid-template-columns:repeat(3,var(--hs));gap:10px;justify-content:center;margin:12px auto 0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -503,15 +504,19 @@ function inviteLink(r){
   const base=(r.urls&&r.urls[0])||(location.origin&&location.origin!=='null'?location.origin:'');
   return base?base.replace(/\/$/,'')+'/?join='+encodeURIComponent(r.code):'';
 }
+/* Link, den Android eindeutig der App zuordnet (eigenes Schema) */
+function appLink(r){if(C.mode==='local')return '';if(r.online)return 'stubenspiele://join?code='+encodeURIComponent(r.code)+'&m=online';const base=(r.urls&&r.urls[0])||'';const host=base.replace(/^https?:\/\//,'').replace(/\/.*$/,'');return host?'stubenspiele://join?code='+encodeURIComponent(r.code)+'&host='+encodeURIComponent(host):'';}
 function qrSvg(text){try{if(typeof qrcode!=='function')return'';const q=qrcode(0,'M');q.addData(text);q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true});}catch(e){return'';}}
 // Einladung per Link/QR: ?join=CODE[&m=online]
 const INVITE=(()=>{try{const u=new URL(location.href);const j=(u.searchParams.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!j)return null;return{code:j,mode:u.searchParams.get('m')==='online'||!LAN_OK?'online':'lan'};}catch(e){return null;}})();
 if(INVITE){C.mode=INVITE.mode;C.codeIn=INVITE.code;C.code=null;C.pid=null;C.token=null;C.isHost=false;try{history.replaceState(null,'',location.pathname);}catch(e){}}
 /* Einladung, die Android an die App weitergereicht hat (QR gescannt oder Link angetippt) */
-function appInvite(url){try{const u=new URL(url);const code=(u.searchParams.get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!code)return false;
-  const online=u.searchParams.get('m')==='online'||/github\.io$/.test(u.hostname);
+function appInvite(url){try{let code='',online=false,host='';
+  if(/^stubenspiele:/i.test(url)){const q=new URLSearchParams(url.replace(/^[^?]*\??/,''));code=(q.get('code')||'');online=q.get('m')==='online';host=q.get('host')||'';}
+  else{const u=new URL(url);code=(u.searchParams.get('join')||'');online=u.searchParams.get('m')==='online'||/github\.io$/.test(u.hostname);host=u.host;}
+  code=code.toUpperCase().replace(/[^A-Z0-9]/g,'');if(!code)return false;
   if(C.code&&C.pid){if(C.code===code){toast('Du bist schon an diesem Tisch.','');return true;}toast('Erst den aktuellen Tisch verlassen, dann die Einladung nochmal öffnen.','');return true;}
-  C.mode=online?'online':'lan';C.codeIn=code;C.isHost=false;C.err='';if(!online)C.lanHost=normHost(u.host);persist();C.page='home';render();
+  C.mode=online?'online':'lan';C.codeIn=code;C.isHost=false;C.err='';if(!online)C.lanHost=normHost(host);persist();C.page='home';render();
   if(C.name){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},250);}else toast('Noch kurz deinen Namen eintragen, dann „Mitspielen“.','');
   return true;}catch(e){return false;}}
 window.stubenInvite=function(url){appInvite(url);};
@@ -1438,8 +1443,8 @@ function lobby(){
   <div class="walletline"><span>🪙 ${W.coins} Taler (dieses Handy)</span><span class="hint">Spielhalle zum Überbrücken</span></div>${arcadeTiles(true)}
   <button class="btn btn-ghost" data-a="leaveLobby">Tisch auflösen</button></section>`;
   return`<header class="hero"><p class="eyebrow">Spielcode</p><div class="bigcode">${esc(r.code)}</div>
-  ${(()=>{const link=inviteLink(r);return link?`<div class="invite"><div class="qrbox">${qrSvg(link)}</div><p class="hint">Einladung scannen – landet direkt am Tisch</p>${r.online?'':'<p class="hint tip">Hotspot ohne Internet? Dann bei den Mitspielern <b>mobile Daten aus</b> oder „Trotzdem verbunden bleiben“ bestätigen – sonst springt ihr Handy aufs Mobilfunknetz.</p>'}<button class="btn btn-outline" data-a="copyInvite" data-link="${esc(link)}">${C.copied?'Link kopiert ✓':'Einladungslink kopieren'}</button></div>`:''})()}
-  <p class="hint" style="text-align:center">Mit der App: QR scannen oder Link antippen → „Mit Stubenspiele öffnen“. Ohne App im Browser:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
+  ${(()=>{const web=inviteLink(r),app=appLink(r);if(!web)return '';const useApp=C.qrApp!==false&&!!app;const link=useApp?app:web;return `<div class="invite"><div class="seg qrseg"><button class="seg-btn sm ${useApp?'is-on':''}" data-a="qrMode" data-m="app">Für die App</button><button class="seg-btn sm ${!useApp?'is-on':''}" data-a="qrMode" data-m="web">Für den Browser</button></div><div class="qrbox">${qrSvg(link)}</div><p class="hint">${useApp?'Mit der Kamera scannen – öffnet direkt Stubenspiele (App ab 1.66 nötig)':'Mit der Kamera scannen – öffnet die Seite im Browser'}</p>${r.online?'':'<p class="hint tip">Hotspot ohne Internet? Dann bei den Mitspielern <b>mobile Daten aus</b> oder „Trotzdem verbunden bleiben“ bestätigen – sonst springt ihr Handy aufs Mobilfunknetz.</p>'}<button class="btn btn-outline" data-a="copyInvite" data-link="${esc(link)}">${C.copied?'Link kopiert ✓':(useApp?'App-Link kopieren':'Browser-Link kopieren')}</button></div>`})()}
+  <p class="hint" style="text-align:center">Ohne App im Browser öffnen:</p><div class="urls" style="align-items:center">${r.online?`<span>${WEB_URL}</span>`:r.urls.map(u=>`<span>${esc(u)}</span>`).join('')}</div>${r.online?'<p class="hint" style="text-align:center">Internet-Modus · der Gastgeber lässt die App offen</p>':''}<p class="verline">${verLabel()}</p></header>
   <div class="walletline"><span>🪙 ${W.coins} Taler</span><span class="hint">Spielhalle, solange ihr wartet</span></div>${arcadeTiles(true)}
   <section class="panel"><h2>Am Tisch (${n} von ${r.maxPlayers||4})</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="dot ${p.connected?'on':''}"></span><span class="who">${esc(p.name)}${i===r.me?' <span class="hint">(du)</span>':''}</span>${p.host?'<span class="tag">Gastgeber</span>':''}${r.isHost&&!p.host&&!p.connected?`<button class="btn btn-ghost sm" data-a="kick" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div></section>
   <section class="panel"><h2>Spiel</h2>
@@ -1767,6 +1772,7 @@ $app.addEventListener('click',async e=>{
     case 'clawPlay':clawPlay();break;
     case 'sellDupes':sellDupes(d.k);render();break;
     case 'sellAll':sellDupes(null);render();break;
+    case 'qrMode':C.qrApp=d.m==='app';render();break;
     case 'copyInvite':{const link=d.link||'';try{await navigator.clipboard.writeText(link);C.copied=true;render();setTimeout(()=>{C.copied=false;render();},2000);}catch(e){toast('Kopieren nicht erlaubt – Link: '+link,'');}break;}
     case 'setStyle':W.style[d.t]=d.v;saveW();applyStyle();render();break;
     case 'create':{
