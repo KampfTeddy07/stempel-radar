@@ -515,7 +515,9 @@ function appInvite(url){try{let code='',online=false,host='';
   if(/^stubenspiele:/i.test(url)){const q=new URLSearchParams(url.replace(/^[^?]*\??/,''));code=(q.get('code')||'');online=q.get('m')==='online';host=q.get('host')||'';}
   else{const u=new URL(url);code=(u.searchParams.get('join')||'');online=u.searchParams.get('m')==='online'||/github\.io$/.test(u.hostname);host=u.host;}
   code=code.toUpperCase().replace(/[^A-Z0-9]/g,'');if(!code)return false;
-  if(C.code&&C.pid){if(C.code===code){toast('Du bist schon an diesem Tisch.','');return true;}toast('Erst den aktuellen Tisch verlassen, dann die Einladung nochmal öffnen.','');return true;}
+  if(C.code&&C.pid){if(C.code===code&&C.room){toast('Du bist schon an diesem Tisch.','');return true;}
+    // Alte oder fremde Sitzung (z. B. Tisch von gestern) sauber verlassen, dann der Einladung folgen
+    try{if(C.room&&C.room.phase!=='lobby'&&C.online){toast('Laufendes Spiel verlassen – folge der Einladung.','');}leave();}catch(e){C.code=C.pid=C.token=null;C.room=null;C.isHost=false;}}
   C.mode=online?'online':'lan';C.codeIn=code;C.isHost=false;C.err='';if(!online)C.lanHost=normHost(host);persist();C.page='home';render();
   if(C.name){setTimeout(()=>{const b=$app.querySelector('[data-a="join"]');if(b&&!b.disabled)b.click();},250);}else toast('Noch kurz deinen Namen eintragen, dann „Mitspielen“.','');
   return true;}catch(e){return false;}}
@@ -1431,7 +1433,7 @@ function home(){
   <button class="btn btn-outline btn-big" data-a="join" ${C.busy||C.codeIn.length<len?'disabled':''}>${C.busy?'Verbinde …':'Mitspielen'}</button></section>`}`;
 }
 function lobby(){
-  const r=C.room;const n=r.players.length;const min=r.game==='kniffel'?1:2;
+  const r=C.room;const n=r.players.length;const min=(r.game==='kniffel'||r.game==='bj')?1:2;
   if(C.mode==='local')return`<header class="hero"><p class="eyebrow">Ein Gerät · reihum</p><h1>Wer spielt mit?</h1><p class="lede">Bis zu vier Leute an diesem Handy. Vor jedem Zug wird weitergegeben.</p><p class="verline">${verLabel()}</p></header>
   <section class="panel"><h2>Am Tisch (${n} von ${r.maxPlayers||4})</h2><div class="plist">${r.players.map((p,i)=>`<div class="row"><span class="who">${i+1}. ${esc(p.name)}</span>${n>1?`<button class="btn btn-ghost sm" data-a="localRemove" data-i="${i}">entfernen</button>`:''}</div>`).join('')}</div>
   ${n<(r.maxPlayers||4)?`<div class="addrow"><input class="field" id="lname" data-f="lname" value="${esc(LOCAL.nameIn)}" placeholder="Name von Spieler ${n+1}" maxlength="14" autocomplete="off"><button class="btn btn-outline" data-a="localAdd" ${LOCAL.nameIn.trim()?'':'disabled'}>Hinzufügen</button></div>`:''}</section>
