@@ -627,8 +627,8 @@ const toasts=[];
 function toast(text,cls){const id=Date.now()+Math.random();toasts.push({id,text,cls:cls||'',at:Date.now()});render();setTimeout(()=>{const i=toasts.findIndex(t=>t.id===id);if(i>=0){toasts.splice(i,1);render();}},3200);}
 function creditAwards(room){if(!room||!Array.isArray(room.awards))return;let got=0;const lines=[];
   const meIdx=C.mode==='local'?0:room.me;
-  for(const a of room.awards){if(a.pi!==meIdx||W.seen[a.id])continue;W.seen[a.id]=1;W.coins+=a.coins;got+=a.coins;lines.push('+'+a.coins+' · '+a.reason);}
-  if(got){const keys=Object.keys(W.seen);if(keys.length>400)for(const k of keys.slice(0,keys.length-400))delete W.seen[k];saveW();toast('🪙 '+lines.join(' · '),'coin');}}
+  for(const a of room.awards){if(a.pi!==meIdx||W.seen[a.id])continue;W.seen[a.id]=1;W.coins=Math.max(0,W.coins+a.coins);got+=a.coins;lines.push((a.coins>=0?'+':'−')+Math.abs(a.coins)+' · '+a.reason);}
+  if(lines.length){const keys=Object.keys(W.seen);if(keys.length>400)for(const k of keys.slice(0,keys.length-400))delete W.seen[k];saveW();toast('🪙 '+lines.join(' · '),got>=0?'coin':'');}}
 /* ---- Greifautomat ---- */
 const PRIZES=[
   {k:'teddy',e:'🧸',n:'Teddy',r:1},{k:'ente',e:'🦆',n:'Quietsche-Ente',r:1},{k:'bonbon',e:'🍬',n:'Bonbon',r:1},{k:'ballon',e:'🎈',n:'Ballon',r:1},{k:'frosch',e:'🐸',n:'Frosch',r:1},

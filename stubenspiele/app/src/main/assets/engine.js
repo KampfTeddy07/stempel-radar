@@ -73,6 +73,11 @@
       if (p.lives > 0) { p.lives--; if (p.lives === 0) { p.swim = true; notes[i] = 'Letztes Leben weg – ' + p.name + ' schwimmt.'; } else notes[i] = 'Verliert ein Leben.'; }
       else { p.out = true; p.swim = false; notes[i] = 'Ist ertrunken – raus aus dem Spiel.'; }
     }
+    // Rundenboni: Schnauz +15, Dreier (30,5) +20, Feuer +45 (3× Schnauz)
+    for (const i of act) { const v = g.players[i].val; if (losers.includes(i)) continue;
+      if (reason === 'feuer' && v === 33) grant(g, i, 45, 'Feuer!');
+      else if (v === 31 && (reason === 'schnauz' || reason === 'hand')) grant(g, i, 15, 'Schnauz!');
+      else if (v === 30.5 && reason !== 'feuer') grant(g, i, 20, 'Dreier (30,5)!'); }
     const left = szActive(g);
     g.result = { reason, losers, notes, players: act.slice(), winner: left.length === 1 ? left[0] : null, draw: left.length === 0 };
     if (g.result.winner !== null) { grant(g, g.result.winner, 50, 'Schnauz gewonnen'); g.players.forEach((p, i) => { if (i !== g.result.winner) grant(g, i, 20, 'Schnauz mitgespielt'); }); }
@@ -110,7 +115,7 @@
         else { szEv(g, pi, 'pass'); szAdvance(g); }
         return;
       }
-      if (a === 'knock' && g.knocker === null) { g.knocker = pi; szClearPasses(g); szEv(g, pi, 'knock'); szAdvance(g); return; }
+      if (a === 'knock' && g.knocker === null) { g.knocker = pi; szClearPasses(g); szEv(g, pi, 'knock'); if (szActive(g).length > 2 && handValue(g.players[pi].hand) < 25) grant(g, pi, -10, 'Geklopft unter 25 Punkten'); szAdvance(g); return; }
     }
     if (g.phase === 'roundEnd' && a === 'nextRound' && g.result && g.result.winner === null && !g.result.draw) { g.round++; szStartRound(g, szNext(g, g.dealer)); }
   }
